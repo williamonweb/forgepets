@@ -1,0 +1,31 @@
+FORGEPETS — PUBLICAÇÃO NO GITHUB E VERCEL
+
+IMPORTANTE
+Esta versão ainda usa localStorage no navegador. Ela pode ser publicada para demonstração visual,
+mas ainda NÃO é uma versão SaaS segura para clientes reais. Login, Painel Master, empresas,
+faturas e dados precisam ser migrados para backend + Neon antes do lançamento comercial.
+
+1. GITHUB
+Abra o PowerShell dentro desta pasta e execute:
+
+git init
+git add .
+git commit -m "ForgePets v9.1 - frontend inicial"
+git branch -M main
+git remote add origin https://github.com/SEU-USUARIO/forgepets.git
+git push -u origin main
+
+2. VERCEL
+- Entre em vercel.com
+- Add New > Project
+- Importe o repositório forgepets
+- Framework Preset: Other
+- Root Directory: ./
+- Build Command: deixe vazio
+- Output Directory: deixe vazio
+- Clique em Deploy
+
+3. NEON
+O Neon não deve ser configurado diretamente neste frontend estático.
+Primeiro será necessário criar o backend com autenticação, API, Prisma e webhooks do Asaas.
+Nunca coloque DATABASE_URL ou chave do Asaas dentro de assets/app.js ou assets/admin.js.

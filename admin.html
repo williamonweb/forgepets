@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ForgePets Master — Painel Administrativo</title>
+  <link rel="stylesheet" href="assets/admin.css" />
+</head>
+<body>
+  <section id="masterLogin" class="master-login">
+    <div class="master-login-art">
+      <img src="assets/forgepets-logo.png" alt="ForgePets" />
+      <span>Painel exclusivo Forge Labs</span>
+      <h1>Controle completo do seu SaaS em um único lugar.</h1>
+      <p>Empresas, planos, assinaturas, cobranças, acessos, suporte e indicadores do ForgePets.</p>
+      <div class="login-points"><b>✓ Gestão multiempresa</b><b>✓ Controle de licenças</b><b>✓ Visão financeira</b></div>
+    </div>
+    <form id="masterLoginForm" class="master-login-card">
+      <small>FORGEPETS MASTER</small>
+      <h2>Acesso administrativo</h2>
+      <p>Entre com sua conta de proprietário.</p>
+      <label>E-mail<input id="masterEmail" type="email" value="master@forgepets.com" required /></label>
+      <label>Senha<div class="password-wrap"><input id="masterPassword" type="password" value="123456" required /><button type="button" id="showMasterPassword">◉</button></div></label>
+      <label class="check"><input id="rememberMaster" type="checkbox" checked /> Manter conectado</label>
+      <button class="primary wide" type="submit">Entrar no painel</button>
+      <div class="demo-box"><b>Acesso de demonstração</b><span>master@forgepets.com</span><span>Senha: 123456</span></div>
+    </form>
+  </section>
+
+  <div id="masterApp" class="admin-shell hidden">
+    <aside class="admin-sidebar">
+      <div class="admin-brand"><img src="assets/forgepets-logo.png" alt="ForgePets" /><span>MASTER</span></div>
+      <nav id="masterNav"></nav>
+      <div class="admin-owner"><span class="owner-avatar">W</span><div><b>William Gomes</b><small>Proprietário</small></div><button data-action="master-logout" title="Sair">↪</button></div>
+    </aside>
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div><h1 id="masterTitle">Visão geral</h1><p id="masterSubtitle">Acompanhe o desempenho do ForgePets</p></div>
+        <div class="admin-top-actions"><div class="admin-search">⌕ <input id="masterSearch" placeholder="Buscar empresa, responsável ou CNPJ..." /></div><button class="icon-btn" data-action="admin-notifications">🔔<b>4</b></button><button class="primary" data-action="new-company">＋ Nova empresa</button></div>
+      </header>
+      <section id="masterContent" class="admin-content"></section>
+    </main>
+  </div>
+
+  <div id="adminModalRoot"></div>
+  <div id="adminToastRoot" class="admin-toast-root"></div>
+  <script src="assets/admin.js"></script>
+</body>
+</html>

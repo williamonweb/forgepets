@@ -1,0 +1,68 @@
+FORGEPETS v9.2 — PREPARADO PARA NEON
+
+IMPORTANTE
+A interface completa foi preservada. O banco foi preparado para migracao gradual, sem substituir as telas aprovadas.
+
+1. CRIAR O BANCO NO NEON
+- Crie um projeto chamado ForgePets.
+- Copie duas conexoes:
+  a) Pooled connection: use em DATABASE_URL.
+  b) Direct connection: use em DIRECT_URL.
+
+2. CONFIGURAR LOCALMENTE
+- Copie .env.example para .env.
+- Preencha DATABASE_URL, DIRECT_URL e JWT_SECRET.
+- No PowerShell, dentro da pasta:
+
+  npm install
+  npx prisma generate
+  npx prisma db push
+  npx prisma db seed
+
+3. TESTAR A API LOCAL
+  npx vercel dev
+
+Abra:
+  http://localhost:3000/api/health
+
+Deve aparecer database: connected.
+
+Login de teste da API:
+POST /api/auth/login
+JSON:
+  {"email":"admin@forgepets.com","password":"123456"}
+
+4. CONFIGURAR NA VERCEL
+Project > Settings > Environment Variables
+Adicione em Production, Preview e Development:
+- DATABASE_URL
+- DIRECT_URL
+- JWT_SECRET
+- SEED_MASTER_EMAIL
+- SEED_MASTER_PASSWORD
+- SEED_ADMIN_EMAIL
+- SEED_ADMIN_PASSWORD
+
+Depois faça um novo deploy.
+
+5. BANCO PREPARADO
+- Empresas/tenants
+- Usuarios e perfis
+- Planos
+- Assinaturas
+- Faturas
+- Pagamentos
+- Trocas de plano
+- Logs
+- Snapshot dos dados atuais do pet shop
+
+6. MIGRACAO SEGURA
+A versao atual continua no localStorage para nao quebrar os modulos prontos.
+A API /api/data/snapshot ja permite salvar e recuperar o estado completo por empresa.
+O proximo passo e ligar o login visual e a sincronizacao automatica a essa API, modulo por modulo.
+
+SEGURANCA
+- Nunca coloque DATABASE_URL no app.js ou no navegador.
+- Troque as senhas do seed antes de liberar clientes.
+- Use JWT_SECRET com pelo menos 32 caracteres.
+- O Painel Master ainda possui o acesso local antigo no frontend e precisa ser ligado à API antes do lancamento real.
