@@ -240,3 +240,18 @@
 @media(max-width:1100px){.login-modern{grid-template-columns:1fr 1fr}.login-modern-visual{padding:26px 32px 30px}.login-logo-card{width:300px;min-height:120px}.login-logo-card .login-logo{width:262px}.login-modern .login-message h1{font-size:36px}.login-feature-grid{gap:15px}.login-testimonial{grid-template-columns:42px 1fr}.login-testimonial>b{display:none}.login-modern-panel{padding:40px 45px 90px}.login-footer{justify-content:center}.login-footer>span{display:none}}
 @media(max-width:900px){.login-modern{display:block}.login-modern-visual{display:none}.login-modern-panel{min-height:100vh;padding:34px 28px 90px}.login-logo-mobile{display:block}.login-footer nav{flex-wrap:wrap;justify-content:center}}
 @media(max-width:560px){.login-modern-panel{padding:26px 18px 105px}.login-modern-card h2{font-size:29px}.login-modern-card>p{margin-bottom:30px}.login-paw-badge{width:66px;height:66px;font-size:28px}.login-options{align-items:flex-start;gap:12px}.login-footer{padding:14px}.login-footer nav{gap:10px}.login-footer button{font-size:10px}}
+
+
+/* ForgePets v10.1.1 — formulários, CEP e Forge Connect */
+.modal-inline-error{margin:0 0 16px;padding:12px 14px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b42318;font-size:13px;font-weight:700;line-height:1.4}
+.cep-lookup-status{display:block;min-height:16px;margin-top:5px;font-size:11px;color:var(--muted)}
+.cep-lookup-status.loading{color:#6d28d9}.cep-lookup-status.success{color:#07845b}.cep-lookup-status.error{color:#b42318}
+#modalSave:disabled{opacity:.68;cursor:wait;transform:none}
+.toast-root{top:88px!important;right:24px!important;bottom:auto!important;z-index:2200!important;max-width:min(390px,calc(100vw - 32px))}
+.toast{white-space:normal!important;line-height:1.4!important;box-shadow:0 16px 38px rgba(30,10,70,.22)!important}
+.forge-connect-button{right:20px!important;bottom:20px!important;width:50px!important;height:50px!important;font-size:21px!important;z-index:1150!important}
+.forge-connect-button span{min-width:18px!important;height:18px!important;font-size:9px!important}
+.forge-connect-panel{width:min(390px,100vw)!important;z-index:1902!important}
+.forge-connect-overlay{z-index:1901!important}
+body:has(.modal-overlay) .forge-connect-button{opacity:0;pointer-events:none;transform:scale(.8)}
+@media(max-width:700px){.toast-root{top:74px!important;right:12px!important}.forge-connect-button{right:12px!important;bottom:12px!important;width:46px!important;height:46px!important}.forge-connect-panel{width:100%!important}}
