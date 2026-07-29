@@ -1,0 +1,40 @@
+FORGEPETS + ASAAS
+=================
+
+1. Primeiro teste no Sandbox do Asaas.
+2. Na Vercel, abra Settings > Environment Variables e cadastre:
+
+ASAAS_API_URL=https://api-sandbox.asaas.com/v3
+ASAAS_API_KEY=sua_chave_do_sandbox
+ASAAS_WEBHOOK_TOKEN=uma_chave_aleatoria_com_32_ou_mais_caracteres
+
+3. Faça novo deploy.
+4. No Asaas, cadastre o webhook:
+
+https://SEU-DOMINIO/api/asaas/webhook
+
+5. Use no webhook o mesmo token definido em ASAAS_WEBHOOK_TOKEN.
+6. Eventos recomendados:
+
+PAYMENT_CREATED
+PAYMENT_UPDATED
+PAYMENT_CONFIRMED
+PAYMENT_RECEIVED
+PAYMENT_OVERDUE
+PAYMENT_CREDIT_CARD_CAPTURE_REFUSED
+PAYMENT_DELETED
+PAYMENT_REFUNDED
+SUBSCRIPTION_CREATED
+SUBSCRIPTION_UPDATED
+SUBSCRIPTION_DELETED
+SUBSCRIPTION_INACTIVATED
+
+7. Antes de produção, troque para:
+
+ASAAS_API_URL=https://api.asaas.com/v3
+ASAAS_API_KEY=chave_de_producao
+
+IMPORTANTE
+- Os dados completos do cartão são enviados diretamente pelo servidor ao Asaas.
+- O ForgePets não salva número, validade ou CVV no banco.
+- Nunca coloque ASAAS_API_KEY em arquivo público ou em variável NEXT_PUBLIC_.

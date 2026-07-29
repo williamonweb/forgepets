@@ -273,3 +273,10 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0;pointer-events:none;tra
 .forge-connect-panel{right:20px!important;bottom:78px!important;max-height:calc(100vh - 110px)!important}
 body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-events:none!important;transform:translateY(8px) scale(.92)!important}
 @media(max-width:700px){.toast-root{top:74px!important;right:12px!important;width:calc(100vw - 24px)}.forge-connect-button{right:12px!important;bottom:12px!important}.forge-connect-panel{right:0!important;bottom:0!important;max-height:100vh!important}}
+
+/* Assinatura profissional */
+.plan-awareness{align-items:center;padding:14px 16px;border:1px solid #e3dfec;border-radius:12px;background:#faf9fc;font-weight:600;line-height:1.4}
+.plan-awareness input{flex:0 0 auto;margin:0}
+.plan-awareness span{flex:1;color:var(--text)}
+.plan-awareness b{white-space:nowrap;font-size:15px;color:var(--primary)}
+.checkout-form .plan-rule-note{margin-top:2px}

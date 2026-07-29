@@ -76,6 +76,13 @@ model Company {
   logoUrl             String?
   plan                Plan               @default(ESSENCIAL)
   subscriptionStatus SubscriptionStatus @default(TRIAL)
+  asaasCustomerId      String?            @unique
+  asaasSubscriptionId  String?            @unique
+  billingType          String?
+  nextBillingDate      DateTime?
+  downgradeLockedUntil DateTime?
+  pendingPlan          Plan?
+  pendingPlanRequestedAt DateTime?
   trialEndsAt         DateTime?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -93,6 +100,7 @@ model Company {
   planHistory         PlanHistory[]
   tickets             ConnectTicket[]
   auditLogs           AuditLog[]
+  asaasWebhookEvents  AsaasWebhookEvent[]
 }
 
 model User {
@@ -349,4 +357,15 @@ model SaaSSettings {
   defaultTrialPlan      Plan    @default(PROFISSIONAL)
   welcomeMessage        String  @default("Bem-vindo ao ForgePets!")
   updatedAt             DateTime @updatedAt
+}
+
+model AsaasWebhookEvent {
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  eventType String
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  payload   Json
+  createdAt DateTime @default(now())
+  @@index([companyId, createdAt])
 }
