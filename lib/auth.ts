@@ -1,4 +1,4 @@
-import { jwtVerify } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
 export type SessionPayload = {
@@ -25,6 +25,32 @@ export async function getSession(): Promise<SessionPayload | null> {
   } catch {
     return null;
   }
+}
+
+
+
+export async function createSession(payload: SessionPayload) {
+  const secret = getSecret();
+
+  if (!secret) {
+    throw new Error('JWT_SECRET inválido.');
+  }
+
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('30d')
+    .sign(secret);
+
+  cookies().set('forgepets_session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  return token;
 }
 
 export function clearSession() {
