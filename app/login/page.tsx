@@ -74,11 +74,7 @@ export default function LoginPage() {
       });
 
       const raw = await response.text();
-      let data: {
-        message?: string;
-        role?: string;
-        onboardingCompleted?: boolean;
-      } = {};
+      let data: any = {};
 
       if (raw) {
         try {
@@ -92,13 +88,20 @@ export default function LoginPage() {
         return setError(data.message || 'Não foi possível entrar. Verifique a configuração do banco de dados.');
       }
 
-      router.push(
-        data.role === 'MASTER'
-          ? '/master'
-          : data.onboardingCompleted
-            ? '/app/dashboard'
-            : '/app/configuracao-inicial'
-      );
+      if (data.token) {
+        localStorage.setItem('forgepets_token', data.token);
+      }
+
+      if (data.user) {
+        localStorage.setItem('forgepets_user', JSON.stringify(data.user));
+      }
+
+      if (data.user?.role === 'MASTER') {
+        router.push('/master');
+      } else {
+        router.push('/app/dashboard');
+      }
+
       router.refresh();
     } catch {
       setError('Não foi possível conectar ao servidor. Tente novamente.');
