@@ -2,7 +2,7 @@
   "name": "forgepets",
   "version": "9.2.0",
   "private": true,
-  "description": "ForgePets SaaS para pet shops, preparado para Vercel e Neon PostgreSQL.",
+  "description": "ForgePets SaaS para pet shops",
   "scripts": {
     "dev": "serve .",
     "vercel:dev": "vercel dev",
@@ -21,8 +21,8 @@
   },
   "devDependencies": {
     "prisma": "^6.19.0",
-    "vercel": "^48.0.0",
-    "serve": "^14.2.4"
+    "serve": "^14.2.4",
+    "vercel": "^48.0.0"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
