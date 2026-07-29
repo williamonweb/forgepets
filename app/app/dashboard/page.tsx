@@ -12,18 +12,5 @@ export default async function DashboardPage() {
     redirect('/master');
   }
 
-  return (
-    <main style={{ width: '100%', height: '100vh', overflow: 'hidden', background: '#f4f6fb' }}>
-      <iframe
-        src="/forgepets/index.html"
-        title="ForgePets"
-        style={{
-          width: '100%',
-          height: '100%',
-          border: 0,
-          display: 'block'
-        }}
-      />
-    </main>
-  );
+  redirect('/forgepets/index.html');
 }

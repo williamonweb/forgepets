@@ -63,7 +63,7 @@ export default function LoginPage() {
 
     const form = new FormData(e.currentTarget);
     try {
-      const response = await fetch('/api/auth/session-login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,16 +88,13 @@ export default function LoginPage() {
         return setError(data.message || 'Não foi possível entrar. Verifique a configuração do banco de dados.');
       }
 
-      const destination =
-        typeof data.destination === 'string'
-          ? data.destination
-          : data.role === 'MASTER'
-            ? '/master'
-            : data.onboardingCompleted === false
-              ? '/app/configuracao-inicial'
-              : '/app/dashboard';
+      const role = data.user?.role || data.role;
 
-      window.location.assign(destination);
+      if (role === 'MASTER') {
+        window.location.assign('/master');
+      } else {
+        window.location.assign('/forgepets/index.html');
+      }
     } catch {
       setError('Não foi possível conectar ao servidor. Tente novamente.');
     } finally {
