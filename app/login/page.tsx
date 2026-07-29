@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 const plans = [
   {
@@ -42,7 +41,6 @@ const plans = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -88,29 +86,16 @@ export default function LoginPage() {
         return setError(data.message || 'Não foi possível entrar. Verifique a configuração do banco de dados.');
       }
 
-      // Compatível com a rota Next.js atual e com respostas antigas da API.
       const role = data.role ?? data.user?.role;
-      const onboardingCompleted =
-        data.onboardingCompleted ?? data.company?.onboardingCompleted ?? true;
+      const onboardingCompleted = data.onboardingCompleted ?? true;
 
-      // Mantém compatibilidade caso uma API antiga ainda retorne token no JSON.
-      if (data.token) {
-        localStorage.setItem('forgepets_token', data.token);
+      if (role === 'MASTER') {
+        window.location.assign('/master');
+      } else if (onboardingCompleted) {
+        window.location.assign('/app/dashboard');
+      } else {
+        window.location.assign('/app/configuracao-inicial');
       }
-      if (data.user) {
-        localStorage.setItem('forgepets_user', JSON.stringify(data.user));
-      }
-
-      const destination =
-        role === 'MASTER'
-          ? '/master'
-          : onboardingCompleted
-            ? '/app/dashboard'
-            : '/app/configuracao-inicial';
-
-      // Navegação completa para garantir que o cookie HTTP-only já esteja
-      // disponível no middleware e nos componentes do servidor.
-      window.location.assign(destination);
     } catch {
       setError('Não foi possível conectar ao servidor. Tente novamente.');
     } finally {
