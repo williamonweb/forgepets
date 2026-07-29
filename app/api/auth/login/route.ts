@@ -42,14 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       role: user.role,
-      onboardingCompleted: user.company?.onboardingCompleted ?? true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        companyId: user.companyId
-      }
+      onboardingCompleted: user.company?.onboardingCompleted ?? true
     });
   } catch (error) {
     console.error('Erro no login:', error);
