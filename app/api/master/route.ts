@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Plan, SubscriptionStatus, UserRole } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { PLAN_CONFIG, publicPlanName } from '@/lib/asaas/plans';
@@ -158,6 +159,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, id: ticket.id });
   }
 
+  if (action === 'master-user') {
+    const name = String(body.name || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    if (!name || !email || password.length < 6) {
+      return NextResponse.json({ message: 'Informe nome, e-mail e uma senha com pelo menos 6 caracteres.' }, { status: 400 });
+    }
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return NextResponse.json({ message: 'Já existe um usuário com este e-mail.' }, { status: 409 });
+    const created = await prisma.user.create({
+      data: { name, email, passwordHash: await bcrypt.hash(password, 12), role: UserRole.MASTER, active: body.active !== false }
+    });
+    await prisma.auditLog.create({ data: { userId: session.userId, action: 'MASTER_USER_CREATED', entity: 'User', entityId: created.id, metadata: { name, email } } });
+    return NextResponse.json({ ok: true, id: created.id });
+  }
+
   return NextResponse.json({ message: 'Ação inválida.' }, { status: 400 });
 }
 
@@ -209,6 +226,35 @@ export async function PATCH(request: NextRequest) {
   if (action === 'ticket-status') {
     await prisma.connectTicket.update({ where: { id: String(body.id) }, data: { status: body.status === 'resolved' ? 'RESOLVED' : 'OPEN' } });
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'master-user') {
+    const id = String(body.id || '');
+    const current = await prisma.user.findFirst({ where: { id, role: UserRole.MASTER } });
+    if (!current) return NextResponse.json({ message: 'Usuário Master não encontrado.' }, { status: 404 });
+    const name = String(body.name || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!name || !email) return NextResponse.json({ message: 'Nome e e-mail são obrigatórios.' }, { status: 400 });
+    const duplicate = await prisma.user.findFirst({ where: { email, NOT: { id } } });
+    if (duplicate) return NextResponse.json({ message: 'Já existe outro usuário com este e-mail.' }, { status: 409 });
+    const updateData: any = { name, email };
+    if (String(body.password || '').trim()) {
+      if (String(body.password).length < 6) return NextResponse.json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' }, { status: 400 });
+      updateData.passwordHash = await bcrypt.hash(String(body.password), 12);
+    }
+    await prisma.user.update({ where: { id }, data: updateData });
+    await prisma.auditLog.create({ data: { userId: session.userId, action: 'MASTER_USER_UPDATED', entity: 'User', entityId: id, metadata: { name, email, passwordChanged: Boolean(updateData.passwordHash) } } });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'master-user-status') {
+    const id = String(body.id || '');
+    if (id === session.userId) return NextResponse.json({ message: 'Você não pode inativar o próprio usuário.' }, { status: 400 });
+    const current = await prisma.user.findFirst({ where: { id, role: UserRole.MASTER } });
+    if (!current) return NextResponse.json({ message: 'Usuário Master não encontrado.' }, { status: 404 });
+    const updated = await prisma.user.update({ where: { id }, data: { active: !current.active } });
+    await prisma.auditLog.create({ data: { userId: session.userId, action: 'MASTER_USER_STATUS_CHANGED', entity: 'User', entityId: id, metadata: { active: updated.active } } });
+    return NextResponse.json({ ok: true, status: updated.active ? 'active' : 'inactive' });
   }
 
   return NextResponse.json({ message: 'Ação inválida.' }, { status: 400 });
