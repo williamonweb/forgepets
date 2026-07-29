@@ -9,6 +9,24 @@ export const runtime = 'nodejs';
 
 type CustomerResponse = { id: string };
 type SubscriptionResponse = { id: string; status?: string; nextDueDate?: string };
+type PaymentItem = { id: string; status?: string; dueDate?: string; value?: number; billingType?: string; invoiceUrl?: string; bankSlipUrl?: string; invoiceNumber?: string };
+type IdentificationFieldResponse = { identificationField?: string; nossoNumero?: string; barCode?: string };
+type PaymentsResponse = { data?: PaymentItem[] };
+type PixQrCodeResponse = { encodedImage: string; payload: string; expirationDate?: string };
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function getFirstSubscriptionPayment(subscriptionId: string) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const payments = await asaasRequest<PaymentsResponse>(`/subscriptions/${subscriptionId}/payments?limit=10&offset=0`);
+    const first = payments.data?.[0];
+    if (first?.id) return first;
+    await sleep(700);
+  }
+  return null;
+}
 
 function dateOnly(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -26,7 +44,7 @@ function billingType(method: string): AsaasBillingType {
   return 'PIX';
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session?.companyId) return NextResponse.json({ message: 'Sessão inválida.' }, { status: 401 });
 
@@ -40,6 +58,58 @@ export async function GET() {
   });
 
   if (!company) return NextResponse.json({ message: 'Pet shop não encontrado.' }, { status: 404 });
+
+  if (request.nextUrl.searchParams.get('status') === '1') {
+    return NextResponse.json({
+      status: company.subscriptionStatus.toLowerCase(),
+      active: company.subscriptionStatus === SubscriptionStatus.ACTIVE,
+      plan: publicPlanName(company.plan),
+      pendingPlan: company.pendingPlan ? publicPlanName(company.pendingPlan) : null,
+      nextBillingDate: company.nextBillingDate
+    });
+  }
+
+  if (request.nextUrl.searchParams.get('payment') === '1') {
+    if (!company.asaasSubscriptionId) return NextResponse.json({ ready: false }, { status: 202 });
+    const payment = await getFirstSubscriptionPayment(company.asaasSubscriptionId);
+    if (!payment?.id) return NextResponse.json({ ready: false }, { status: 202 });
+    let identificationField: IdentificationFieldResponse | null = null;
+    if (payment.billingType === 'BOLETO') {
+      try { identificationField = await asaasRequest<IdentificationFieldResponse>(`/payments/${payment.id}/identificationField`); } catch {}
+    }
+    return NextResponse.json({
+      ready: true,
+      payment: {
+        id: payment.id, status: payment.status || 'PENDING', dueDate: payment.dueDate || null,
+        value: payment.value || 0, billingType: payment.billingType || company.billingType,
+        invoiceUrl: payment.invoiceUrl || null, bankSlipUrl: payment.bankSlipUrl || null,
+        invoiceNumber: payment.invoiceNumber || null,
+        identificationField: identificationField?.identificationField || identificationField?.barCode || null
+      }
+    });
+  }
+
+  if (request.nextUrl.searchParams.get('pix') === '1') {
+    if (!company.asaasSubscriptionId) {
+      return NextResponse.json({ message: 'Assinatura PIX ainda não encontrada.' }, { status: 404 });
+    }
+    const payment = await getFirstSubscriptionPayment(company.asaasSubscriptionId);
+    if (!payment?.id) {
+      return NextResponse.json({ ready: false, message: 'A cobrança PIX ainda está sendo gerada pelo Asaas.' }, { status: 202 });
+    }
+    const pix = await asaasRequest<PixQrCodeResponse>(`/payments/${payment.id}/pixQrCode`);
+    return NextResponse.json({
+      ready: true,
+      paymentId: payment.id,
+      dueDate: payment.dueDate || null,
+      pix: {
+        encodedImage: pix.encodedImage,
+        payload: pix.payload,
+        expirationDate: pix.expirationDate || null
+      }
+    });
+  }
+
   return NextResponse.json({
     subscription: {
       ...company,
@@ -183,14 +253,47 @@ export async function POST(request: NextRequest) {
       })
     ]);
 
+    let payment: PaymentItem | null = null;
+    let pix: PixQrCodeResponse | null = null;
+
+    let boleto: (PaymentItem & { identificationField?: string | null }) | null = null;
+    if (type === 'PIX' || type === 'BOLETO') {
+      try {
+        payment = await getFirstSubscriptionPayment(subscription.id);
+        if (payment?.id && type === 'PIX') pix = await asaasRequest<PixQrCodeResponse>(`/payments/${payment.id}/pixQrCode`);
+        if (payment?.id && type === 'BOLETO') {
+          let field: IdentificationFieldResponse | null = null;
+          try { field = await asaasRequest<IdentificationFieldResponse>(`/payments/${payment.id}/identificationField`); } catch {}
+          boleto = { ...payment, identificationField: field?.identificationField || field?.barCode || null };
+        }
+      } catch (paymentError) {
+        console.warn('[ForgePets] Assinatura criada, mas a cobrança ainda não ficou disponível:', paymentError instanceof Error ? paymentError.message : paymentError);
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       subscriptionId: subscription.id,
+      paymentId: payment?.id || null,
       plan: requestedPlan,
       status: 'pending',
-      nextDueDate: subscription.nextDueDate || dateOnly(now),
+      nextDueDate: payment?.dueDate || subscription.nextDueDate || dateOnly(now),
       downgradeLockedUntil: lockedUntil?.toISOString() || null,
-      message: `Assinatura criada. O plano ${requestedPlan} será liberado automaticamente após a confirmação do pagamento pelo Asaas.`
+      pix: pix ? {
+        encodedImage: pix.encodedImage,
+        payload: pix.payload,
+        expirationDate: pix.expirationDate || null
+      } : null,
+      boleto: boleto ? {
+        id: boleto.id, dueDate: boleto.dueDate || null, value: boleto.value || selected.value,
+        invoiceUrl: boleto.invoiceUrl || null, bankSlipUrl: boleto.bankSlipUrl || null,
+        invoiceNumber: boleto.invoiceNumber || null, identificationField: boleto.identificationField || null
+      } : null,
+      message: type === 'PIX' && pix
+        ? 'PIX gerado. O plano será ativado automaticamente após a confirmação do pagamento pelo Asaas.'
+        : type === 'BOLETO' && boleto
+          ? 'Boleto gerado. O plano será ativado automaticamente após a confirmação do pagamento pelo Asaas.'
+          : `Assinatura criada. O plano ${requestedPlan} será liberado automaticamente após a confirmação do pagamento pelo Asaas.`
     });
   } catch (error) {
     console.error('[ForgePets] Erro ao criar assinatura:', error instanceof Error ? error.message : error);

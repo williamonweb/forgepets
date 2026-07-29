@@ -1,0 +1,34 @@
+FORGEPETS V30.1 — PAINEL MASTER E PAGAMENTOS
+
+PAINEL MASTER
+- Reconstruído com o visual completo do painel administrativo antigo.
+- Remove dados fictícios e localStorage do Painel Master.
+- Dados carregados pelas APIs do Next.js, Prisma e Neon.
+- Dashboard real de empresas, planos, assinaturas, financeiro, suporte, usuários e logs.
+- Cadastro e edição de empresas.
+- Bloqueio e reativação de empresas.
+- Chamados e configurações gerais.
+- Financeiro baseado nos webhooks recebidos do Asaas.
+- Acesso restrito a usuário com perfil MASTER.
+
+PAGAMENTOS
+- PIX abre modal com QR Code e Copia e Cola.
+- Boleto abre modal com linha digitável e botão para abrir o boleto.
+- Cartão abre modal de confirmação.
+- Os três modais verificam automaticamente o status da assinatura.
+- O webhook do Asaas ativa o plano após a confirmação.
+- Corrigido alinhamento da bolinha de seleção das formas de pagamento.
+
+ARQUIVOS PRINCIPAIS
+- app/api/master/route.ts
+- app/master/page.tsx
+- app/api/forge/subscription/route.ts
+- public/admin.html
+- public/admin.js
+- public/admin.css
+- public/forgepets/assets/app.js
+- public/forgepets/assets/styles.css
+
+VALIDAÇÃO
+- JavaScript do painel e do sistema validado com node --check.
+- O build completo não pôde ser executado no ambiente de preparação porque os binários Linux do Prisma/SWC não estavam disponíveis no repositório interno. Execute npm install e npm run build no computador antes do push.

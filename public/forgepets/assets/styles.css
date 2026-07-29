@@ -280,3 +280,5 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .plan-awareness span{flex:1;color:var(--text)}
 .plan-awareness b{white-space:nowrap;font-size:15px;color:var(--primary)}
 .checkout-form .plan-rule-note{margin-top:2px}
+/* Correção das opções de pagamento */
+.payment-methods{display:grid;gap:10px}.payment-option{display:grid!important;grid-template-columns:22px 1fr!important;grid-template-rows:auto auto!important;column-gap:10px!important;align-items:center!important;padding:14px 16px!important}.payment-option input{grid-column:1!important;grid-row:1/3!important;width:18px!important;height:18px!important;margin:0!important}.payment-option b{grid-column:2!important;grid-row:1!important;margin:0!important}.payment-option small{grid-column:2!important;grid-row:2!important;margin:2px 0 0!important}

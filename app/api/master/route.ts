@@ -1,0 +1,215 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { Plan, SubscriptionStatus, UserRole } from '@prisma/client';
+import { getSession } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { PLAN_CONFIG, publicPlanName } from '@/lib/asaas/plans';
+
+export const runtime = 'nodejs';
+
+async function requireMaster() {
+  const session = await getSession();
+  if (!session || session.role !== 'MASTER') return null;
+  return session;
+}
+
+const statusMap: Record<string, SubscriptionStatus> = {
+  active: SubscriptionStatus.ACTIVE,
+  trial: SubscriptionStatus.TRIAL,
+  overdue: SubscriptionStatus.OVERDUE,
+  blocked: SubscriptionStatus.BLOCKED,
+  cancelled: SubscriptionStatus.CANCELED,
+  canceled: SubscriptionStatus.CANCELED
+};
+
+function asDate(value: unknown) {
+  if (!value) return null;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export async function GET() {
+  const session = await requireMaster();
+  if (!session) return NextResponse.json({ message: 'Acesso restrito ao Master.' }, { status: 403 });
+
+  const [companies, users, tickets, logs, webhookEvents, settings] = await Promise.all([
+    prisma.company.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        users: { select: { id: true, name: true, email: true, role: true, active: true, updatedAt: true } },
+        _count: { select: { pets: true, tutors: true, users: true } }
+      }
+    }),
+    prisma.user.findMany({ where: { role: { in: [UserRole.MASTER] } }, orderBy: { createdAt: 'asc' } }),
+    prisma.connectTicket.findMany({ orderBy: { createdAt: 'desc' }, take: 100, include: { company: { select: { name: true } }, _count: { select: { messages: true } } } }),
+    prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 250, include: { company: { select: { name: true } }, user: { select: { name: true } } } }),
+    prisma.asaasWebhookEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 250, include: { company: { select: { name: true } } } }),
+    prisma.saaSSettings.findUnique({ where: { id: 'global' } })
+  ]);
+
+  const companyRows = companies.map(c => {
+    const owner = c.users.find(u => u.role === 'OWNER') || c.users[0];
+    return {
+      id: c.id,
+      name: c.tradeName || c.name,
+      legal: c.name,
+      doc: c.document || '',
+      owner: owner?.name || 'Sem responsável',
+      email: c.email || owner?.email || '',
+      phone: c.phone || '',
+      plan: publicPlanName(c.plan),
+      planKey: c.plan,
+      pendingPlan: c.pendingPlan ? publicPlanName(c.pendingPlan) : null,
+      status: c.subscriptionStatus.toLowerCase(),
+      created: c.createdAt,
+      due: c.nextBillingDate,
+      users: c._count.users,
+      pets: c._count.pets,
+      tutors: c._count.tutors,
+      lastAccess: owner?.updatedAt || c.updatedAt,
+      billingType: c.billingType,
+      asaasCustomerId: c.asaasCustomerId,
+      asaasSubscriptionId: c.asaasSubscriptionId,
+      downgradeLockedUntil: c.downgradeLockedUntil,
+      onboardingCompleted: c.onboardingCompleted
+    };
+  });
+
+  const plans = Object.entries(PLAN_CONFIG).map(([name, p], index) => ({
+    id: p.prisma,
+    name,
+    price: p.value,
+    cycle: 'Mensal',
+    level: p.level,
+    companies: companies.filter(c => c.plan === p.prisma).length,
+    featured: name === 'Profissional',
+    userLimit: name === 'Essencial' ? 2 : name === 'Profissional' ? 5 : 999,
+    features: name === 'Essencial'
+      ? ['Agenda e atendimentos', 'Tutores e pets', 'Caixa e vendas', 'Estoque básico', '2 usuários']
+      : name === 'Profissional'
+        ? ['Tudo do Essencial', 'Financeiro completo', 'Relatórios avançados', 'Fidelidade e cashback', '5 usuários']
+        : ['Tudo do Profissional', 'Usuários ilimitados', 'Multiunidade', 'Suporte prioritário', 'Recursos antecipados'],
+    color: ['#38bdf8', '#7c3aed', '#ff8a1c'][index]
+  }));
+
+  const payments = webhookEvents
+    .filter(e => e.eventType.startsWith('PAYMENT_'))
+    .map(e => {
+      const payload = e.payload as any;
+      const p = payload?.payment || {};
+      return {
+        id: p.id || e.eventId,
+        companyId: e.companyId,
+        companyName: e.company?.name || 'Empresa não identificada',
+        amount: Number(p.value || p.netValue || 0),
+        status: ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].includes(e.eventType) ? 'paid' : e.eventType === 'PAYMENT_OVERDUE' ? 'overdue' : 'pending',
+        method: p.billingType || '—',
+        due: p.dueDate || null,
+        paid: p.paymentDate || p.confirmedDate || null,
+        event: e.eventType,
+        createdAt: e.createdAt
+      };
+    });
+
+  return NextResponse.json({
+    currentUser: { id: session.userId, name: session.name, role: session.role },
+    companies: companyRows,
+    plans,
+    payments,
+    tickets: tickets.map(t => ({ id: t.id, companyId: t.companyId, companyName: t.company.name, subject: t.subject, priority: 'Média', status: t.status.toLowerCase(), created: t.createdAt, messages: t._count.messages })),
+    users: users.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role, status: u.active ? 'active' : 'inactive', last: u.updatedAt })),
+    logs: logs.map(l => ({ id: l.id, date: l.createdAt, user: l.user?.name || 'Sistema', action: l.action, target: l.company?.name || l.entity || 'ForgePets', metadata: l.metadata })),
+    settings: {
+      trialDays: settings?.trialDays ?? 2,
+      allowSignup: settings?.publicSignupEnabled ?? true,
+      welcomeMessage: settings?.welcomeMessage || 'Bem-vindo ao ForgePets!',
+      monthlyGoal: 5000,
+      supportWhatsapp: '(51) 98584-5457',
+      supportEmail: 'suporte@forgepets.com'
+    }
+  });
+}
+
+export async function POST(request: NextRequest) {
+  const session = await requireMaster();
+  if (!session) return NextResponse.json({ message: 'Acesso restrito ao Master.' }, { status: 403 });
+  const body = await request.json().catch(() => ({}));
+  const action = String(body.action || '');
+
+  if (action === 'company') {
+    const name = String(body.name || '').trim();
+    const owner = String(body.owner || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!name || !owner || !email) return NextResponse.json({ message: 'Nome, responsável e e-mail são obrigatórios.' }, { status: 400 });
+    const plan = (String(body.planKey || body.plan || 'PROFISSIONAL').toUpperCase() as Plan);
+    const created = await prisma.company.create({
+      data: {
+        name: String(body.legal || name).trim(), tradeName: name, document: String(body.doc || '').replace(/\D/g, '') || null,
+        email, phone: String(body.phone || '').trim() || null, plan, subscriptionStatus: statusMap[String(body.status || 'trial')] || SubscriptionStatus.TRIAL,
+        trialEndsAt: asDate(body.due), nextBillingDate: asDate(body.due),
+        users: { create: { name: owner, email, passwordHash: 'PENDING_INVITE', role: UserRole.OWNER, active: true } }
+      }
+    });
+    await prisma.auditLog.create({ data: { companyId: created.id, userId: session.userId, action: 'MASTER_COMPANY_CREATED', entity: 'Company', entityId: created.id } });
+    return NextResponse.json({ ok: true, id: created.id });
+  }
+
+  if (action === 'ticket') {
+    const ticket = await prisma.connectTicket.create({ data: { companyId: String(body.companyId), subject: String(body.subject || '').trim() } });
+    return NextResponse.json({ ok: true, id: ticket.id });
+  }
+
+  return NextResponse.json({ message: 'Ação inválida.' }, { status: 400 });
+}
+
+export async function PATCH(request: NextRequest) {
+  const session = await requireMaster();
+  if (!session) return NextResponse.json({ message: 'Acesso restrito ao Master.' }, { status: 403 });
+  const body = await request.json().catch(() => ({}));
+  const action = String(body.action || '');
+
+  if (action === 'company') {
+    const id = String(body.id || '');
+    const data: any = {};
+    if (body.name !== undefined) data.tradeName = String(body.name).trim();
+    if (body.legal !== undefined) data.name = String(body.legal || body.name).trim();
+    if (body.doc !== undefined) data.document = String(body.doc).replace(/\D/g, '') || null;
+    if (body.email !== undefined) data.email = String(body.email).trim().toLowerCase() || null;
+    if (body.phone !== undefined) data.phone = String(body.phone).trim() || null;
+    if (body.planKey || body.plan) data.plan = String(body.planKey || body.plan).toUpperCase() as Plan;
+    if (body.status) data.subscriptionStatus = statusMap[String(body.status)] || SubscriptionStatus.TRIAL;
+    if (body.due !== undefined) data.nextBillingDate = asDate(body.due);
+    await prisma.company.update({ where: { id }, data });
+    if (body.owner || body.ownerEmail) {
+      const owner = await prisma.user.findFirst({ where: { companyId: id, role: UserRole.OWNER } });
+      if (owner) await prisma.user.update({ where: { id: owner.id }, data: { name: body.owner || undefined, email: body.ownerEmail || body.email || undefined } });
+    }
+    await prisma.auditLog.create({ data: { companyId: id, userId: session.userId, action: 'MASTER_COMPANY_UPDATED', entity: 'Company', entityId: id, metadata: { fields: Object.keys(data) } } });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'company-status') {
+    const id = String(body.id || '');
+    const company = await prisma.company.findUnique({ where: { id } });
+    if (!company) return NextResponse.json({ message: 'Empresa não encontrada.' }, { status: 404 });
+    const next = company.subscriptionStatus === SubscriptionStatus.BLOCKED ? SubscriptionStatus.ACTIVE : SubscriptionStatus.BLOCKED;
+    await prisma.company.update({ where: { id }, data: { subscriptionStatus: next } });
+    await prisma.auditLog.create({ data: { companyId: id, userId: session.userId, action: 'MASTER_COMPANY_STATUS_CHANGED', entity: 'Company', entityId: id, metadata: { status: next } } });
+    return NextResponse.json({ ok: true, status: next.toLowerCase() });
+  }
+
+  if (action === 'settings') {
+    await prisma.saaSSettings.upsert({
+      where: { id: 'global' },
+      create: { id: 'global', trialDays: Number(body.trialDays || 2), publicSignupEnabled: Boolean(body.allowSignup), welcomeMessage: String(body.welcomeMessage || 'Bem-vindo ao ForgePets!') },
+      update: { trialDays: Number(body.trialDays || 2), publicSignupEnabled: Boolean(body.allowSignup), welcomeMessage: String(body.welcomeMessage || 'Bem-vindo ao ForgePets!') }
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'ticket-status') {
+    await prisma.connectTicket.update({ where: { id: String(body.id) }, data: { status: body.status === 'resolved' ? 'RESOLVED' : 'OPEN' } });
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ message: 'Ação inválida.' }, { status: 400 });
+}
