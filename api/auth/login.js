@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
 
     const user = await prisma.user.findUnique({
       where: { email: String(email).trim().toLowerCase() },
-      include: { tenant: true },
+      include: { company: true },
     });
     if (!user || !user.active || !(await bcrypt.compare(String(password), user.passwordHash))) {
       return json(res, 401, { ok: false, error: 'INVALID_CREDENTIALS' });
@@ -22,8 +22,9 @@ module.exports = async function handler(req, res) {
     return json(res, 200, {
       ok: true,
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, tenantId: user.tenantId },
-      tenant: user.tenant ? { id: user.tenant.id, name: user.tenant.name, slug: user.tenant.slug, status: user.tenant.status } : null,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId, tenantId: user.companyId },
+      company: user.company ? { id: user.company.id, name: user.company.tradeName || user.company.name, legalName: user.company.name, plan: user.company.plan, status: user.company.subscriptionStatus } : null,
+      tenant: user.company ? { id: user.company.id, name: user.company.tradeName || user.company.name, slug: user.company.slug || null, status: user.company.subscriptionStatus || null } : null,
     });
   } catch (error) {
     console.error(error);
