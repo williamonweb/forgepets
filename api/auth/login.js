@@ -17,8 +17,7 @@ module.exports = async function handler(req, res) {
       return json(res, 401, { ok: false, error: 'INVALID_CREDENTIALS' });
     }
 
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    const token = createToken(user);
+        const token = createToken(user);
     return json(res, 200, {
       ok: true,
       token,
