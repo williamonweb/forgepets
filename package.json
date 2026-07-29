@@ -1,33 +1,36 @@
 {
   "name": "forgepets",
-  "version": "9.2.0",
+  "version": "8.2.0",
   "private": true,
-  "description": "ForgePets SaaS para pet shops",
   "scripts": {
-    "dev": "serve .",
-    "vercel:dev": "vercel dev",
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
     "postinstall": "prisma generate",
-    "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.0",
-    "bcryptjs": "^3.0.2",
-    "jsonwebtoken": "^9.0.2"
+    "@prisma/client": "6.10.1",
+    "bcryptjs": "2.4.3",
+    "jose": "5.9.6",
+    "next": "14.2.31",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "prisma": "^6.19.0",
-    "serve": "^14.2.4",
-    "vercel": "^48.0.0"
+    "@types/bcryptjs": "2.4.6",
+    "@types/node": "20.17.30",
+    "@types/react": "18.3.20",
+    "@types/react-dom": "18.3.6",
+    "prisma": "6.10.1",
+    "tsx": "4.19.3",
+    "typescript": "5.8.2"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
-  },
-  "engines": {
-    "node": ">=20"
+    "seed": "tsx prisma/seed.ts"
   }
 }

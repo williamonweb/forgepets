@@ -3,200 +3,340 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
   MASTER
   OWNER
-  ADMIN
+  MANAGER
   EMPLOYEE
 }
 
-enum TenantStatus {
-  TRIAL
-  ACTIVE
-  PENDING
-  OVERDUE
-  BLOCKED
-  CANCELLED
+enum Plan {
+  ESSENCIAL
+  PROFISSIONAL
+  PREMIUM
 }
 
 enum SubscriptionStatus {
-  TRIALING
+  TRIAL
   ACTIVE
-  PENDING
   OVERDUE
-  CANCELLED
+  CANCELED
+  BLOCKED
 }
 
-enum InvoiceStatus {
-  PENDING
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_SERVICE
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
+enum ReceivableStatus {
+  OPEN
+  PARTIAL
   PAID
-  OVERDUE
-  CANCELLED
-  REFUNDED
+  CANCELED
 }
 
 enum PaymentMethod {
-  CREDIT_CARD
+  CASH
   PIX
-  BOLETO
-  UNKNOWN
+  DEBIT_CARD
+  CREDIT_CARD
+  TRANSFER
+  OTHER
 }
 
-model Tenant {
-  id                 String       @id @default(cuid())
+enum StockMovementType {
+  ENTRY
+  EXIT
+  ADJUSTMENT
+}
+
+enum TicketStatus {
+  OPEN
+  WAITING_CUSTOMER
+  WAITING_FORGE
+  RESOLVED
+}
+
+model Company {
+  id                 String             @id @default(cuid())
   name               String
-  slug               String       @unique
-  legalName          String?
-  document           String?
+  tradeName          String?
+  document           String?            @unique
   email              String?
   phone              String?
-  status             TenantStatus @default(TRIAL)
-  trialEndsAt        DateTime?
-  planLockUntil      DateTime?
-  asaasCustomerId    String?      @unique
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  users              User[]
-  snapshots          TenantSnapshot[]
-  subscriptions      Subscription[]
-  invoices           Invoice[]
-  planChanges        PlanChange[]
-  auditLogs          AuditLog[]
-
-  @@index([status])
+  logoUrl             String?
+  plan                Plan               @default(ESSENCIAL)
+  subscriptionStatus SubscriptionStatus @default(TRIAL)
+  trialEndsAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  onboardingCompleted Boolean            @default(false)
+  users               User[]
+  tutors              Tutor[]
+  pets                Pet[]
+  services            Service[]
+  appointments        Appointment[]
+  receivables         Receivable[]
+  payments            Payment[]
+  products            Product[]
+  stockMovements      StockMovement[]
+  loyaltyAccounts     LoyaltyAccount[]
+  planHistory         PlanHistory[]
+  tickets             ConnectTicket[]
+  auditLogs           AuditLog[]
 }
 
 model User {
   id           String   @id @default(cuid())
-  tenantId     String?
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name         String
   email        String   @unique
   passwordHash String
   role         UserRole @default(EMPLOYEE)
   active       Boolean  @default(true)
-  lastLoginAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  @@index([tenantId])
+  messages     ConnectMessage[]
+  auditLogs    AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+  @@index([companyId])
 }
 
-model TenantSnapshot {
+model Tutor {
   id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  namespace String   @default("main")
-  payload   Json
-  version   Int      @default(1)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String
+  email     String?
+  document  String?
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([tenantId, namespace])
+  pets      Pet[]
+  appointments Appointment[]
+  receivables Receivable[]
+  loyaltyAccount LoyaltyAccount?
+  @@index([companyId, name])
 }
 
-model Plan {
-  id            String         @id @default(cuid())
-  code          String         @unique
-  name          String
-  monthlyPrice  Decimal        @db.Decimal(10, 2)
-  level         Int
-  features      Json
-  active        Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  subscriptions Subscription[]
-  planChangesTo PlanChange[]   @relation("NewPlan")
-  planChangesFrom PlanChange[] @relation("OldPlan")
+model Pet {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tutorId     String
+  tutor       Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  name        String
+  species     String
+  breed       String?
+  sex         String?
+  size        String?
+  color       String?
+  birthDate   DateTime?
+  neutered    Boolean  @default(false)
+  temperament String?
+  careNotes   String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  appointments Appointment[]
+  @@index([companyId, name])
+  @@index([tutorId])
 }
 
-model Subscription {
-  id                  String             @id @default(cuid())
-  tenantId            String
-  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  planId               String
-  plan                 Plan               @relation(fields: [planId], references: [id])
-  status               SubscriptionStatus @default(TRIALING)
-  paymentMethod        PaymentMethod      @default(UNKNOWN)
-  asaasSubscriptionId  String?            @unique
-  currentPeriodStart   DateTime?
-  currentPeriodEnd     DateTime?
-  nextChargeAt         DateTime?
-  cancelledAt          DateTime?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  invoices             Invoice[]
-
-  @@index([tenantId, status])
+model Service {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name            String
+  category        String?
+  durationMinutes Int      @default(60)
+  price           Decimal  @db.Decimal(10, 2)
+  active          Boolean  @default(true)
+  generatesPoints Boolean  @default(false)
+  generatesCashback Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  appointments    Appointment[]
+  @@index([companyId, name])
 }
 
-model Invoice {
-  id             String        @id @default(cuid())
-  tenantId       String
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  externalId     String?       @unique
-  amount         Decimal       @db.Decimal(10, 2)
-  dueDate        DateTime
-  status         InvoiceStatus @default(PENDING)
-  paymentMethod  PaymentMethod @default(UNKNOWN)
-  invoiceUrl     String?
-  pixPayload     String?
-  paidAt         DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  payments       Payment[]
+model Appointment {
+  id          String            @id @default(cuid())
+  companyId   String
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tutorId     String
+  tutor       Tutor             @relation(fields: [tutorId], references: [id])
+  petId       String
+  pet         Pet               @relation(fields: [petId], references: [id])
+  serviceId   String
+  service     Service           @relation(fields: [serviceId], references: [id])
+  startsAt    DateTime
+  endsAt      DateTime
+  status      AppointmentStatus @default(SCHEDULED)
+  notes       String?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  receivable  Receivable?
+  @@index([companyId, startsAt])
+  @@index([petId])
+}
 
-  @@index([tenantId, status, dueDate])
+model Receivable {
+  id            String           @id @default(cuid())
+  companyId     String
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tutorId       String
+  tutor         Tutor            @relation(fields: [tutorId], references: [id])
+  appointmentId String?          @unique
+  appointment   Appointment?     @relation(fields: [appointmentId], references: [id])
+  description   String
+  amount        Decimal          @db.Decimal(10, 2)
+  paidAmount    Decimal          @default(0) @db.Decimal(10, 2)
+  dueDate       DateTime
+  status        ReceivableStatus @default(OPEN)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  payments      Payment[]
+  @@index([companyId, status, dueDate])
 }
 
 model Payment {
-  id         String        @id @default(cuid())
-  invoiceId  String
-  invoice    Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  externalId String?       @unique
-  amount     Decimal       @db.Decimal(10, 2)
-  method     PaymentMethod
-  paidAt     DateTime?
-  rawPayload Json?
-  createdAt  DateTime      @default(now())
-
-  @@index([invoiceId])
+  id           String        @id @default(cuid())
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  receivableId String
+  receivable   Receivable    @relation(fields: [receivableId], references: [id])
+  amount       Decimal       @db.Decimal(10, 2)
+  method       PaymentMethod
+  paidAt       DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  @@index([companyId, paidAt])
 }
 
-model PlanChange {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  oldPlanId   String?
-  oldPlan     Plan?    @relation("OldPlan", fields: [oldPlanId], references: [id])
-  newPlanId   String
-  newPlan     Plan     @relation("NewPlan", fields: [newPlanId], references: [id])
-  requestedAt DateTime @default(now())
-  effectiveAt DateTime?
-  lockUntil   DateTime?
-  status      String   @default("PENDING")
-  metadata    Json?
+model Product {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  sku          String?
+  ean          String?
+  brand        String?
+  supplier     String?
+  salePrice    Decimal  @db.Decimal(10, 2)
+  costPrice    Decimal? @db.Decimal(10, 2)
+  stock        Decimal  @default(0) @db.Decimal(10, 3)
+  minimumStock Decimal  @default(0) @db.Decimal(10, 3)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  movements    StockMovement[]
+  @@index([companyId, name])
+}
 
-  @@index([tenantId, requestedAt])
+model StockMovement {
+  id        String            @id @default(cuid())
+  companyId String
+  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      StockMovementType
+  quantity  Decimal           @db.Decimal(10, 3)
+  reason    String?
+  createdAt DateTime          @default(now())
+  @@index([companyId, createdAt])
+}
+
+model LoyaltyAccount {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tutorId     String   @unique
+  tutor       Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  points      Int      @default(0)
+  cashback    Decimal  @default(0) @db.Decimal(10, 2)
+  level       String?
+  updatedAt   DateTime @updatedAt
+  @@index([companyId])
+}
+
+model PlanHistory {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  previousPlan Plan?
+  newPlan     Plan
+  changedAt   DateTime @default(now())
+  lockedUntil DateTime?
+  @@index([companyId, changedAt])
+}
+
+model ConnectTicket {
+  id        String       @id @default(cuid())
+  companyId String
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subject   String
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  messages  ConnectMessage[]
+  @@index([companyId, status])
+}
+
+model ConnectMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    ConnectTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User          @relation(fields: [authorId], references: [id])
+  body      String
+  readAt    DateTime?
+  createdAt DateTime      @default(now())
+  @@index([ticketId, createdAt])
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
-  tenantId  String?
-  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
-  target    String?
+  entity    String?
+  entityId  String?
   metadata  Json?
-  ip        String?
   createdAt DateTime @default(now())
+  @@index([companyId, createdAt])
+}
 
-  @@index([tenantId, createdAt])
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, expiresAt])
+}
+
+model SaaSSettings {
+  id                   String  @id @default("global")
+  publicSignupEnabled  Boolean @default(true)
+  trialDays             Int     @default(2)
+  defaultTrialPlan      Plan    @default(PROFISSIONAL)
+  welcomeMessage        String  @default("Bem-vindo ao ForgePets!")
+  updatedAt             DateTime @updatedAt
 }

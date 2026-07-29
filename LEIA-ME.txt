@@ -1,0 +1,1 @@
+Substitua apenas os arquivos index.html, assets/styles.css e assets/app.js no projeto atual. O logo foi incluído apenas como segurança; não é necessário substituir se já estiver igual. Depois faça git add ., git commit e git push.

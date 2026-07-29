@@ -68,6 +68,13 @@ function bindLogin(){
  const form=$('#loginForm'),password=$('#loginPassword'),toggle=$('#togglePassword');
  toggle.onclick=()=>{password.type=password.type==='password'?'text':'password';toggle.textContent=password.type==='password'?'◉':'⊘';};
  $('#forgotPassword').onclick=()=>modal('Recuperar acesso',`<p>Esta versão local ainda não envia e-mails automaticamente.</p><div class="notice">Entre em contato com o administrador do pet shop para redefinir sua senha.</div>`,close=>close(),'Entendi');
+ const createAccount=$('#createAccountButton'),openPlans=$('#openLoginPlans');
+ if(createAccount)createAccount.onclick=()=>modal('Criar minha conta',`<p>O cadastro comercial será conectado ao fluxo de assinatura.</p><div class="notice">Escolha um plano para iniciar seus 2 dias de teste grátis.</div>`,close=>{close();setTimeout(()=>openLoginPlansModal(),80)},'Ver planos');
+ if(openPlans)openPlans.onclick=openLoginPlansModal;
+ const privacy=$('#loginPrivacy'),terms=$('#loginTerms'),support=$('#loginSupport');
+ if(privacy)privacy.onclick=()=>modal('Política de Privacidade','<p>O documento definitivo será disponibilizado antes do lançamento comercial.</p>',close=>close(),'Entendi');
+ if(terms)terms.onclick=()=>modal('Termos de Uso','<p>Os termos definitivos serão disponibilizados antes do lançamento comercial.</p>',close=>close(),'Entendi');
+ if(support)support.onclick=()=>modal('Suporte ForgePets','<p>Entre em contato com o suporte Forge Labs para receber atendimento.</p>',close=>close(),'Entendi');
  form.onsubmit=e=>{
   e.preventDefault();
   const email=$('#loginEmail').value.trim().toLowerCase(),pass=password.value;
@@ -81,6 +88,15 @@ function bindLogin(){
   }
  };
 }
+function openLoginPlansModal(){
+ const plans=[
+  {name:'Essencial',price:129,desc:'A gestão completa para organizar o dia a dia do seu pet shop.',features:['Dashboard','Agenda','Tutores e pets','Serviços','Caixa e vendas','Financeiro e estoque','Relatórios básicos','Forge Connect']},
+  {name:'Profissional',price:179,featured:true,desc:'Mais fidelização, recorrência e relacionamento com seus clientes.',features:['Tudo do Essencial','Pontos e cashback','Resgates e extrato','Dashboard de fidelidade','Ranking de clientes','Ajustes manuais']},
+  {name:'Premium',price:219,desc:'Automação e inteligência para acelerar o crescimento do pet shop.',features:['Tudo do Profissional','Níveis VIP','Benefícios por nível','Cupons automáticos','Campanhas de aniversário','Automação de marketing']}
+ ];
+ modal('Planos ForgePets',`<div class="modal-plan-grid">${plans.map(p=>`<article class="modal-plan ${p.featured?'current':''}">${p.featured?'<span class="plan-chip">Mais escolhido</span>':''}<h3>${p.name}</h3><strong>${money(p.price)} <small>/mês</small></strong><p>${p.desc}</p><ul>${p.features.map(f=>`<li>✓ ${f}</li>`).join('')}</ul><button class="btn primary" data-login-plan="${p.name}">Começar teste grátis</button></article>`).join('')}</div><div class="notice"><b>2 dias de teste grátis.</b> Sem cobrança imediata.</div>`,close=>{document.querySelectorAll('[data-login-plan]').forEach(btn=>btn.onclick=()=>{localStorage.setItem('forgepets_selected_plan',btn.dataset.loginPlan);close();toast(`Plano ${btn.dataset.loginPlan} selecionado. Crie sua conta para continuar.`);});},'Fechar');
+}
+
 function showApplication(){
  $('#loginScreen').style.display='none';$('#app').classList.remove('app-hidden');
  if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();renderNav();bindGlobal();render();initSystemFooter();window.forgePetsStarted=true;}

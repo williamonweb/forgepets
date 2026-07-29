@@ -7,58 +7,43 @@
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-  <section id="loginScreen" class="login-screen">
-    <div class="login-visual">
+  <section id="loginScreen" class="login-screen login-modern">
+    <div class="login-visual login-modern-visual">
       <div class="login-visual-content">
-        <img src="assets/forgepets-logo.png" class="login-logo" alt="ForgePets" />
+        <div class="login-logo-card"><img src="assets/forgepets-logo.png" class="login-logo" alt="ForgePets" /></div>
         <div class="login-message">
-          <span class="login-pill">Gestão completa para pet shops</span>
-          <h1>Organize seu negócio.<br><em>Cuide melhor dos pets.</em></h1>
-          <p>Agenda, clientes, vendas, estoque e financeiro em um único sistema.</p>
-          <div class="login-benefits"><span>✓ Rápido e intuitivo</span><span>✓ Dados protegidos</span><span>✓ Feito para pet shops</span></div>
-          <div class="login-pricing">
-            <article>
-              <header><b>Essencial</b><span>Tudo que seu pet shop precisa para organizar o dia a dia.</span></header>
-              <strong>R$ 129<small>,00 /mês</small></strong>
-              <ul>
-                <li>Dashboard e agenda</li><li>Tutores, pets e serviços</li><li>Vendas, PDV e Caixa</li><li>Financeiro e estoque</li><li>Relatórios básicos</li><li>Aniversariantes</li><li>WhatsApp manual</li><li>Multiusuários, backup e suporte</li>
-              </ul>
-            </article>
-            <article class="featured">
-              <em>Mais escolhido</em>
-              <header><b>Profissional</b><span>Mais recursos para fidelizar clientes e aumentar suas vendas.</span></header>
-              <strong>R$ 179<small>,00 /mês</small></strong>
-              <h3>Tudo do Essencial, mais:</h3>
-              <ul>
-                <li>Programa de pontos</li><li>Cashback automático</li><li>Resgate de pontos e cashback</li><li>Regras de pontuação e cashback</li><li>Extrato completo por tutor</li><li>Ajustes manuais de saldos</li><li>Ranking de clientes</li><li>Dashboard e relatórios de fidelidade</li>
-              </ul>
-            </article>
-            <article>
-              <header><b>Premium</b><span>O máximo em fidelização e automação para seu pet shop.</span></header>
-              <strong>R$ 219<small>,00 /mês</small></strong>
-              <h3>Tudo do Profissional, mais:</h3>
-              <ul>
-                <li>Níveis Bronze, Prata, Ouro e Diamante</li><li>Benefícios e descontos por nível</li><li>Cupons automáticos</li><li>Campanhas automáticas de aniversário</li><li>Segmentação de clientes VIP</li><li>Regras avançadas de fidelidade</li><li>Histórico e relatórios VIP</li><li>Automações de marketing</li>
-              </ul>
-            </article>
-          </div>
+          <span class="login-pill">Sistema completo para pet shops</span>
+          <h1>Mais organização,<br>mais clientes e<br>mais <em>crescimento.</em></h1>
+          <p>Organize agenda, tutores, pets, caixa, estoque, financeiro e fidelidade em uma única plataforma intuitiva e poderosa.</p>
         </div>
+        <div class="login-feature-grid">
+          <div class="login-feature"><i>▣</i><div><strong>Agenda inteligente</strong><small>Agendamentos rápidos e organizados</small></div></div>
+          <div class="login-feature"><i>R$</i><div><strong>Caixa integrado</strong><small>Vendas, recebimentos e pagamentos</small></div></div>
+          <div class="login-feature"><i>♙</i><div><strong>Clientes e pets</strong><small>Histórico e ficha individual do pet</small></div></div>
+          <div class="login-feature"><i>◇</i><div><strong>Fidelidade e cashback</strong><small>Pontos, níveis, cupons e recompensas</small></div></div>
+          <div class="login-feature"><i>▥</i><div><strong>Estoque eficiente</strong><small>Produtos e alertas de estoque baixo</small></div></div>
+          <div class="login-feature"><i>▤</i><div><strong>Forge Connect</strong><small>Comunicação direta com o suporte</small></div></div>
+        </div>
+        <div class="login-testimonial"><span>“</span><div><p>O ForgePets transformou a gestão do nosso pet shop. Mais organização, eficiência e clientes muito mais felizes!</p><strong>— Pet Shop Amigo Fiel</strong></div><b>★★★★★</b></div>
+        <small class="login-version">ForgePets · Desenvolvido pela Forge Labs</small>
       </div>
-      <div class="login-paws">🐾</div>
     </div>
-    <div class="login-panel">
-      <form id="loginForm" class="login-card">
+    <div class="login-panel login-modern-panel">
+      <form id="loginForm" class="login-card login-modern-card">
         <img src="assets/forgepets-logo.png" class="login-logo-mobile" alt="ForgePets" />
-        <span class="login-eyebrow">Bem-vindo de volta</span>
-        <h2>Acesse sua conta</h2>
-        <p>Informe seus dados para entrar no ForgePets.</p>
+        <div class="login-paw-badge">🐾</div>
+        <h2>Bem-vindo de volta!</h2>
+        <p>Entre para acessar sua conta</p>
         <div class="login-field"><label for="loginEmail">E-mail</label><div><span>✉</span><input id="loginEmail" type="email" autocomplete="username" placeholder="seu@email.com" required /></div></div>
-        <div class="login-field"><label for="loginPassword">Senha</label><div><span>⌑</span><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha" required /><button type="button" id="togglePassword" aria-label="Mostrar senha">◉</button></div></div>
-        <div class="login-options"><label><input type="checkbox" id="rememberLogin" checked /> Manter conectado</label><button type="button" id="forgotPassword">Esqueci minha senha</button></div>
+        <div class="login-field"><label for="loginPassword">Senha</label><div><span>⌑</span><input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required /><button type="button" id="togglePassword" aria-label="Mostrar senha">◉</button></div></div>
+        <div class="login-options"><label><input type="checkbox" id="rememberLogin" checked /> Lembrar de mim</label><button type="button" id="forgotPassword">Esqueci minha senha</button></div>
         <button class="login-submit" type="submit"><span>Entrar no ForgePets</span><b>→</b></button>
-        <div class="login-demo"><strong>Acesso para demonstração</strong><span>admin@forgepets.com</span><span>Senha: 123456</span></div>
-        <a href="admin.html" class="master-panel-link">Acessar Painel Master</a><small class="login-company">Desenvolvido pela <strong>Forge Labs</strong></small>
+        <div class="login-divider"><span>ou</span></div>
+        <button class="login-create-account" id="createAccountButton" type="button">Criar minha conta</button>
+        <button class="login-plans-link" id="openLoginPlans" type="button"><span>◇</span> Ver planos e preços <b>→</b></button>
+        <div class="login-trial"><span>Ainda não conhece o ForgePets?</span><strong>Experimente gratuitamente por 2 dias.</strong><small>Sem compromisso.</small></div>
       </form>
+      <footer class="login-footer"><span>© 2026 ForgePets. Todos os direitos reservados.</span><nav><button type="button" id="loginPrivacy">Política de Privacidade</button><button type="button" id="loginTerms">Termos de Uso</button><button type="button" id="loginSupport">Suporte</button></nav></footer>
     </div>
   </section>
 
