@@ -121,6 +121,13 @@ model Tutor {
   email     String?
   document  String?
   notes     String?
+  address   String?
+  number    String?
+  complement String?
+  neighborhood String?
+  city      String?
+  state     String?
+  zipCode   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   pets      Pet[]
@@ -146,6 +153,9 @@ model Pet {
   neutered    Boolean  @default(false)
   temperament String?
   careNotes   String?
+  weight      Decimal? @db.Decimal(8, 3)
+  photoUrl    String?
+  carePreferences Json?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
