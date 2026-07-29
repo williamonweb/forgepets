@@ -9,9 +9,7 @@ export type SessionPayload = {
 };
 
 function getSecret() {
-  const value =
-    process.env.JWT_SECRET ||
-    process.env.AUTH_SECRET;
+  const value = process.env.JWT_SECRET || process.env.AUTH_SECRET;
 
   if (!value || value.length < 32) {
     return null;
@@ -20,9 +18,7 @@ function getSecret() {
   return new TextEncoder().encode(value);
 }
 
-export async function createSession(
-  payload: SessionPayload
-) {
+export async function createSession(payload: SessionPayload) {
   const secret = getSecret();
 
   if (!secret) {
@@ -48,10 +44,8 @@ export async function createSession(
   return token;
 }
 
-export async function getSession():
-  Promise<SessionPayload | null> {
-  const token =
-    cookies().get('forgepets_session')?.value;
+export async function getSession(): Promise<SessionPayload | null> {
+  const token = cookies().get('forgepets_session')?.value;
   const secret = getSecret();
 
   if (!token || !secret) {
@@ -63,8 +57,7 @@ export async function getSession():
       algorithms: ['HS256']
     });
 
-    return verified.payload
-      as unknown as SessionPayload;
+    return verified.payload as unknown as SessionPayload;
   } catch {
     return null;
   }
