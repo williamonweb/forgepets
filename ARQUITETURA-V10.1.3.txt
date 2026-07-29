@@ -1,0 +1,15 @@
+ForgePets v10.1.3 — Base de API unificada
+
+API oficial mantida somente no App Router do Next.js:
+- /api/auth/*
+- /api/forge/tutores
+- /api/forge/tutores/[id]
+- /api/forge/pets
+- /api/forge/pets/[id]
+
+Foram removidos:
+- /api legado da raiz
+- /app/forge-api
+- /app/api/tutores e /app/api/pets duplicados
+
+O painel agora chama exclusivamente /api/forge/*.
