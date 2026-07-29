@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <script>
+    localStorage.setItem('forgePetsSession', 'active');
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ForgePets — Gestão inteligente para pet shops</title>
+  <link rel="stylesheet" href="/forgepets/assets/styles.css" />
+</head>
+<body>
+  <section id="loginScreen" class="login-screen login-modern">
+    <div class="login-visual login-modern-visual">
+      <div class="login-visual-content">
+        <div class="login-logo-card"><img src="/forgepets/assets/forgepets-logo.png" class="login-logo" alt="ForgePets" /></div>
+        <div class="login-message">
+          <span class="login-pill">Sistema completo para pet shops</span>
+          <h1>Mais organização,<br>mais clientes e<br>mais <em>crescimento.</em></h1>
+          <p>Organize agenda, tutores, pets, caixa, estoque, financeiro e fidelidade em uma única plataforma intuitiva e poderosa.</p>
+        </div>
+        <div class="login-feature-grid">
+          <div class="login-feature"><i>▣</i><div><strong>Agenda inteligente</strong><small>Agendamentos rápidos e organizados</small></div></div>
+          <div class="login-feature"><i>R$</i><div><strong>Caixa integrado</strong><small>Vendas, recebimentos e pagamentos</small></div></div>
+          <div class="login-feature"><i>♙</i><div><strong>Clientes e pets</strong><small>Histórico e ficha individual do pet</small></div></div>
+          <div class="login-feature"><i>◇</i><div><strong>Fidelidade e cashback</strong><small>Pontos, níveis, cupons e recompensas</small></div></div>
+          <div class="login-feature"><i>▥</i><div><strong>Estoque eficiente</strong><small>Produtos e alertas de estoque baixo</small></div></div>
+          <div class="login-feature"><i>▤</i><div><strong>Forge Connect</strong><small>Comunicação direta com o suporte</small></div></div>
+        </div>
+        <div class="login-testimonial"><span>“</span><div><p>O ForgePets transformou a gestão do nosso pet shop. Mais organização, eficiência e clientes muito mais felizes!</p><strong>— Pet Shop Amigo Fiel</strong></div><b>★★★★★</b></div>
+        <small class="login-version">ForgePets · Desenvolvido pela Forge Labs</small>
+      </div>
+    </div>
+    <div class="login-panel login-modern-panel">
+      <form id="loginForm" class="login-card login-modern-card">
+        <img src="/forgepets/assets/forgepets-logo.png" class="login-logo-mobile" alt="ForgePets" />
+        <div class="login-paw-badge">🐾</div>
+        <h2>Bem-vindo de volta!</h2>
+        <p>Entre para acessar sua conta</p>
+        <div class="login-field"><label for="loginEmail">E-mail</label><div><span>✉</span><input id="loginEmail" type="email" autocomplete="username" placeholder="seu@email.com" required /></div></div>
+        <div class="login-field"><label for="loginPassword">Senha</label><div><span>⌑</span><input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required /><button type="button" id="togglePassword" aria-label="Mostrar senha">◉</button></div></div>
+        <div class="login-options"><label><input type="checkbox" id="rememberLogin" checked /> Lembrar de mim</label><button type="button" id="forgotPassword">Esqueci minha senha</button></div>
+        <button class="login-submit" type="submit"><span>Entrar no ForgePets</span><b>→</b></button>
+        <div class="login-divider"><span>ou</span></div>
+        <button class="login-create-account" id="createAccountButton" type="button">Criar minha conta</button>
+        <button class="login-plans-link" id="openLoginPlans" type="button"><span>◇</span> Ver planos e preços <b>→</b></button>
+        <div class="login-trial"><span>Ainda não conhece o ForgePets?</span><strong>Experimente gratuitamente por 2 dias.</strong><small>Sem compromisso.</small></div>
+      </form>
+      <footer class="login-footer"><span>© 2026 ForgePets. Todos os direitos reservados.</span><nav><button type="button" id="loginPrivacy">Política de Privacidade</button><button type="button" id="loginTerms">Termos de Uso</button><button type="button" id="loginSupport">Suporte</button></nav></footer>
+    </div>
+  </section>
+
+  <div id="app" class="app-shell app-hidden">
+    <aside class="sidebar">
+      <div class="brand forge-brand">
+        <img src="/forgepets/assets/forgepets-logo.png" alt="ForgePets" />
+      </div>
+      <nav id="nav"></nav>
+      <input type="file" id="backupInput" accept="application/json" hidden />
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="search-box">⌕ <input id="globalSearch" placeholder="Buscar tutor, pet, atendimento..." /></div>
+        <div class="topbar-user"><button class="top-icon notify" data-action="notifications" title="Notificações">🔔<b>3</b></button><button class="top-icon whatsapp" data-action="whatsapp-center" title="WhatsApp">◉</button><button class="top-user" data-action="user-menu"><span class="avatar">A</span><div><strong>Olá, Amanda</strong><small>Administrador</small></div></button></div>
+      </header>
+      <section class="page-head">
+        <div><h1 id="pageTitle">Dashboard</h1><p id="pageSubtitle">Visão geral do pet shop</p></div>
+        <div class="topbar-actions"><button class="btn purple" data-action="quick-appointment">＋ Novo atendimento</button><button class="btn orange" data-action="quick-sale">＋ Nova venda</button></div>
+      </section>
+      <section id="content" class="content"></section>
+      <footer class="app-footer" aria-label="Informações do sistema">
+        <div class="footer-main">
+          <div class="footer-product">
+            <strong>ForgePets <span>v7.1</span></strong>
+            <small>Ambiente de produção</small>
+          </div>
+          <div class="footer-branding">
+            <span>© 2026 Forge Labs. Todos os direitos reservados.</span>
+            <button type="button" data-action="forge-labs-info">Desenvolvido por <strong>Forge Labs</strong></button>
+          </div>
+          <div class="footer-status">
+            <span class="server-state"><i id="serverStatusDot"></i><b id="serverStatusText">Online</b></span>
+            <span>Licença <strong>Profissional</strong></span>
+            <span>Sincronizado <strong id="lastSyncTime">agora</strong></span>
+          </div>
+        </div>
+        <div class="footer-links">
+          <button type="button" data-action="terms-info">Termos de Uso</button>
+          <span>•</span>
+          <button type="button" data-action="privacy-info">Política de Privacidade</button>
+          <span>•</span>
+          <button type="button" data-action="support-info">Suporte</button>
+          <span class="footer-build">Build 2026.07.28.1</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+
+  <button id="forgeConnectButton" class="forge-connect-button" aria-label="Abrir Forge Connect">💬<span id="forgeConnectBadge">1</span></button>
+  <aside id="forgeConnectPanel" class="forge-connect-panel" aria-hidden="true">
+    <div class="fc-head"><div><small>SUPORTE FORGEPETS</small><h3>Forge Connect</h3></div><button id="forgeConnectClose">×</button></div>
+    <div class="fc-tabs"><button class="active" data-fc-tab="chat">Conversas</button><button data-fc-tab="ticket">Suporte</button><button data-fc-tab="news">Novidades</button><button data-fc-tab="help">Ajuda</button></div>
+    <div id="forgeConnectContent" class="fc-content"></div>
+  </aside>
+  <div id="forgeConnectOverlay" class="forge-connect-overlay"></div>
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toast-root"></div>
+  <script src="/forgepets/assets/app.js"></script>
+</body>
+</html>
