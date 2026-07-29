@@ -10,30 +10,19 @@ export type SessionPayload = {
 
 function getSecret() {
   const value = process.env.JWT_SECRET || process.env.AUTH_SECRET;
-  if (!value || value.length < 32) return null;
-  return new TextEncoder().encode(value);
-}
 
-export async function getSession(): Promise<SessionPayload | null> {
-  const token = cookies().get('forgepets_session')?.value;
-  const secret = getSecret();
-  if (!token || !secret) return null;
-
-  try {
-    const verified = await jwtVerify(token, secret);
-    return verified.payload as unknown as SessionPayload;
-  } catch {
+  if (!value || value.length < 32) {
     return null;
   }
+
+  return new TextEncoder().encode(value);
 }
-
-
 
 export async function createSession(payload: SessionPayload) {
   const secret = getSecret();
 
   if (!secret) {
-    throw new Error('JWT_SECRET inválido.');
+    throw new Error('JWT_SECRET deve possuir pelo menos 32 caracteres.');
   }
 
   const token = await new SignJWT(payload)
@@ -47,10 +36,26 @@ export async function createSession(payload: SessionPayload) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 60 * 24 * 30
   });
 
   return token;
+}
+
+export async function getSession(): Promise<SessionPayload | null> {
+  const token = cookies().get('forgepets_session')?.value;
+  const secret = getSecret();
+
+  if (!token || !secret) {
+    return null;
+  }
+
+  try {
+    const verified = await jwtVerify(token, secret);
+    return verified.payload as unknown as SessionPayload;
+  } catch {
+    return null;
+  }
 }
 
 export function clearSession() {

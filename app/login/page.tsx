@@ -88,13 +88,16 @@ export default function LoginPage() {
         return setError(data.message || 'Não foi possível entrar. Verifique a configuração do banco de dados.');
       }
 
-      if (data.user) {
-        localStorage.setItem('forgepets_user', JSON.stringify(data.user));
-      }
+      const destination =
+        typeof data.destination === 'string'
+          ? data.destination
+          : data.role === 'MASTER'
+            ? '/master'
+            : data.onboardingCompleted === false
+              ? '/app/configuracao-inicial'
+              : '/app/dashboard';
 
-      // Navegação completa para garantir que o cookie de sessão
-      // seja enviado na primeira abertura do painel.
-      window.location.assign(data.destination || '/app/dashboard');
+      window.location.assign(destination);
     } catch {
       setError('Não foi possível conectar ao servidor. Tente novamente.');
     } finally {
@@ -162,7 +165,7 @@ export default function LoginPage() {
               <Link href="/esqueci-senha">Esqueci minha senha</Link>
             </div>
 
-            <button className="btn loginPrimary" disabled={loading}>{loading ? 'Entrando...' : 'Entrar no ForgePets'}</button>
+            <button type="submit" className="btn loginPrimary" disabled={loading}>{loading ? 'Entrando...' : 'Entrar no ForgePets'}</button>
 
             <div className="divider"><span>ou</span></div>
             <Link className="btn secondary createAccount" href="/cadastro">Criar minha conta</Link>

@@ -3,8 +3,15 @@ import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { prisma } from '@/lib/prisma';
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+function getSecret() {
+  const value = process.env.JWT_SECRET || process.env.AUTH_SECRET;
+
+  if (!value || value.length < 32) {
+    throw new Error('JWT_SECRET deve possuir pelo menos 32 caracteres.');
+  }
+
+  return new TextEncoder().encode(value);
+}
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +21,10 @@ export async function POST(request: Request) {
     const remember = body?.remember === true;
 
     if (!email || !password) {
-      return NextResponse.json({ ok: false, message: 'Informe e-mail e senha.' }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Informe e-mail e senha.' },
+        { status: 400 }
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -22,24 +32,21 @@ export async function POST(request: Request) {
       include: { company: true }
     });
 
-    const passwordMatches = user
+    const validPassword = user
       ? await bcrypt.compare(password, user.passwordHash)
       : false;
 
-    if (!user || !user.active || !passwordMatches) {
-      return NextResponse.json({ ok: false, message: 'E-mail ou senha inválidos.' }, { status: 401 });
-    }
-
-    const secretValue = process.env.JWT_SECRET || process.env.AUTH_SECRET;
-    if (!secretValue || secretValue.length < 32) {
-      console.error('JWT_SECRET/AUTH_SECRET ausente ou menor que 32 caracteres.');
+    if (!user || !user.active || !validPassword) {
       return NextResponse.json(
-        { ok: false, message: 'A chave de sessão do sistema não está configurada corretamente.' },
-        { status: 500 }
+        { message: 'E-mail ou senha inválidos.' },
+        { status: 401 }
       );
     }
 
-    const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
+    const expiresInSeconds = remember
+      ? 60 * 60 * 24 * 30
+      : 60 * 60 * 24 * 7;
+
     const token = await new SignJWT({
       userId: user.id,
       companyId: user.companyId,
@@ -48,43 +55,45 @@ export async function POST(request: Request) {
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(`${maxAge}s`)
-      .sign(new TextEncoder().encode(secretValue));
+      .setExpirationTime(`${expiresInSeconds}s`)
+      .sign(getSecret());
 
-    const onboardingCompleted = user.company?.onboardingCompleted ?? true;
-    const destination = user.role === 'MASTER'
-      ? '/master'
-      : onboardingCompleted
-        ? '/app/dashboard'
-        : '/app/configuracao-inicial';
+    const onboardingCompleted =
+      user.company?.onboardingCompleted ?? true;
+
+    const destination =
+      user.role === 'MASTER'
+        ? '/master'
+        : onboardingCompleted
+          ? '/app/dashboard'
+          : '/app/configuracao-inicial';
 
     const response = NextResponse.json({
       ok: true,
       role: user.role,
       onboardingCompleted,
-      destination,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        companyId: user.companyId
-      }
+      destination
     });
 
     response.cookies.set('forgepets_session', token, {
       httpOnly: true,
-      sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       path: '/',
-      maxAge
+      maxAge: expiresInSeconds
     });
 
     return response;
   } catch (error) {
-    console.error('Erro no login de sessão:', error);
+    console.error('Erro no session-login:', error);
+
     return NextResponse.json(
-      { ok: false, message: 'Não foi possível acessar o sistema. Verifique a conexão com o banco de dados.' },
+      {
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível acessar o sistema.'
+      },
       { status: 500 }
     );
   }
