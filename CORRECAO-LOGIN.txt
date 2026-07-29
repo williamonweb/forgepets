@@ -1,0 +1,21 @@
+FORGEPETS - CORRECAO DE LOGIN
+
+O que foi corrigido:
+1. Removida a pasta /api antiga, que estava interceptando /api/auth/login na Vercel.
+2. O projeto agora usa apenas as rotas do Next.js em app/api.
+3. O login cria o cookie HTTP-only forgepets_session.
+4. A tela aceita tanto o formato atual quanto o formato antigo de resposta.
+5. O redirecionamento usa navegação completa para o middleware reconhecer a sessão imediatamente.
+6. AUTH_SECRET e JWT_SECRET são aceitos. Na Vercel, mantenha uma delas com no mínimo 32 caracteres.
+7. Arquivos locais com segredos (.env e .vercel) foram removidos do ZIP.
+
+Para publicar:
+npm install
+npx prisma generate
+git add .
+git commit -m "Corrige login e sessao"
+git push
+
+Variáveis necessárias na Vercel:
+DATABASE_URL
+AUTH_SECRET ou JWT_SECRET (mínimo 32 caracteres)

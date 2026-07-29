@@ -2,7 +2,13 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
 export type SessionPayload = { userId: string; companyId: string | null; role: string; name: string };
-const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'dev-secret-change-me');
+const configuredSecret = process.env.AUTH_SECRET || process.env.JWT_SECRET;
+
+if (process.env.NODE_ENV === 'production' && (!configuredSecret || configuredSecret.length < 32)) {
+  throw new Error('Configure AUTH_SECRET ou JWT_SECRET com pelo menos 32 caracteres.');
+}
+
+const secret = new TextEncoder().encode(configuredSecret || 'dev-secret-change-me-32-characters');
 
 export async function createSession(payload: SessionPayload) {
   const token = await new SignJWT(payload).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('7d').sign(secret);
