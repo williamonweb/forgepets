@@ -549,7 +549,11 @@ init();
  if(!panel)return;
  function open(){panel.classList.add('open');overlay.classList.add('open');panel.setAttribute('aria-hidden','false');document.getElementById('forgeConnectBadge').style.display='none';renderFC()}
  function close(){panel.classList.remove('open');overlay.classList.remove('open');panel.setAttribute('aria-hidden','true')}
- document.getElementById('forgeConnectButton').onclick=open;document.getElementById('forgeConnectClose').onclick=close;overlay.onclick=close;
+ close();
+ document.getElementById('forgeConnectButton').onclick=open;
+ document.getElementById('forgeConnectClose').onclick=close;
+ overlay.onclick=close;
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.classList.contains('open'))close();});
  document.querySelectorAll('[data-fc-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.fcTab;document.querySelectorAll('[data-fc-tab]').forEach(x=>x.classList.toggle('active',x===b));renderFC()});
  function renderFC(){const d=load();
   if(tab==='chat') content.innerHTML=`<div>${d.messages.map(m=>`<div class="fc-message ${m.from==='client'?'mine':''}">${escapeHtml(m.text)}<small>${m.date}</small></div>`).join('')}</div><form id="fcChatForm" class="fc-compose"><input id="fcChatInput" placeholder="Digite sua mensagem..." autocomplete="off"><button>Enviar</button></form>`;

@@ -270,6 +270,6 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0;pointer-events:none;tra
 .toast-warning:before{background:#f49a18}.toast-warning .toast-icon{background:#fff1dd;color:#d97706}
 .toast-info:before{background:#6420d8}.toast-info .toast-icon{background:#eee7ff;color:#6420d8}
 .forge-connect-button{right:20px!important;bottom:18px!important;width:48px!important;height:48px!important;box-shadow:0 12px 30px rgba(74,24,151,.26)!important}
-.forge-connect-panel{right:20px!important;bottom:78px!important;max-height:calc(100vh - 110px)!important}
+.forge-connect-panel{right:-430px!important;bottom:78px!important;max-height:calc(100vh - 110px)!important}.forge-connect-panel.open{right:20px!important}
 body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-events:none!important;transform:translateY(8px) scale(.92)!important}
-@media(max-width:700px){.toast-root{top:74px!important;right:12px!important;width:calc(100vw - 24px)}.forge-connect-button{right:12px!important;bottom:12px!important}.forge-connect-panel{right:0!important;bottom:0!important;max-height:100vh!important}}
+@media(max-width:700px){.toast-root{top:74px!important;right:12px!important;width:calc(100vw - 24px)}.forge-connect-button{right:12px!important;bottom:12px!important}.forge-connect-panel{right:-100vw!important;bottom:0!important;max-height:100vh!important}.forge-connect-panel.open{right:0!important}}
