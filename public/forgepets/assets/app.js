@@ -48,7 +48,7 @@ function maskEan(v){return onlyDigits(v).slice(0,14);}
 function validEan(v){const d=onlyDigits(v);return !d||[8,12,13,14].includes(d.length);}
 function bindMask(el,formatter){if(!el||el.dataset.maskBound)return;el.dataset.maskBound='1';const apply=()=>{const start=el.selectionStart;el.value=formatter(el.value);try{el.setSelectionRange(el.value.length,el.value.length)}catch{}};el.addEventListener('input',apply);apply();}
 function applyInputMasks(root=document){root.querySelectorAll('[data-mask="phone"]').forEach(el=>bindMask(el,maskPhone));root.querySelectorAll('[data-mask="cpf"]').forEach(el=>bindMask(el,maskCpf));root.querySelectorAll('[data-mask="cpfcnpj"]').forEach(el=>bindMask(el,maskCpfCnpj));root.querySelectorAll('[data-mask="cep"]').forEach(el=>bindMask(el,maskCep));root.querySelectorAll('[data-mask="ean"]').forEach(el=>bindMask(el,maskEan));root.querySelectorAll('input[type="email"]').forEach(el=>{if(el.dataset.emailBound)return;el.dataset.emailBound='1';el.addEventListener('blur',()=>el.value=el.value.trim().toLowerCase());});root.querySelectorAll('[data-trim]').forEach(el=>{if(el.dataset.trimBound)return;el.dataset.trimBound='1';el.addEventListener('blur',()=>el.value=el.value.trim().replace(/\s+/g,' '));});}
-function setModalError(message){const body=document.querySelector('#modalRoot .modal-body');if(!body){toast(message);return;}let box=body.querySelector('.modal-inline-error');if(!box){box=document.createElement('div');box.className='modal-inline-error';body.prepend(box);}box.textContent=message;box.scrollIntoView({behavior:'smooth',block:'nearest'});}
+function setModalError(message){const body=document.querySelector('#modalRoot .modal-body');if(!body){toast(message,'error');return;}let box=body.querySelector('.modal-inline-error');if(!box){box=document.createElement('div');box.className='modal-inline-error';body.prepend(box);}box.textContent=message;box.scrollIntoView({behavior:'smooth',block:'nearest'});}
 function clearModalError(){document.querySelector('#modalRoot .modal-inline-error')?.remove();}
 async function lookupCep(input){const cep=onlyDigits(input.value);const status=document.getElementById(input.dataset.statusTarget||'cepLookupStatus');if(cep.length!==8){if(status)status.textContent='';return;}if(input.dataset.lastCep===cep)return;input.dataset.lastCep=cep;if(status){status.textContent='Consultando CEP...';status.className='cep-lookup-status loading';}try{const response=await fetch(`https://viacep.com.br/ws/${cep}/json/`);if(!response.ok)throw new Error('Não foi possível consultar o CEP.');const data=await response.json();if(data.erro)throw new Error('CEP não encontrado.');const values={fEndereco:data.logradouro||'',fBairro:data.bairro||'',fCidade:data.localidade||'',fEstado:data.uf||''};Object.entries(values).forEach(([id,value])=>{const field=document.getElementById(id);if(field&&value)field.value=value;});if(status){status.textContent='Endereço preenchido automaticamente.';status.className='cep-lookup-status success';}document.getElementById('fNumero')?.focus();}catch(error){input.dataset.lastCep='';if(status){status.textContent=error.message||'CEP não encontrado.';status.className='cep-lookup-status error';}}}
 function bindCepLookup(root=document){root.querySelectorAll('[data-cep-lookup]').forEach(input=>{if(input.dataset.cepLookupBound)return;input.dataset.cepLookupBound='1';let timer;input.addEventListener('input',()=>{clearTimeout(timer);if(onlyDigits(input.value).length===8)timer=setTimeout(()=>lookupCep(input),250);});input.addEventListener('blur',()=>lookupCep(input));});}
@@ -57,7 +57,40 @@ const cloud={
  async request(url,options={}){const res=await fetch(url,{credentials:'include',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.message||'Não foi possível concluir a operação.');return data;},
  tutor(x){return{id:x.id,nome:x.name,telefone:x.phone||'',cpf:x.document||'',email:x.email||'',obs:x.notes||'',endereco:x.address||'',numero:x.number||'',complemento:x.complement||'',bairro:x.neighborhood||'',cidade:x.city||'',estado:x.state||'',cep:x.zipCode||'',createdAt:x.createdAt,pontos:0,cashback:0}},
  pet(x){const cp=x.carePreferences||{};return{id:x.id,createdAt:x.createdAt,clienteId:x.tutorId,nome:x.name,especie:x.species,raca:x.breed||'',cor:x.color||'',sexo:x.sex||'',porte:x.size||'',castrado:x.neutered?'Sim':'Não',nascimento:x.birthDate?String(x.birthDate).slice(0,10):'',temperamento:x.temperament||'',peso:x.weight?Number(x.weight):'',foto:x.photoUrl||'',naoAceitaSecador:!!cp.naoAceitaSecador,naoAceitaMaquina:!!cp.naoAceitaMaquina,semPerfume:!!cp.semPerfume,semLaco:!!cp.semLaco,servicosPreferidos:cp.servicosPreferidos||[],obs:x.careNotes||''}},
- async sync(){try{const [t,p]=await Promise.all([this.request('/api/forge/tutores'),this.request('/api/forge/pets')]);db.data.clientes=(t.tutors||[]).map(this.tutor);db.data.pets=(p.pets||[]).map(this.pet);localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));render();}catch(e){console.error(e);toast(e.message||'Não foi possível carregar tutores e pets.');}}
+ async sync({notify=false}={}){
+  const results=await Promise.allSettled([
+   this.request('/api/forge/tutores'),
+   this.request('/api/forge/pets')
+  ]);
+  const [tutorsResult,petsResult]=results;
+  let changed=false;
+  window.forgeCloudStatus={tutores:'ok',pets:'ok',lastSync:new Date().toISOString()};
+  if(tutorsResult.status==='fulfilled'){
+   db.data.clientes=(tutorsResult.value.tutors||[]).map(this.tutor);
+   changed=true;
+  }else{
+   window.forgeCloudStatus.tutores='error';
+   console.error('[ForgePets] Falha ao carregar tutores:',tutorsResult.reason);
+  }
+  if(petsResult.status==='fulfilled'){
+   db.data.pets=(petsResult.value.pets||[]).map(this.pet);
+   changed=true;
+  }else{
+   window.forgeCloudStatus.pets='error';
+   console.error('[ForgePets] Falha ao carregar pets:',petsResult.reason);
+  }
+  if(changed){
+   localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));
+   render();
+  }
+  const failed=results.filter(x=>x.status==='rejected').length;
+  if(notify){
+   if(failed===0)toast('Dados atualizados com sucesso.','success');
+   else if(failed===1)toast('Um dos cadastros não pôde ser atualizado. Tente novamente.','warning');
+   else toast('Não foi possível atualizar os cadastros agora.','error');
+  }
+  return {ok:failed===0,failed};
+ }
 };
 const today=()=>new Date().toISOString().slice(0,10);
 const db={
@@ -232,7 +265,30 @@ function tableSimple(rows,heads,map,type){if(!rows.length)return '<div class="em
 function formatAgendaDate(value){const [year,month,day]=String(value||'').split('-').map(Number);if(!year||!month||!day)return {weekday:'',dayMonth:value||'',time:''};const date=new Date(year,month-1,day);const weekdays=['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];const months=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];return {weekday:weekdays[date.getDay()],dayMonth:`${String(day).padStart(2,'0')} ${months[month-1]}`}}
 function agendaList(rows){if(!rows.length)return '<div class="empty">Nenhum agendamento.</div>';return `<div class="calendar-list">${rows.map(a=>{const p=db.data.pets.find(x=>x.id===a.petId),s=db.data.servicos.find(x=>x.id===a.servicoId),c=p&&db.data.clientes.find(x=>x.id===p.clienteId),dateLabel=formatAgendaDate(a.data);return `<div class="appointment"><div class="appointment-date"><span class="appointment-weekday">${dateLabel.weekday}</span><strong class="appointment-day-month">${dateLabel.dayMonth}</strong><span class="appointment-hour">${a.hora}</span></div><div><strong>${p?.nome||'Pet'}</strong><div style="color:var(--muted);margin-top:4px">${s?.nome||'Serviço'} · ${c?.nome||'Tutor'}</div></div><div><span class="badge ${a.status==='Concluído'?'green':'yellow'}">${a.status||'Agendado'}</span> <button class="btn ghost" data-action="finish-appointment" data-id="${a.id}">Concluir</button></div></div>`}).join('')}</div>`}
 function modal(title,body,onSave,saveText='Salvar'){window.closeForgeConnect?.();const root=$('#modalRoot');root.innerHTML=`<div class="modal-overlay"><div class="modal"><div class="modal-header"><strong>${title}</strong><button type="button" class="icon-btn" data-close>&times;</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn ghost" data-close>Cancelar</button><button type="button" class="btn primary" id="modalSave">${saveText}</button></div></div></div>`;root.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>root.innerHTML='');applyInputMasks(root);bindCepLookup(root);const save=$('#modalSave');save.onclick=async()=>{if(save.disabled)return;clearModalError();const original=save.textContent;save.disabled=true;save.textContent='Salvando...';try{await onSave(()=>root.innerHTML='');}finally{if(document.body.contains(save)){save.disabled=false;save.textContent=original;}}};}
-function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;$('#toastRoot').appendChild(d);setTimeout(()=>d.remove(),2600)}
+function toast(message,type='auto',options={}){
+ const text=String(message||'').trim();
+ if(!text)return;
+ if(type==='auto'){
+  const lower=text.toLowerCase();
+  if(/não foi possível|erro|inválid|expirad|insuficiente|obrigatór|não encontrado|não encontrada/.test(lower))type='error';
+  else if(/atenção|aviso|selecione|informe|maior que|disponível/.test(lower))type='warning';
+  else if(/sucesso|cadastrad|atualizad|salv|concluíd|finalizad|excluíd|importad|exportad|paga/.test(lower))type='success';
+  else type='info';
+ }
+ const root=$('#toastRoot');
+ if(!root)return;
+ const icons={success:'✓',error:'!',warning:'!',info:'i'};
+ const titles={success:'Tudo certo',error:'Não foi possível concluir',warning:'Atenção',info:'ForgePets'};
+ const d=document.createElement('div');
+ d.className=`toast toast-${type}`;
+ d.setAttribute('role',type==='error'?'alert':'status');
+ d.innerHTML=`<span class="toast-icon">${icons[type]||'i'}</span><span class="toast-copy"><strong>${titles[type]||'ForgePets'}</strong><small>${escapeHtml(text)}</small></span><button type="button" class="toast-close" aria-label="Fechar">×</button>`;
+ root.appendChild(d);
+ requestAnimationFrame(()=>d.classList.add('show'));
+ const close=()=>{d.classList.remove('show');setTimeout(()=>d.remove(),180)};
+ d.querySelector('.toast-close').onclick=close;
+ setTimeout(close,Number(options.duration||4200));
+}
 
 function ensureData(){db.data.clientes=db.data.clientes||[];db.data.pets=db.data.pets||[];db.data.agenda=db.data.agenda||[];db.data.servicos=db.data.servicos||[];db.data.caixa=db.data.caixa||[];db.data.pendencias=db.data.pendencias||[];db.data.estoque=db.data.estoque||[];db.data.vendas=db.data.vendas||[];db.data.cupons=db.data.cupons||[];db.data.campanhas=db.data.campanhas||[];db.data.loyaltyHistory=db.data.loyaltyHistory||[];db.data.recompensas=db.data.recompensas||[{id:'reward-banho',nome:'Banho gratuito',pontos:500,valor:60,ativo:true},{id:'reward-hidratacao',nome:'Hidratação gratuita',pontos:300,valor:35,ativo:true},{id:'reward-vale20',nome:'Vale-compras de R$ 20,00',pontos:200,valor:20,ativo:true}];db.data.config={empresa:'Meu Pet Shop',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',telefoneUsuario:'',fotoUsuario:'',perfilUsuario:'Administrador',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',pontosPorReal:1,percentualCashback:2,cuponsAtivos:true,campanhaAniversario:true,beneficiosVip:{Bronze:0,Prata:3,Ouro:5,Diamante:8},cupomAniversarioPercentual:10,cupomAniversarioValidade:15,...db.data.config};}
 
