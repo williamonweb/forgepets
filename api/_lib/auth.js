@@ -1,17 +1,28 @@
 const jwt = require('jsonwebtoken');
 
 function secret() {
-  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-    throw new Error('JWT_SECRET ausente ou muito curta.');
+  const value = process.env.JWT_SECRET || process.env.AUTH_SECRET;
+
+  if (!value || value.length < 32) {
+    throw new Error('JWT_SECRET ausente ou com menos de 32 caracteres.');
   }
-  return process.env.JWT_SECRET;
+
+  return value;
 }
 
 function createToken(user) {
   return jwt.sign(
-    { sub: user.id, tenantId: user.tenantId || null, role: user.role, email: user.email },
+    {
+      userId: user.id,
+      companyId: user.companyId || null,
+      role: user.role,
+      name: user.name
+    },
     secret(),
-    { expiresIn: '12h', issuer: 'forgepets' }
+    {
+      algorithm: 'HS256',
+      expiresIn: '7d'
+    }
   );
 }
 
@@ -22,11 +33,18 @@ function bearer(req) {
 
 function requireAuth(req) {
   const token = bearer(req);
-  if (!token) throw Object.assign(new Error('Token ausente.'), { statusCode: 401 });
+
+  if (!token) {
+    throw Object.assign(new Error('Token ausente.'), { statusCode: 401 });
+  }
+
   try {
-    return jwt.verify(token, secret(), { issuer: 'forgepets' });
+    return jwt.verify(token, secret(), { algorithms: ['HS256'] });
   } catch {
-    throw Object.assign(new Error('Token invalido ou expirado.'), { statusCode: 401 });
+    throw Object.assign(
+      new Error('Token inválido ou expirado.'),
+      { statusCode: 401 }
+    );
   }
 }
 

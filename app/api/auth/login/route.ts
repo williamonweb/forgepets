@@ -1,13 +1,30 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { SignJWT } from 'jose';
 import { prisma } from '@/lib/prisma';
-import { createSession } from '@/lib/auth';
+
+function getSecret() {
+  const value =
+    process.env.JWT_SECRET ||
+    process.env.AUTH_SECRET;
+
+  if (!value || value.length < 32) {
+    throw new Error(
+      'JWT_SECRET ausente ou com menos de 32 caracteres.'
+    );
+  }
+
+  return new TextEncoder().encode(value);
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null);
-    const email = body?.email;
-    const password = body?.password;
+    const email = String(body?.email || '')
+      .trim()
+      .toLowerCase();
+    const password = String(body?.password || '');
+    const remember = body?.remember === true;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -17,12 +34,12 @@ export async function POST(request: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: String(email).toLowerCase().trim() },
+      where: { email },
       include: { company: true }
     });
 
     const validPassword = user
-      ? await bcrypt.compare(String(password), user.passwordHash)
+      ? await bcrypt.compare(password, user.passwordHash)
       : false;
 
     if (!user || !user.active || !validPassword) {
@@ -32,24 +49,53 @@ export async function POST(request: Request) {
       );
     }
 
-    await createSession({
+    const maxAge = remember
+      ? 60 * 60 * 24 * 30
+      : 60 * 60 * 24 * 7;
+
+    const token = await new SignJWT({
       userId: user.id,
       companyId: user.companyId,
       role: user.role,
       name: user.name
-    });
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(`${maxAge}s`)
+      .sign(getSecret());
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       role: user.role,
-      onboardingCompleted: user.company?.onboardingCompleted ?? true
+      onboardingCompleted:
+        user.company?.onboardingCompleted ?? true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId
+      }
     });
+
+    response.cookies.set('forgepets_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge
+    });
+
+    return response;
   } catch (error) {
-    console.error('Erro no login:', error);
+    console.error('Erro no login Next:', error);
 
     return NextResponse.json(
       {
-        message: 'Não foi possível acessar o sistema. Verifique a conexão com o banco de dados.'
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível acessar o sistema.'
       },
       { status: 500 }
     );
