@@ -1,0 +1,7 @@
+FORGEPETS V8.6.1 - EDIÇÃO DE SERVIÇOS
+
+- Adicionado botão Editar na tabela de serviços.
+- Permite alterar nome, valor e duração do serviço.
+- Alterações são salvas no Neon via Prisma.
+- Valor atualizado aparece nas vendas.
+- Duração atualizada passa a ser considerada na agenda.
