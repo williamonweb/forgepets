@@ -78,6 +78,12 @@ export async function POST(request: NextRequest) {
           nextBillingDate: nextDate ? new Date(`${nextDate}T12:00:00Z`) : undefined
         }
       });
+      if (status === SubscriptionStatus.ACTIVE) {
+        await tx.companyModule.updateMany({
+          where: { companyId: company.id, enabled: false, price: { not: null } },
+          data: { enabled: true, activatedAt: new Date() }
+        });
+      }
     }
 
     await tx.auditLog.create({

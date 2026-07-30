@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SubscriptionStatus } from '@prisma/client';
+import { ModuleCode, SubscriptionStatus } from '@prisma/client';
 import { createHash } from 'crypto';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -22,6 +22,14 @@ Versão: Julho de 2026 · V1
 9. Aceite eletrônico: registra usuário, empresa, versão, data, horário, IP e informações técnicas da sessão.
 10. Disposições finais: o instrumento deve ser complementado pelos dados das partes e revisado juridicamente antes da comercialização definitiva.`
 const CONTRACT_HASH = createHash('sha256').update(CONTRACT_TEXT).digest('hex');
+const MODULE_CATALOG: Record<ModuleCode, { name: string; price: number }> = {
+  FISCAL: { name: 'Módulo Fiscal', price: 49 },
+  WHATSAPP: { name: 'WhatsApp Oficial', price: 39 },
+  LOYALTY: { name: 'Fidelidade Avançada', price: 29 },
+  ONLINE_BOOKING: { name: 'Agendamento Online', price: 39 },
+  AI: { name: 'Recursos de IA', price: 29 },
+  TUTOR_APP: { name: 'App do Tutor', price: 39 }
+};
 
 type CustomerResponse = { id: string };
 type SubscriptionResponse = { id: string; status?: string; nextDueDate?: string };
@@ -176,6 +184,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Leia e aceite o contrato para continuar.' }, { status: 400 });
     }
     if (!selected) return NextResponse.json({ message: 'Plano inválido.' }, { status: 400 });
+    const requestedModules: ModuleCode[] = Array.isArray(body?.modules)
+      ? Array.from(
+          new Set(
+            body.modules
+              .map((value: unknown) => String(value))
+              .filter(
+                (value: string): value is ModuleCode =>
+                  Object.prototype.hasOwnProperty.call(MODULE_CATALOG, value)
+              )
+          )
+        )
+      : [];
+
+    const modulesValue = requestedModules.reduce(
+      (sum: number, code: ModuleCode) => sum + MODULE_CATALOG[code].price,
+      0
+    );
+    const totalValue = selected.value + modulesValue;
 
     const company = await prisma.company.findUnique({ where: { id: session.companyId } });
     if (!company) return NextResponse.json({ message: 'Pet shop não encontrado.' }, { status: 404 });
@@ -225,10 +251,10 @@ export async function POST(request: NextRequest) {
     const subscriptionPayload: Record<string, unknown> = {
       customer: customerId,
       billingType: type,
-      value: selected.value,
+      value: totalValue,
       nextDueDate: dateOnly(now),
       cycle: 'MONTHLY',
-      description: `ForgePets · Plano ${requestedPlan}`,
+      description: `ForgePets · Plano ${requestedPlan}${requestedModules.length ? ` + ${requestedModules.map(code => MODULE_CATALOG[code].name).join(', ')}` : ''}`, 
       externalReference: company.id
     };
 
@@ -298,9 +324,14 @@ export async function POST(request: NextRequest) {
           contractHash: CONTRACT_HASH,
           ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || null,
           userAgent: request.headers.get('user-agent') || null,
-          metadata: { plan: requestedPlan, method: type, amount: selected.value }
+          metadata: { plan: requestedPlan, modules: requestedModules, method: type, amount: totalValue }
         }
       }),
+      ...requestedModules.map(module => prisma.companyModule.upsert({
+        where: { companyId_module: { companyId: company.id, module } },
+        update: { enabled: false, activatedAt: null, price: MODULE_CATALOG[module].price },
+        create: { companyId: company.id, module, enabled: false, price: MODULE_CATALOG[module].price }
+      })),
       prisma.auditLog.create({
         data: {
           companyId: company.id,
@@ -308,7 +339,7 @@ export async function POST(request: NextRequest) {
           action: isUpgrade ? 'SUBSCRIPTION_UPGRADE_CREATED' : isDowngrade ? 'SUBSCRIPTION_DOWNGRADE_CREATED' : 'SUBSCRIPTION_RENEWED',
           entity: 'Subscription',
           entityId: subscription.id,
-          metadata: { plan: requestedPlan, billingType: type, value: selected.value }
+          metadata: { plan: requestedPlan, modules: requestedModules, billingType: type, value: totalValue }
         }
       })
     ]);
@@ -337,6 +368,8 @@ export async function POST(request: NextRequest) {
       contractVersion: CONTRACT_VERSION,
       paymentId: payment?.id || null,
       plan: requestedPlan,
+      modules: requestedModules,
+      totalValue,
       status: 'pending',
       nextDueDate: payment?.dueDate || subscription.nextDueDate || dateOnly(now),
       downgradeLockedUntil: lockedUntil?.toISOString() || null,
@@ -346,7 +379,7 @@ export async function POST(request: NextRequest) {
         expirationDate: pix.expirationDate || null
       } : null,
       boleto: boleto ? {
-        id: boleto.id, dueDate: boleto.dueDate || null, value: boleto.value || selected.value,
+        id: boleto.id, dueDate: boleto.dueDate || null, value: boleto.value || totalValue,
         invoiceUrl: boleto.invoiceUrl || null, bankSlipUrl: boleto.bankSlipUrl || null,
         invoiceNumber: boleto.invoiceNumber || null, identificationField: boleto.identificationField || null
       } : null,
