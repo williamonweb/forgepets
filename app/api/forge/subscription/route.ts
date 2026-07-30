@@ -231,6 +231,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Preencha responsável, pet shop, CPF/CNPJ e e-mail.' }, { status: 400 });
     }
 
+    // O CPF/CNPJ informado no checkout pertence ao responsável pela cobrança.
+    // Ele pode ser usado em mais de uma empresa de teste/gestão, portanto não deve
+    // causar falha na atualização da Company quando já estiver associado a outro tenant.
+    const documentAlreadyUsed = await prisma.company.findFirst({
+      where: {
+        document,
+        id: { not: company.id }
+      },
+      select: { id: true }
+    });
+
     let customerId = company.asaasCustomerId;
     if (!customerId) {
       const customer = await asaasRequest<CustomerResponse>('/customers', {
@@ -295,7 +306,9 @@ export async function POST(request: NextRequest) {
         where: { id: company.id },
         data: {
           tradeName: companyName,
-          document,
+          // Só grava o documento na empresa quando ele não estiver vinculado a outro tenant.
+          // O documento continua sendo enviado normalmente ao Asaas para a cobrança.
+          document: documentAlreadyUsed ? company.document : document,
           email,
           phone: phone || company.phone,
           pendingPlan: selected.prisma,
