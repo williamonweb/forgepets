@@ -9,3 +9,18 @@
 @media(max-width:1100px){.loginV82{grid-template-columns:1fr 1fr}.heroV82{padding:26px 32px 30px}.heroLogoCard{width:300px;min-height:120px}.heroLogo{width:262px!important}.heroCopy{margin-top:0}.heroCopy h1{font-size:36px}.heroFeatureGrid{gap:15px}.testimonial{grid-template-columns:42px 1fr}.stars{display:none}.loginPaneV82{padding:40px 45px 90px}.loginFooter{justify-content:center}.loginFooter>span{display:none}.loginFooter nav{gap:15px}.plansComparison{grid-template-columns:1fr}.modalPlan>p{min-height:0}}
 @media(max-width:900px){.loginV82{display:block}.heroV82{display:none}.loginPaneV82{min-height:100vh;padding:34px 28px 90px}.loginFooter nav{flex-wrap:wrap;justify-content:center}.plansModal{padding:28px 18px}.modalTrial{flex-direction:column;gap:4px;text-align:center}}
 @media(max-width:560px){.loginPaneV82{padding:26px 18px 105px}.loginContent>h2{font-size:29px}.loginSubtitle{margin-bottom:30px}.pawBadge{width:66px;height:66px;font-size:28px}.loginOptions{align-items:flex-start;gap:12px}.loginFooter{padding:14px}.loginFooter nav{gap:10px;font-size:10px}.modalOverlay{padding:12px}.plansHeader h2{font-size:24px}}
+
+.signupTrialBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 4px auto 12px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(109, 40, 217, 0.1);
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
