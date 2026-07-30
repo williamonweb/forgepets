@@ -143,6 +143,43 @@ function openLoginPlansModal(){
 function showApplication(){
  $('#loginScreen').style.display='none';$('#app').classList.remove('app-hidden');
  if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();renderNav();bindGlobal();render();initSystemFooter();window.forgePetsStarted=true;cloud.sync();}
+ enforceSubscriptionAccess();
+}
+
+async function enforceSubscriptionAccess(){
+ try{
+  const state=await cloud.request('/api/forge/subscription?status=1');
+  const current=activeSubscription();
+  localStorage.setItem('forgepets_active_subscription',JSON.stringify({...current,plan:state.plan||current.plan,status:state.active?'active':state.status,trialEndsAt:state.trialEndsAt,trialDaysRemaining:state.trialDaysRemaining,pendingPlan:state.pendingPlan||current.pendingPlan}));
+  document.querySelector('#trialAccessOverlay')?.remove();
+  if(state.accessAllowed){
+   if(state.status==='trial'&&Number(state.trialDaysRemaining)<=1) showTrialWarning(state);
+   updatePlanUI();
+   return;
+  }
+  showExpiredTrialGate(state);
+ }catch(error){
+  console.warn('[ForgePets] Não foi possível validar a assinatura.',error);
+ }
+}
+
+function showTrialWarning(state){
+ if(sessionStorage.getItem('forgepets_trial_warning_shown')==='1')return;
+ sessionStorage.setItem('forgepets_trial_warning_shown','1');
+ const when=state.trialEndsAt?new Date(state.trialEndsAt).toLocaleString('pt-BR'):'em breve';
+ modal('Seu teste está terminando',`<div class="trial-warning-card"><span>⏳</span><div><h3>Falta pouco para o fim do período grátis</h3><p>Seu acesso de teste termina em <b>${escapeHtml(when)}</b>. Escolha um plano agora para continuar usando o ForgePets sem interrupção.</p></div></div>`,close=>{close();setTimeout(()=>actions['show-plans']?.({}),80)},'Escolher plano');
+}
+
+function showExpiredTrialGate(state){
+ const pending=state.paymentPending;
+ const root=document.createElement('div');
+ root.id='trialAccessOverlay';
+ root.className='trial-access-overlay';
+ root.innerHTML=`<section class="trial-access-card"><div class="trial-access-icon">${pending?'⌛':'🔒'}</div><span class="trial-access-eyebrow">FORGEPETS</span><h1>${pending?'Pagamento aguardando confirmação':'Seu período de teste terminou'}</h1><p>${pending?'Assim que o Asaas confirmar o pagamento, o sistema será liberado automaticamente.':'Para continuar usando o ForgePets, escolha um plano e realize o pagamento. Seus dados continuam salvos com segurança.'}</p><div class="trial-access-plan"><small>Plano selecionado</small><strong>${escapeHtml(state.pendingPlan||state.plan||activePlan())}</strong></div><div class="trial-access-actions"><button class="btn primary" id="trialChoosePlan">${pending?'Ver pagamento ou trocar forma':'Escolher plano e pagar'}</button><button class="btn ghost" id="trialCheckPayment">Verificar pagamento</button><button class="link-btn" id="trialLogout">Sair da conta</button></div><small class="trial-access-note">Nenhum cadastro foi apagado. O acesso será restaurado automaticamente após a confirmação.</small></section>`;
+ document.body.appendChild(root);
+ $('#trialChoosePlan').onclick=()=>{root.remove();actions['show-plans']?.({});};
+ $('#trialCheckPayment').onclick=async()=>{const btn=$('#trialCheckPayment');btn.disabled=true;btn.textContent='Verificando…';await enforceSubscriptionAccess();if(document.body.contains(btn)){btn.disabled=false;btn.textContent='Verificar pagamento';}};
+ $('#trialLogout').onclick=logout;
 }
 function logout(){
  localStorage.removeItem('forgePetsSession');
@@ -349,7 +386,7 @@ const actions={
       localStorage.setItem('forgepets_active_subscription',JSON.stringify(updated));
       close();renderNav();render();
       const copyValue=async(value,inputId)=>{try{await navigator.clipboard.writeText(value);toast('Código copiado.');}catch{const el=$(inputId);el?.select();document.execCommand('copy');toast('Código copiado.');}};
-      const startStatusWatch=()=>{let checks=0;const timer=setInterval(async()=>{checks++;try{const status=await cloud.request('/api/forge/subscription?status=1');const box=$('#livePaymentStatus');if(status.active){clearInterval(timer);if(box){box.classList.remove('waiting');box.classList.add('confirmed');box.innerHTML='<span class="payment-status-icon">✓</span><div><b>Pagamento confirmado</b><small>Seu plano foi ativado automaticamente.</small></div>';}const current=activeSubscription();localStorage.setItem('forgepets_active_subscription',JSON.stringify({...current,status:'active',plan:newPlan,pendingPlan:null,lastPaymentStatus:'paid'}));renderNav();render();}else if(box){box.classList.add('waiting');box.innerHTML='<span class="payment-status-icon">⌛</span><div><b>Aguardando pagamento</b><small>Verificação automática em andamento.</small></div>';}}catch{}if(checks>=120)clearInterval(timer)},3000);};
+      const startStatusWatch=()=>{let checks=0;const timer=setInterval(async()=>{checks++;try{const status=await cloud.request('/api/forge/subscription?status=1');const box=$('#livePaymentStatus');if(status.active){clearInterval(timer);if(box){box.classList.remove('waiting');box.classList.add('confirmed');box.innerHTML='<span class="payment-status-icon">✓</span><div><b>Pagamento confirmado</b><small>Seu plano foi ativado automaticamente.</small></div>';}const current=activeSubscription();localStorage.setItem('forgepets_active_subscription',JSON.stringify({...current,status:'active',plan:newPlan,pendingPlan:null,lastPaymentStatus:'paid'}));document.querySelector('#trialAccessOverlay')?.remove();renderNav();render();}else if(box){box.classList.add('waiting');box.innerHTML='<span class="payment-status-icon">⌛</span><div><b>Aguardando pagamento</b><small>Verificação automática em andamento.</small></div>';}}catch{}if(checks>=120)clearInterval(timer)},3000);};
       const preparePaymentModal=()=>{const root=$('#modalRoot');root?.querySelector('.modal')?.classList.add('payment-modal-shell');const cancel=root?.querySelector('.modal-footer [data-close]');if(cancel)cancel.remove();const close=root?.querySelector('#modalSave');if(close)close.textContent='Fechar';};
       const openPixModal=pixData=>{const qrSrc=`data:image/png;base64,${pixData.encodedImage}`,expiry=pixData.expirationDate?new Date(pixData.expirationDate).toLocaleString('pt-BR'):'';modal('Pagamento por PIX',`<div class="payment-experience pix-payment-modal"><header class="payment-hero"><span class="payment-hero-icon">✓</span><div><h2>Assinatura criada</h2><p>Escaneie o QR Code ou use o PIX Copia e Cola.</p></div></header><div class="pix-payment-layout"><section class="pix-qr-card"><div class="pix-qr-frame"><img src="${escapeAttr(qrSrc)}" alt="QR Code PIX"></div><div class="payment-value"><small>Valor da assinatura</small><strong>${money(PLAN_CATALOG[newPlan].price)}</strong></div>${expiry?`<div class="payment-expiry"><small>Validade</small><b>${escapeHtml(expiry)}</b></div>`:''}</section><section class="pix-copy-card"><div><span class="payment-step">2</span><h3>PIX Copia e Cola</h3><p>Copie o código abaixo e cole no aplicativo do seu banco.</p></div><div class="payment-code-box"><textarea id="pixCopyPayload" readonly>${escapeHtml(pixData.payload)}</textarea><button type="button" class="btn primary copy-payment-code" id="copyPixPayload">📋 Copiar código PIX</button></div><div id="livePaymentStatus" class="payment-status waiting"><span class="payment-status-icon">⌛</span><div><b>Aguardando pagamento</b><small>Verificação automática em andamento.</small></div></div><div class="payment-security">🔒 Pagamento processado com segurança pelo Asaas.</div></section></div></div>`,closePix=>closePix(),'Fechar');setTimeout(()=>{preparePaymentModal();$('#copyPixPayload')?.addEventListener('click',()=>copyValue(pixData.payload,'#pixCopyPayload'));startStatusWatch();},0);};
       const openBoletoModal=boleto=>{const url=boleto.bankSlipUrl||boleto.invoiceUrl||'#',line=boleto.identificationField||'';modal('Pagamento por boleto',`<div class="payment-experience boleto-payment-modal"><header class="payment-hero"><span class="payment-hero-icon">✓</span><div><h2>Boleto gerado</h2><p>A cobrança também será enviada para o e-mail cadastrado.</p></div></header><div class="payment-summary-grid"><div><small>Plano</small><strong>${escapeHtml(newPlan)}</strong></div><div><small>Valor</small><strong>${money(boleto.value||PLAN_CATALOG[newPlan].price)}</strong></div><div><small>Vencimento</small><strong>${boleto.dueDate?new Date(`${boleto.dueDate}T12:00:00`).toLocaleDateString('pt-BR'):'—'}</strong></div></div>${line?`<section class="pix-copy-card boleto-code-card"><div><span class="payment-step">1</span><h3>Linha digitável</h3><p>Copie para pagar pelo aplicativo do seu banco.</p></div><div class="payment-code-box"><textarea id="boletoLine" readonly>${escapeHtml(line)}</textarea><button type="button" class="btn secondary copy-payment-code" id="copyBoletoLine">📋 Copiar linha digitável</button></div></section>`:''}<div class="boleto-primary-action"><a class="btn primary" href="${escapeAttr(url)}" target="_blank" rel="noopener">Abrir boleto</a></div><div id="livePaymentStatus" class="payment-status waiting"><span class="payment-status-icon">⌛</span><div><b>Aguardando pagamento</b><small>O plano será ativado após a confirmação bancária.</small></div></div><div class="payment-security">🔒 Cobrança emitida e protegida pelo Asaas.</div></div>`,closeBill=>closeBill(),'Fechar');setTimeout(()=>{preparePaymentModal();$('#copyBoletoLine')?.addEventListener('click',()=>copyValue(line,'#boletoLine'));startStatusWatch();},0);};

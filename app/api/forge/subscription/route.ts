@@ -53,16 +53,43 @@ export async function GET(request: NextRequest) {
     select: {
       id: true, name: true, tradeName: true, document: true, email: true, phone: true,
       plan: true, subscriptionStatus: true, asaasCustomerId: true, asaasSubscriptionId: true,
-      billingType: true, nextBillingDate: true, downgradeLockedUntil: true, pendingPlan: true, pendingPlanRequestedAt: true
+      billingType: true, nextBillingDate: true, downgradeLockedUntil: true, pendingPlan: true, pendingPlanRequestedAt: true,
+      trialEndsAt: true
     }
   });
 
   if (!company) return NextResponse.json({ message: 'Pet shop não encontrado.' }, { status: 404 });
 
   if (request.nextUrl.searchParams.get('status') === '1') {
+    const now = new Date();
+    const trialExpired = company.subscriptionStatus === SubscriptionStatus.TRIAL
+      && !!company.trialEndsAt
+      && company.trialEndsAt.getTime() <= now.getTime();
+
+    let effectiveStatus = company.subscriptionStatus;
+    if (trialExpired) {
+      effectiveStatus = SubscriptionStatus.BLOCKED;
+      await prisma.company.update({
+        where: { id: company.id },
+        data: { subscriptionStatus: SubscriptionStatus.BLOCKED }
+      });
+    }
+
+    const remainingMs = company.trialEndsAt ? company.trialEndsAt.getTime() - now.getTime() : 0;
+    const trialDaysRemaining = effectiveStatus === SubscriptionStatus.TRIAL
+      ? Math.max(0, Math.ceil(remainingMs / 86400000))
+      : 0;
+    const active = effectiveStatus === SubscriptionStatus.ACTIVE;
+    const accessAllowed = active || effectiveStatus === SubscriptionStatus.TRIAL;
+
     return NextResponse.json({
-      status: company.subscriptionStatus.toLowerCase(),
-      active: company.subscriptionStatus === SubscriptionStatus.ACTIVE,
+      status: effectiveStatus.toLowerCase(),
+      active,
+      accessAllowed,
+      trialExpired,
+      trialEndsAt: company.trialEndsAt,
+      trialDaysRemaining,
+      paymentPending: !!company.asaasSubscriptionId && !active,
       plan: publicPlanName(company.plan),
       pendingPlan: company.pendingPlan ? publicPlanName(company.pendingPlan) : null,
       nextBillingDate: company.nextBillingDate
@@ -213,7 +240,10 @@ export async function POST(request: NextRequest) {
     });
 
     const lockedUntil = isUpgrade ? addMonths(now, 3) : company.downgradeLockedUntil;
-    const status = SubscriptionStatus.TRIAL;
+    const trialStillValid = company.subscriptionStatus === SubscriptionStatus.TRIAL
+      && !!company.trialEndsAt
+      && company.trialEndsAt.getTime() > now.getTime();
+    const status = trialStillValid ? SubscriptionStatus.TRIAL : SubscriptionStatus.BLOCKED;
 
     await prisma.$transaction([
       prisma.company.update({
