@@ -66,6 +66,25 @@ enum TicketStatus {
   RESOLVED
 }
 
+
+enum FiscalEnvironment {
+  HOMOLOGATION
+  PRODUCTION
+}
+
+enum FiscalIntegrationType {
+  NATIONAL
+  MUNICIPAL
+}
+
+enum FiscalDocumentStatus {
+  DRAFT
+  PROCESSING
+  AUTHORIZED
+  REJECTED
+  CANCELED
+}
+
 enum ModuleCode {
   FISCAL
   WHATSAPP
@@ -143,6 +162,8 @@ model Company {
   asaasWebhookEvents  AsaasWebhookEvent[]
   modules             CompanyModule[]
   contractAcceptances ContractAcceptance[]
+  fiscalConfig        FiscalConfig?
+  fiscalDocuments     FiscalDocument[]
 }
 
 model User {
@@ -226,6 +247,10 @@ model Service {
   active          Boolean  @default(true)
   generatesPoints Boolean  @default(false)
   generatesCashback Boolean @default(false)
+  fiscalServiceCode String?
+  fiscalCnae        String?
+  fiscalNbsCode     String?
+  fiscalIssRate     Decimal? @db.Decimal(5, 2)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   appointments    Appointment[]
@@ -381,6 +406,63 @@ model AuditLog {
   @@index([companyId, createdAt])
 }
 
+
+
+model FiscalConfig {
+  id                    String                @id @default(cuid())
+  companyId             String                @unique
+  company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  legalName             String?
+  tradeName             String?
+  cnpj                  String?
+  municipalRegistration String?
+  taxRegime             String?
+  simplesNacional       Boolean               @default(false)
+  city                  String?
+  state                 String?
+  ibgeCode              String?
+  serviceListCode       String?
+  cnae                  String?
+  nbsCode               String?
+  issRate               Decimal?              @db.Decimal(5, 2)
+  integrationType       FiscalIntegrationType @default(NATIONAL)
+  municipalProvider     String?
+  environment           FiscalEnvironment     @default(HOMOLOGATION)
+  certificateName       String?
+  certificateExpiresAt  DateTime?
+  active                Boolean               @default(false)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+}
+
+model FiscalDocument {
+  id               String               @id @default(cuid())
+  companyId        String
+  company          Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status           FiscalDocumentStatus @default(DRAFT)
+  environment      FiscalEnvironment    @default(HOMOLOGATION)
+  integrationType  FiscalIntegrationType
+  saleReference    String?
+  tutorName        String?
+  tutorDocument    String?
+  serviceDescription String
+  serviceAmount    Decimal              @db.Decimal(12, 2)
+  issAmount        Decimal?             @db.Decimal(12, 2)
+  rpsNumber        String?
+  nfseNumber       String?
+  verificationCode String?
+  xmlUrl           String?
+  pdfUrl           String?
+  errorMessage     String?
+  requestPayload   Json?
+  responsePayload  Json?
+  issuedAt         DateTime?
+  canceledAt       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  @@index([companyId, createdAt])
+  @@index([companyId, status])
+}
 
 model PasswordResetToken {
   id        String   @id @default(cuid())
