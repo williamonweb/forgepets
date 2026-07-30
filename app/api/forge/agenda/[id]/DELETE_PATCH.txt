@@ -1,0 +1,40 @@
+// Substitua apenas o método DELETE pelo código abaixo
+
+export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const session = await getSession();
+
+  if (!session?.companyId) {
+    return NextResponse.json(
+      { message: 'Sessão inválida. Entre novamente.' },
+      { status: 401 }
+    );
+  }
+
+  const companyId = session.companyId;
+
+  const current = await prisma.appointment.findFirst({
+    where: {
+      id: params.id,
+      companyId,
+    },
+  });
+
+  if (!current) {
+    return NextResponse.json(
+      { message: 'Agendamento não encontrado.' },
+      { status: 404 }
+    );
+  }
+
+  const appointment = await prisma.appointment.update({
+    where: { id: current.id },
+    data: { status: 'CANCELED' },
+    include: {
+      tutor: true,
+      pet: true,
+      service: true,
+    },
+  });
+
+  return NextResponse.json({ appointment });
+}

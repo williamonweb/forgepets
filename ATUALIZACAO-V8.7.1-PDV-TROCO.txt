@@ -1,0 +1,10 @@
+FORGEPETS V8.7.1 — PDV COMPLETO
+
+- Nova interface de ponto de venda em duas colunas.
+- Formas de pagamento em botões rápidos.
+- Campo de valor recebido para pagamentos em dinheiro.
+- Cálculo automático de troco ou valor faltante.
+- Atalhos de R$ 20, R$ 50, R$ 100, R$ 200 e valor exato.
+- Valor recebido e troco salvos na venda e no caixa.
+- Troco exibido no cupom impresso.
+- Resumo de subtotal, cashback, descontos e total em tempo real.

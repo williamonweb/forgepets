@@ -509,17 +509,23 @@ function openSaleModal(){
  if(!db.data.servicos.length&&!db.data.estoque.length)return toast('Cadastre ao menos um produto ou serviço.');
  saleCart=[];
  const root=$('#modalRoot');
- root.innerHTML=`<div class="modal-overlay"><div class="modal sale-modal"><div class="modal-header"><strong>Nova venda</strong><button class="icon-btn" data-close>&times;</button></div><div class="modal-body">
- <div class="form-grid"><div class="field"><label>Cliente (opcional)</label><select id="saleClient"><option value="">Consumidor não identificado</option>${sortAlpha(db.data.clientes,'nome').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select></div><div class="field"><label>Forma de pagamento</label><select id="salePayment"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Outro</option></select></div></div>
- <div class="sale-picker"><div class="sale-item-fields"><div class="field"><label>Pesquisar produto ou serviço</label><div class="sale-search"><span>⌕</span><input id="saleSearch" type="search" placeholder="Digite o nome do produto ou serviço..." autocomplete="off"></div></div><div class="field"><label>Adicionar item</label><select id="saleItem"></select><small class="sale-search-result" id="saleSearchResult"></small></div></div><button class="btn primary" id="saleAdd">Adicionar</button></div>
- <div id="saleBenefits"></div><div id="saleCart"></div></div><div class="modal-footer sale-footer"><button class="btn ghost" data-close>Cancelar</button><button class="btn" id="saleFinish">Finalizar venda</button><button class="btn primary" id="saleFinishPrint">Finalizar e imprimir</button></div></div></div>`;
+ root.innerHTML=`<div class="modal-overlay"><div class="modal sale-modal pdv-modal"><div class="modal-header pdv-header"><div><small>CAIXA · PONTO DE VENDA</small><strong>Nova venda</strong></div><div class="pdv-sale-number">Venda #${String((db.data.vendas?.length||0)+1).padStart(6,'0')}</div><button class="icon-btn" data-close>&times;</button></div><div class="modal-body pdv-body">
+ <div class="pdv-grid"><section class="pdv-main"><div class="pdv-customer-bar"><div class="field"><label>Tutor / cliente</label><select id="saleClient"><option value="">Consumidor não identificado</option>${sortAlpha(db.data.clientes,'nome').map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="pdv-clock"><small>Data e hora</small><strong>${new Date().toLocaleDateString('pt-BR')} · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</strong></div></div>
+ <div class="pdv-product-search"><div class="field"><label>Pesquisar produto ou serviço</label><div class="sale-search"><span>⌕</span><input id="saleSearch" type="search" placeholder="Digite o nome ou código..." autocomplete="off"></div></div><div class="field"><label>Item encontrado</label><select id="saleItem"></select><small class="sale-search-result" id="saleSearchResult"></small></div><button class="btn primary pdv-add" id="saleAdd">＋ Adicionar</button></div>
+ <div id="saleBenefits"></div><div id="saleCart"></div></section>
+ <aside class="pdv-summary"><div class="pdv-summary-title"><span>Resumo da venda</span><small>Atualizado em tempo real</small></div><div id="saleTotals"></div><div class="pdv-payment"><label>Forma de pagamento</label><div class="pdv-payment-options" id="salePaymentOptions">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito','Outro'].map((x,i)=>`<button type="button" class="pdv-payment-btn ${i===0?'active':''}" data-payment="${x}">${x==='PIX'?'▣':x==='Dinheiro'?'R$':x.includes('débito')?'D':x.includes('crédito')?'C':'••'}<span>${x}</span></button>`).join('')}</div><input type="hidden" id="salePayment" value="PIX"><div id="saleCashPanel"></div></div><div class="pdv-safe-note">🔒 Confira os valores antes de finalizar a venda.</div></aside></div></div>
+ <div class="modal-footer sale-footer pdv-footer"><button class="btn ghost" data-close>Cancelar</button><div><button class="btn" id="saleFinish">Finalizar venda</button><button class="btn primary" id="saleFinishPrint">Finalizar e imprimir</button></div></div></div></div>`;
  root.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>root.innerHTML='');
- renderSaleItemOptions();$('#saleSearch').oninput=renderSaleItemOptions;$('#saleSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addSelectedSaleItem();}};$('#saleAdd').onclick=addSelectedSaleItem;$('#saleClient').onchange=renderSaleBenefits;renderSaleBenefits();
+ renderSaleItemOptions();
+ $('#saleSearch').oninput=renderSaleItemOptions;
+ $('#saleSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addSelectedSaleItem();}};
+ $('#saleAdd').onclick=addSelectedSaleItem;
+ $('#saleClient').onchange=()=>{renderSaleBenefits();renderSaleSummary();};
+ root.querySelectorAll('[data-payment]').forEach(btn=>btn.onclick=()=>selectSalePayment(btn.dataset.payment));
  $('#saleFinish').onclick=()=>finishSale(false);
  $('#saleFinishPrint').onclick=()=>finishSale(true);
- renderSaleCart();
+ renderSaleBenefits();renderSaleCart();selectSalePayment('PIX');
 }
-
 function renderSaleItemOptions(){
  const select=$('#saleItem'),result=$('#saleSearchResult');if(!select)return;
  const query=normalize($('#saleSearch')?.value||'');
@@ -532,7 +538,7 @@ function renderSaleItemOptions(){
  select.disabled=!groups.length;
  if(result)result.textContent=`${servicos.length} serviço(s) e ${produtos.length} produto(s) encontrado(s)`;
 }
-function renderSaleBenefits(){const el=$('#saleBenefits');if(!el)return;const c=db.data.clientes.find(x=>x.id===$('#saleClient')?.value);if(!c){el.innerHTML='';return;}const coupons=hasFeature('cupons')?validClientCoupons(c.id):[];el.innerHTML=`<div class="sale-benefits"><div><small>Cashback disponível</small><strong>${money(c.cashback||0)}</strong></div>${hasFeature('vip')?`<div><small>Nível VIP</small><strong>${vipLevel(c)} · ${vipDiscount(c)}%</strong></div>`:''}<div class="field"><label>Usar cashback</label><input id="saleCashback" type="text" data-mask="money" inputmode="numeric" value="R$ 0,00"></div>${coupons.length?`<div class="field"><label>Cupom</label><select id="saleCoupon"><option value="">Nenhum</option>${coupons.map(x=>`<option value="${x.id}">${x.codigo} · ${x.tipo==='percentual'?x.valor+'%':money(x.valor)}</option>`).join('')}</select></div>`:''}</div>`;applyInputMasks(el);}
+function renderSaleBenefits(){const el=$('#saleBenefits');if(!el)return;const c=db.data.clientes.find(x=>x.id===$('#saleClient')?.value);if(!c){el.innerHTML='';renderSaleSummary();return;}const coupons=hasFeature('cupons')?validClientCoupons(c.id):[];el.innerHTML=`<div class="sale-benefits pdv-benefits"><div><small>Cashback disponível</small><strong>${money(c.cashback||0)}</strong></div>${hasFeature('vip')?`<div><small>Nível VIP</small><strong>${vipLevel(c)} · ${vipDiscount(c)}%</strong></div>`:''}<div class="field"><label>Usar cashback</label><input id="saleCashback" type="text" data-mask="money" inputmode="numeric" value="R$ 0,00"></div>${coupons.length?`<div class="field"><label>Cupom</label><select id="saleCoupon"><option value="">Nenhum</option>${coupons.map(x=>`<option value="${x.id}">${x.codigo} · ${x.tipo==='percentual'?x.valor+'%':money(x.valor)}</option>`).join('')}</select></div>`:''}</div>`;applyInputMasks(el);$('#saleCashback')?.addEventListener('input',renderSaleSummary);$('#saleCoupon')?.addEventListener('change',renderSaleSummary);renderSaleSummary();}
 function addSelectedSaleItem(){
  const [tipo,id]=($('#saleItem').value||'').split(':');if(!id)return;
  const src=tipo==='servico'?db.data.servicos.find(x=>x.id===id):db.data.estoque.find(x=>x.id===id);if(!src)return;
@@ -543,24 +549,76 @@ function addSelectedSaleItem(){
 }
 function renderSaleCart(){
  const el=$('#saleCart');if(!el)return;
- const total=saleCart.reduce((s,x)=>s+x.preco*x.qtd,0);
- el.innerHTML=`<div class="sale-cart-head"><strong>Itens da venda</strong><span>${saleCart.length} item(ns)</span></div>${saleCart.length?`<div class="sale-items">${saleCart.map((x,i)=>`<div class="sale-row"><div><strong>${x.nome}</strong><small>${x.tipo==='produto'?'Produto':'Serviço'} · ${money(x.preco)} cada</small></div><div class="qty-control"><button data-sale-minus="${i}">−</button><span>${x.qtd}</span><button data-sale-plus="${i}">+</button></div><strong>${money(x.preco*x.qtd)}</strong><button class="sale-remove" data-sale-remove="${i}">×</button></div>`).join('')}</div>`:'<div class="empty">Adicione produtos ou serviços à venda.</div>'}<div class="sale-total"><span>Total da venda</span><strong>${money(total)}</strong></div>`;
+ el.innerHTML=`<div class="sale-cart-head"><div><strong>Itens da venda</strong><small>${saleCart.reduce((s,x)=>s+x.qtd,0)} unidade(s)</small></div><span>${saleCart.length} item(ns)</span></div>${saleCart.length?`<div class="sale-items pdv-items">${saleCart.map((x,i)=>`<div class="sale-row pdv-sale-row"><div class="pdv-item-icon">${x.tipo==='produto'?'▥':'✂'}</div><div class="pdv-item-copy"><strong>${escapeHtml(x.nome)}</strong><small>${x.tipo==='produto'?'Produto':'Serviço'} · ${money(x.preco)} por unidade</small></div><div class="qty-control"><button data-sale-minus="${i}">−</button><span>${x.qtd}</span><button data-sale-plus="${i}">+</button></div><strong class="pdv-line-total">${money(x.preco*x.qtd)}</strong><button class="sale-remove" data-sale-remove="${i}" title="Remover">×</button></div>`).join('')}</div>`:'<div class="empty pdv-empty"><b>Nenhum item adicionado</b><span>Pesquise um produto ou serviço acima para começar.</span></div>'}`;
  el.querySelectorAll('[data-sale-minus]').forEach(b=>b.onclick=()=>changeSaleQty(Number(b.dataset.saleMinus),-1));
  el.querySelectorAll('[data-sale-plus]').forEach(b=>b.onclick=()=>changeSaleQty(Number(b.dataset.salePlus),1));
  el.querySelectorAll('[data-sale-remove]').forEach(b=>b.onclick=()=>{saleCart.splice(Number(b.dataset.saleRemove),1);renderSaleCart();});
+ renderSaleSummary();
+}
+function getSaleTotals(){
+ const bruto=saleCart.reduce((s,x)=>s+x.preco*x.qtd,0);
+ const cliente=db.data.clientes.find(c=>c.id===$('#saleClient')?.value);
+ const cashUse=Math.min(parseLocaleNumber($('#saleCashback')?.value),Number(cliente?.cashback||0),bruto);
+ const coupon=db.data.cupons.find(c=>c.id===$('#saleCoupon')?.value);
+ let discount=0;
+ if(coupon)discount=coupon.tipo==='percentual'?bruto*Number(coupon.valor)/100:Number(coupon.valor);
+ discount=Math.min(discount,Math.max(0,bruto-cashUse));
+ const vip=cliente&&hasFeature('vip')?bruto*vipDiscount(cliente)/100:0;
+ discount=Math.min(Math.max(0,bruto-cashUse),Math.max(discount,vip));
+ return {bruto,cliente,cashUse,coupon,discount,total:Math.max(0,bruto-cashUse-discount)};
+}
+function selectSalePayment(payment){
+ const field=$('#salePayment');if(field)field.value=payment;
+ document.querySelectorAll('#salePaymentOptions [data-payment]').forEach(btn=>btn.classList.toggle('active',btn.dataset.payment===payment));
+ renderSaleCashPanel();
+}
+function renderSaleCashPanel(){
+ const panel=$('#saleCashPanel');if(!panel)return;
+ const payment=$('#salePayment')?.value||'PIX',total=getSaleTotals().total;
+ if(payment!=='Dinheiro'){panel.innerHTML=`<div class="pdv-payment-status"><span>Pagamento selecionado</span><strong>${escapeHtml(payment)}</strong></div>`;return;}
+ const current=parseLocaleNumber($('#saleReceived')?.value);
+ panel.innerHTML=`<div class="pdv-cash-box"><div class="field"><label>Valor entregue pelo cliente</label><input id="saleReceived" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00" value="${current?money(current):''}"></div><div class="pdv-quick-cash">${[20,50,100,200].map(v=>`<button type="button" data-cash-value="${v}">${money(v)}</button>`).join('')}<button type="button" data-cash-exact>Valor exato</button></div><div id="saleChangeResult"></div></div>`;
+ applyInputMasks(panel);$('#saleReceived').addEventListener('input',renderSaleChange);
+ panel.querySelectorAll('[data-cash-value]').forEach(b=>b.onclick=()=>{$('#saleReceived').value=money(Number(b.dataset.cashValue));renderSaleChange();});
+ panel.querySelector('[data-cash-exact]').onclick=()=>{$('#saleReceived').value=money(total);renderSaleChange();};
+ renderSaleChange();
+}
+function renderSaleChange(){
+ const box=$('#saleChangeResult');if(!box)return;
+ const total=getSaleTotals().total,received=parseLocaleNumber($('#saleReceived')?.value),difference=received-total;
+ if(!received){box.innerHTML=`<div class="pdv-change neutral"><span>Total a receber</span><strong>${money(total)}</strong></div>`;return;}
+ if(difference<0)box.innerHTML=`<div class="pdv-change pending"><span>Valor que ainda falta</span><strong>${money(Math.abs(difference))}</strong></div>`;
+ else box.innerHTML=`<div class="pdv-change success"><span>Troco para o cliente</span><strong>${money(difference)}</strong></div>`;
+}
+function renderSaleSummary(){
+ const el=$('#saleTotals');if(!el)return;
+ const {bruto,cashUse,discount,total}=getSaleTotals();
+ el.innerHTML=`<div class="pdv-totals"><div><span>Subtotal</span><strong>${money(bruto)}</strong></div>${cashUse>0?`<div class="discount"><span>Cashback</span><strong>− ${money(cashUse)}</strong></div>`:''}${discount>0?`<div class="discount"><span>Descontos</span><strong>− ${money(discount)}</strong></div>`:''}<div class="pdv-grand-total"><span>TOTAL</span><strong>${money(total)}</strong></div></div>`;
+ if($('#salePayment')?.value==='Dinheiro')renderSaleCashPanel();
 }
 function changeSaleQty(i,delta){const item=saleCart[i];if(!item)return;const src=item.tipo==='produto'?db.data.estoque.find(x=>x.id===item.id):null;const next=item.qtd+delta;if(next<1){saleCart.splice(i,1);return renderSaleCart();}if(src&&next>Number(src.qtd))return toast('Quantidade maior que o estoque disponível.');item.qtd=next;renderSaleCart();}
 function finishSale(printAfter){
- if(!saleCart.length)return toast('Adicione ao menos um item.');for(const item of saleCart){if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(!p||Number(p.qtd)<item.qtd)return toast(`Estoque insuficiente para ${item.nome}.`);}}
- const bruto=saleCart.reduce((s,x)=>s+x.preco*x.qtd,0),clienteId=$('#saleClient').value,cliente=db.data.clientes.find(c=>c.id===clienteId),forma=$('#salePayment').value;let cashUse=Math.min(Number($('#saleCashback')?.value||0),Number(cliente?.cashback||0),bruto),coupon=db.data.cupons.find(c=>c.id===$('#saleCoupon')?.value),discount=0;if(coupon)discount=coupon.tipo==='percentual'?bruto*Number(coupon.valor)/100:Number(coupon.valor);discount=Math.min(discount,bruto-cashUse);const vip=cliente&&hasFeature('vip')?bruto*vipDiscount(cliente)/100:0;discount=Math.min(bruto-cashUse,Math.max(discount,vip));const total=Math.max(0,bruto-cashUse-discount);
- const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:today(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,cupomId:coupon?.id||'',itens:saleCart.map(x=>({...x}))};
- venda.itens.forEach(item=>{if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);p.qtd=Number(p.qtd)-item.qtd;}});db.data.vendas.push(venda);db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto,forma,vendaId:venda.id});
+ if(!saleCart.length)return toast('Adicione ao menos um item.');
+ for(const item of saleCart){if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(!p||Number(p.qtd)<item.qtd)return toast(`Estoque insuficiente para ${item.nome}.`);}}
+ const {bruto,cliente,cashUse,coupon,discount,total}=getSaleTotals(),clienteId=$('#saleClient').value,forma=$('#salePayment').value;
+ let valorRecebido=null,troco=0;
+ if(forma==='Dinheiro'){
+  valorRecebido=parseLocaleNumber($('#saleReceived')?.value);
+  if(valorRecebido<total)return setModalError(`O valor recebido é insuficiente. Ainda faltam ${money(total-valorRecebido)}.`);
+  troco=Math.max(0,valorRecebido-total);
+ }
+ clearModalError();
+ const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:today(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,cupomId:coupon?.id||'',valorRecebido,troco,itens:saleCart.map(x=>({...x}))};
+ venda.itens.forEach(item=>{if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);p.qtd=Number(p.qtd)-item.qtd;}});
+ db.data.vendas.push(venda);db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto,forma,valorRecebido,troco,vendaId:venda.id});
  if(cliente){if(cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}if(coupon){coupon.status='usado';coupon.usedAt=new Date().toISOString();addLoyaltyHistory(cliente.id,'cupom_usado',`Cupom ${coupon.codigo} utilizado`,-discount,{cupomId:coupon.id,vendaId:venda.id});}if(hasFeature('fidelidade')){const pts=Math.floor(total*Number(db.data.config.pontosPorReal||1));cliente.pontos=Number(cliente.pontos||0)+pts;addLoyaltyHistory(cliente.id,'pontos_ganhos','Pontos da venda',pts,{vendaId:venda.id});if(hasFeature('cashback')){const cb=total*Number(db.data.config.percentualCashback||0)/100;cliente.cashback=Number(cliente.cashback||0)+cb;addLoyaltyHistory(cliente.id,'cashback_gerado','Cashback da venda',cb,{vendaId:venda.id});}}}
- runPremiumAutomations();localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));$('#modalRoot').innerHTML='';render();toast(`Venda finalizada: ${money(total)}.`);if(printAfter)printReceipt(venda);
+ runPremiumAutomations();localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));$('#modalRoot').innerHTML='';render();
+ toast(forma==='Dinheiro'?`Venda finalizada. Troco: ${money(troco)}.`:`Venda finalizada: ${money(total)}.`);
+ if(printAfter)printReceipt(venda);
 }
 function printReceipt(venda){
  const cliente=db.data.clientes.find(c=>c.id===venda.clienteId);const empresa=db.data.config.empresa||'Meu Pet Shop';
- const receiptWidth=String(db.data.config.impressora||'80'),bodyWidth=receiptWidth==='58'?'52':'72'; const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cupom ${venda.numero}</title><style>@page{size:${receiptWidth}mm auto;margin:3mm}*{box-sizing:border-box}body{width:${bodyWidth}mm;margin:0 auto;font-family:Arial,sans-serif;font-size:12px;color:#000}.center{text-align:center}.line{border-top:1px dashed #000;margin:8px 0}.item{display:grid;grid-template-columns:1fr auto;gap:6px;margin:5px 0}.muted{font-size:10px}h2{font-size:16px;margin:0 0 4px}strong.total{font-size:16px} </style></head><body><div class="center"><h2>${empresa}</h2><div>${db.data.config.telefone||''}</div><div>${db.data.config.cidade||''}</div><div class="line"></div><strong>CUPOM NÃO FISCAL</strong><div class="muted">Venda #${venda.numero} · ${formatDateBR(venda.data)} ${venda.hora}</div></div><div class="line"></div>${cliente?`<div>Cliente: ${cliente.nome}</div><div class="line"></div>`:''}${venda.itens.map(x=>`<div class="item"><div>${x.qtd}x ${x.nome}<div class="muted">${money(x.preco)} cada</div></div><strong>${money(x.preco*x.qtd)}</strong></div>`).join('')}<div class="line"></div><div class="item"><strong class="total">TOTAL</strong><strong class="total">${money(venda.total)}</strong></div><div>Pagamento: ${venda.forma}</div><div class="line"></div><div class="center">${escapeHtml(db.data.config.rodapeCupom||'Obrigado pela preferência!')}<br><span class="muted">Documento sem valor fiscal</span></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),600)}<\/script></body></html>`;
+ const receiptWidth=String(db.data.config.impressora||'80'),bodyWidth=receiptWidth==='58'?'52':'72'; const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cupom ${venda.numero}</title><style>@page{size:${receiptWidth}mm auto;margin:3mm}*{box-sizing:border-box}body{width:${bodyWidth}mm;margin:0 auto;font-family:Arial,sans-serif;font-size:12px;color:#000}.center{text-align:center}.line{border-top:1px dashed #000;margin:8px 0}.item{display:grid;grid-template-columns:1fr auto;gap:6px;margin:5px 0}.muted{font-size:10px}h2{font-size:16px;margin:0 0 4px}strong.total{font-size:16px} </style></head><body><div class="center"><h2>${empresa}</h2><div>${db.data.config.telefone||''}</div><div>${db.data.config.cidade||''}</div><div class="line"></div><strong>CUPOM NÃO FISCAL</strong><div class="muted">Venda #${venda.numero} · ${formatDateBR(venda.data)} ${venda.hora}</div></div><div class="line"></div>${cliente?`<div>Cliente: ${cliente.nome}</div><div class="line"></div>`:''}${venda.itens.map(x=>`<div class="item"><div>${x.qtd}x ${x.nome}<div class="muted">${money(x.preco)} cada</div></div><strong>${money(x.preco*x.qtd)}</strong></div>`).join('')}<div class="line"></div><div class="item"><strong class="total">TOTAL</strong><strong class="total">${money(venda.total)}</strong></div><div>Pagamento: ${venda.forma}</div>${venda.forma==='Dinheiro'?`<div>Recebido: ${money(venda.valorRecebido||0)}</div><div>Troco: ${money(venda.troco||0)}</div>`:''}<div class="line"></div><div class="center">${escapeHtml(db.data.config.rodapeCupom||'Obrigado pela preferência!')}<br><span class="muted">Documento sem valor fiscal</span></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),600)}<\/script></body></html>`;
  const w=window.open('','_blank','width=420,height=700');if(!w)return toast('Permita pop-ups para imprimir o cupom.');w.document.open();w.document.write(html);w.document.close();
 }
 
