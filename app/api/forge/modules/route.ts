@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 const CATALOG = {
-  FISCAL: { name: 'Módulo Fiscal', description: 'Emissão de NFS-e, NF-e e NFC-e por integração fiscal.', price: 49 },
+  FISCAL: { name: 'Módulo Fiscal', description: 'Emissão de NFS-e de serviços por integração municipal ou padrão nacional.', price: 49 },
   WHATSAPP: { name: 'WhatsApp Oficial', description: 'Mensagens e confirmações pela API oficial.', price: 39 },
   LOYALTY: { name: 'Fidelidade Avançada', description: 'Pontos, cashback, cupons e campanhas.', price: 29 },
   ONLINE_BOOKING: { name: 'Agendamento Online', description: 'Página pública de agendamento.', price: 39 },
