@@ -101,7 +101,17 @@ const db={
  save(){localStorage.setItem('vetcoreShopPro',JSON.stringify(this.data));render();},
  reset(){localStorage.removeItem('vetcoreShopPro');location.reload();}
 };
-let page='dashboard';
+const ROUTE_ALIASES={dashboard:'dashboard',clientes:'clientes',tutores:'clientes',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos','serviços':'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios','relatórios':'relatorios',fidelidade:'fidelidade',config:'config',configuracoes:'config','configurações':'config'};
+const ROUTE_PATHS={dashboard:'dashboard',clientes:'tutores',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios',fidelidade:'fidelidade',config:'configuracoes'};
+function pageFromLocation(){
+ const query=new URLSearchParams(location.search).get('modulo');
+ const match=location.pathname.match(/^\/app\/([^/?#]+)/i);
+ const hash=location.hash.replace(/^#\/?/,'');
+ const raw=decodeURIComponent(match?.[1]||query||hash||'dashboard').toLowerCase();
+ return ROUTE_ALIASES[raw]||'dashboard';
+}
+function routeForPage(target){return `/app/${ROUTE_PATHS[target]||'dashboard'}`;}
+let page=pageFromLocation();
 let clientSearch='',petSearch='';
 let saleCart=[];
 let reportStart=daysAgo(29),reportEnd=today();
@@ -145,7 +155,7 @@ function openLoginPlansModal(){
 
 function showApplication(){
  $('#loginScreen').style.display='none';$('#app').classList.remove('app-hidden');
- if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();renderNav();bindGlobal();render();initSystemFooter();window.forgePetsStarted=true;cloud.sync();}
+ if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();go(page,{replace:true});bindGlobal();initSystemFooter();window.forgePetsStarted=true;cloud.sync();}
  enforceSubscriptionAccess();
 }
 
@@ -190,7 +200,7 @@ function logout(){
   .finally(()=>{window.top.location.href='/login';});
 }
 
-function go(target){page=target;renderNav();render();window.scrollTo({top:0,behavior:'smooth'});}function renderNav(){const visible=NAV.filter(([id])=>id!=='fidelidade'||hasFeature('fidelidade'));if(page==='fidelidade'&&!hasFeature('fidelidade'))page='dashboard';$('#nav').innerHTML=visible.map(([id,icon,label])=>`<button class="nav-btn ${page===id?'active':''}" data-page="${id}"><i>${icon}</i><span>${label}</span></button>`).join('');document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));updatePlanUI();}
+function go(target,{replace=false,fromHistory=false}={}){const next=ROUTE_ALIASES[String(target||'').toLowerCase()]||'dashboard';page=next;if(!fromHistory){const path=routeForPage(next);if(location.pathname!==path){history[replace?'replaceState':'pushState']({forgePetsPage:next},'',path);}}renderNav();render();window.scrollTo({top:0,behavior:'smooth'});}window.addEventListener('popstate',()=>go(pageFromLocation(),{fromHistory:true}));function renderNav(){const visible=NAV.filter(([id])=>id!=='fidelidade'||hasFeature('fidelidade'));if(page==='fidelidade'&&!hasFeature('fidelidade'))page='dashboard';$('#nav').innerHTML=visible.map(([id,icon,label])=>`<button class="nav-btn ${page===id?'active':''}" data-page="${id}"><i>${icon}</i><span>${label}</span></button>`).join('');document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));updatePlanUI();}
 function updatePlanUI(){const sub=activeSubscription();const plan=activePlan();const license=document.querySelector('.footer-status span:nth-child(2) strong');if(license)license.textContent=plan;const product=document.querySelector('.footer-product small');if(product)product.textContent=`${sub.companyName||'Pet shop'} · Plano ${plan}`;}
 function bindGlobal(){document.body.addEventListener('click',e=>{const a=e.target.closest('[data-action]');if(!a)return;e.preventDefault();actions[a.dataset.action]?.(a);});$('#backupInput').addEventListener('change',importBackup);$('#globalSearch').addEventListener('input',e=>searchAll(e.target.value));$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';render();}});}
 function render(){applyBranding();if(page==='fidelidade'&&!hasFeature('fidelidade')){page='dashboard';toast('O módulo Fidelidade está disponível nos planos Profissional e Premium.');renderNav();}const meta={dashboard:['Dashboard','Visão geral do pet shop'],clientes:['Clientes','Cadastro completo e histórico'],pets:['Pets','Cadastro e cuidados dos animais'],agenda:['Agenda','Organize os agendamentos'],atendimentos:['Atendimentos','Acompanhe o fluxo do dia'],servicos:['Serviços','Tabela de serviços e preços'],caixa:['Caixa','Entradas, saídas e fechamento'],estoque:['Estoque','Controle de produtos'],financeiro:['Financeiro','Resumo e análise financeira'],boletos:['Controle de boletos','Vencimentos e pagamentos das empresas'],relatorios:['Relatórios','Indicadores do negócio'],fidelidade:['Fidelidade','Pontos e recompensas dos clientes'],config:['Configurações','Dados gerais do sistema']}[page]||['ForgePets',''];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];$('#content').innerHTML=(views[page]||views.dashboard)();if(page==='config')bindSettingsUI();applyInputMasks($('#content'));updateNotificationBadge();}
