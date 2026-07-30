@@ -66,6 +66,46 @@ enum TicketStatus {
   RESOLVED
 }
 
+enum ModuleCode {
+  FISCAL
+  WHATSAPP
+  LOYALTY
+  ONLINE_BOOKING
+  AI
+  TUTOR_APP
+}
+
+model CompanyModule {
+  id        String     @id @default(cuid())
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  module    ModuleCode
+  enabled   Boolean    @default(false)
+  price     Decimal?   @db.Decimal(10, 2)
+  activatedAt DateTime?
+  expiresAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  @@unique([companyId, module])
+  @@index([companyId, enabled])
+}
+
+model ContractAcceptance {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contractVersion String
+  contractHash    String
+  ipAddress       String?
+  userAgent       String?
+  acceptedAt      DateTime @default(now())
+  metadata        Json?
+  @@index([companyId, acceptedAt])
+  @@index([contractVersion])
+}
+
 model Company {
   id                 String             @id @default(cuid())
   name               String
@@ -101,6 +141,8 @@ model Company {
   tickets             ConnectTicket[]
   auditLogs           AuditLog[]
   asaasWebhookEvents  AsaasWebhookEvent[]
+  modules             CompanyModule[]
+  contractAcceptances ContractAcceptance[]
 }
 
 model User {
@@ -117,6 +159,7 @@ model User {
   messages     ConnectMessage[]
   auditLogs    AuditLog[]
   passwordResetTokens PasswordResetToken[]
+  contractAcceptances ContractAcceptance[]
   @@index([companyId])
 }
 

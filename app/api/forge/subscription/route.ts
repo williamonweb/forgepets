@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubscriptionStatus } from '@prisma/client';
+import { createHash } from 'crypto';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { asaasRequest, AsaasBillingType, normalizeDocument } from '@/lib/asaas/client';
 import { PLAN_CONFIG, PublicPlanName, publicPlanName } from '@/lib/asaas/plans';
 
 export const runtime = 'nodejs';
+
+const CONTRACT_VERSION = 'FORGEPETS-SAAS-2026-07-V1';
+const CONTRACT_TEXT = `CONTRATO DE LICENÇA DE USO E PRESTAÇÃO DE SERVIÇOS — FORGE PETS
+Versão: Julho de 2026 · V1
+1. Objeto: regula o acesso à plataforma Forge Pets, disponibilizada como software por assinatura para gestão de pet shops e estabelecimentos do segmento animal.
+2. Licença de uso: limitada, não exclusiva, intransferível e válida enquanto a assinatura estiver ativa e os pagamentos regulares.
+3. Planos e módulos opcionais: os recursos dependem do plano contratado; módulos opcionais, como o Módulo Fiscal, podem possuir contratação, configuração e cobrança separadas.
+4. Cobrança recorrente: o contratante autoriza a cobrança pelo meio selecionado, conforme valor e periodicidade apresentados.
+5. Responsabilidades: o contratante responde pela veracidade dos dados, credenciais, uso adequado e informações fiscais, contábeis e operacionais inseridas.
+6. Disponibilidade e suporte: poderão ocorrer manutenções, atualizações e correções necessárias à segurança e ao funcionamento.
+7. Dados e privacidade: os dados serão tratados para prestação do serviço, segurança, suporte, cobrança e obrigações aplicáveis; o contratante deve possuir base legal para os dados inseridos.
+8. Cancelamento: impede cobranças futuras após o processamento aplicável, sem prejuízo de valores vencidos; a exportação deverá ocorrer dentro do prazo disponibilizado.
+9. Aceite eletrônico: registra usuário, empresa, versão, data, horário, IP e informações técnicas da sessão.
+10. Disposições finais: o instrumento deve ser complementado pelos dados das partes e revisado juridicamente antes da comercialização definitiva.`
+const CONTRACT_HASH = createHash('sha256').update(CONTRACT_TEXT).digest('hex');
 
 type CustomerResponse = { id: string };
 type SubscriptionResponse = { id: string; status?: string; nextDueDate?: string };
@@ -156,6 +172,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const requestedPlan = String(body?.plan || '') as PublicPlanName;
     const selected = PLAN_CONFIG[requestedPlan];
+    if (body?.contractAccepted !== true || body?.contractVersion !== CONTRACT_VERSION) {
+      return NextResponse.json({ message: 'Leia e aceite o contrato para continuar.' }, { status: 400 });
+    }
     if (!selected) return NextResponse.json({ message: 'Plano inválido.' }, { status: 400 });
 
     const company = await prisma.company.findUnique({ where: { id: session.companyId } });
@@ -271,6 +290,17 @@ export async function POST(request: NextRequest) {
           lockedUntil: isUpgrade ? lockedUntil : null
         }
       }),
+      prisma.contractAcceptance.create({
+        data: {
+          companyId: company.id,
+          userId: session.userId || null,
+          contractVersion: CONTRACT_VERSION,
+          contractHash: CONTRACT_HASH,
+          ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || null,
+          userAgent: request.headers.get('user-agent') || null,
+          metadata: { plan: requestedPlan, method: type, amount: selected.value }
+        }
+      }),
       prisma.auditLog.create({
         data: {
           companyId: company.id,
@@ -304,6 +334,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       subscriptionId: subscription.id,
+      contractVersion: CONTRACT_VERSION,
       paymentId: payment?.id || null,
       plan: requestedPlan,
       status: 'pending',
