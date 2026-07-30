@@ -274,7 +274,63 @@ const views={
  clientes(){const rows=sortAlpha(db.data.clientes,'nome').filter(c=>[c.nome,c.telefone,c.cpf,c.email].some(v=>normalize(v).includes(normalize(clientSearch))));return `<div class="card"><div class="section-title"><h2>Clientes</h2><button class="btn primary" data-action="new-client">Novo cliente</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(clientSearch)}" placeholder="Buscar cliente por nome, telefone, CPF ou e-mail..." oninput="setClientSearch(this.value)"></div><div class="result-count">${rows.length} cliente(s) encontrado(s) · ordem alfabética</div><div class="table-wrap">${rows.length?`<table class="table"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Pets</th><th>Cashback</th><th></th></tr></thead><tbody>${rows.map(c=>`<tr class="clickable" data-action="view-client" data-id="${c.id}"><td><strong>${c.nome}</strong></td><td>${c.telefone||'-'}</td><td><div class="pet-chips">${sortAlpha(db.data.pets.filter(p=>p.clienteId===c.id),'nome').map(p=>`<button type="button" class="chip chip-button" data-action="view-pet" data-id="${p.id}">${p.nome}</button>`).join('')||'-'}</div></td><td><strong>${money(c.cashback||0)}</strong></td><td><button class="btn ghost" data-action="new-pet" data-id="${c.id}">Adicionar pet</button> <button class="btn danger" data-action="delete-client" data-id="${c.id}">Excluir</button></td></tr>`).join('')}</tbody></table>`:`<div class="empty">${clientSearch?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</div>`}</div></div>`},
  agenda(){return `<div class="card"><div class="section-title"><h2>Agendamentos</h2><button class="btn primary" data-action="quick-appointment">Novo agendamento</button></div>${agendaList([...db.data.agenda].sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora)))}</div>`},
  servicos(){const rows=sortAlpha(db.data.servicos,'nome');return `<div class="card"><div class="section-title"><h2>Serviços</h2><button class="btn primary" data-action="new-service">Novo serviço</button></div>${rows.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Serviço</th><th>Valor</th><th>Duração</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.nome)}</td><td><strong>${money(x.valor)}</strong></td><td>${Number(x.duracao||60)} min</td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" data-action="edit-service" data-id="${x.id}">Editar</button><button class="btn danger" data-action="delete-row" data-type="service" data-id="${x.id}">Excluir</button></div></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum serviço cadastrado.</div>'}</div>`},
- caixa(){const abertas=db.data.pendencias.filter(x=>x.status==='aberto');return `<div class="grid stats caixa-stats"><div class="card stat"><div class="label">Saldo</div><div class="value">${money(balance())}</div></div><div class="card stat"><div class="label">Entradas</div><div class="value">${money(sumType('entrada'))}</div></div><div class="card stat"><div class="label">A receber</div><div class="value">${money(abertas.reduce((s,x)=>s+Number(x.valor||0),0))}</div><div class="trend">${abertas.length} atendimento(s) em aberto</div></div><div class="card stat"><div class="label">Saídas</div><div class="value">${money(sumType('saida'))}</div></div></div><div class="card" style="margin-top:16px"><div class="section-title"><div><h2>Atendimentos aguardando pagamento</h2><p>O atendimento foi finalizado, mas só entra no caixa após o recebimento.</p></div></div>${abertas.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Pet / tutor</th><th>Serviço</th><th>Data</th><th>Valor</th><th></th></tr></thead><tbody>${abertas.map(x=>`<tr><td><strong>${escapeHtml(x.pet||'Pet')}</strong><div style="color:var(--muted)">${escapeHtml(x.tutor||'Tutor')}</div></td><td>${escapeHtml(x.servico||'Serviço')}</td><td>${x.data}</td><td><strong>${money(x.valor)}</strong></td><td><button class="btn primary" data-action="receive-service" data-id="${x.id}">Receber</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum atendimento aguardando pagamento.</div>'}</div><div class="card" style="margin-top:16px"><div class="section-title"><h2>Movimentações pagas</h2><button class="btn primary" data-action="quick-movement">Nova movimentação</button></div>${tableSimple(db.data.caixa,['data','descricao','tipo','valor'],x=>[x.data,x.descricao,`<span class="badge ${x.tipo==='entrada'?'green':'red'}">${x.tipo}</span>`,money(x.valor)],'cash')}</div>`},
+
+ caixa(){
+  const abertas=db.data.pendencias.filter(x=>x.status==='aberto');
+  const totalReceber=abertas.reduce((s,x)=>s+Number(x.valor||0),0);
+  const vendasHoje=(db.data.vendas||[]).filter(v=>String(v.data||v.createdAt||'').slice(0,10)===today());
+  const totalHoje=vendasHoje.reduce((s,v)=>s+Number(v.total||v.valor||0),0);
+  const ultimas=[...(db.data.caixa||[])].reverse().slice(0,8);
+  return `<section class="cash-workspace">
+    <div class="cash-hero">
+      <div class="cash-hero-copy">
+        <span class="cash-kicker">PDV FORGEPETS</span>
+        <h2>Venda rápida, recebimento e troco em uma única tela.</h2>
+        <p>Adicione produtos e serviços, escolha a forma de pagamento e calcule automaticamente o troco quando o cliente pagar em dinheiro.</p>
+        <div class="cash-hero-actions">
+          <button class="btn cash-primary-action" data-action="new-entry">＋ Iniciar nova venda</button>
+          <button class="btn ghost" data-action="quick-movement" data-preset="entrada">Registrar entrada</button>
+          <button class="btn ghost" data-action="quick-movement" data-preset="saida">Registrar saída</button>
+        </div>
+      </div>
+      <div class="cash-preview">
+        <div class="cash-preview-top"><span>Prévia do recebimento</span><span class="badge green">Caixa aberto</span></div>
+        <div class="cash-preview-total"><small>TOTAL DA VENDA</small><strong>${money(totalHoje)}</strong><span>${vendasHoje.length} venda(s) hoje</span></div>
+        <div class="cash-payment-preview">
+          <button type="button">PIX</button><button type="button" class="active">Dinheiro</button><button type="button">Débito</button><button type="button">Crédito</button>
+        </div>
+        <div class="cash-change-preview"><div><small>Cliente pagou</small><strong>R$ 100,00</strong></div><div><small>Troco</small><strong>Calculado automaticamente</strong></div></div>
+      </div>
+    </div>
+
+    <div class="cash-metrics">
+      <article><span>Saldo atual</span><strong>${money(balance())}</strong><small>Entradas menos saídas</small></article>
+      <article><span>Entradas</span><strong>${money(sumType('entrada'))}</strong><small>Movimentações recebidas</small></article>
+      <article><span>A receber</span><strong>${money(totalReceber)}</strong><small>${abertas.length} atendimento(s) pendente(s)</small></article>
+      <article><span>Saídas</span><strong>${money(sumType('saida'))}</strong><small>Despesas registradas</small></article>
+    </div>
+
+    <div class="cash-columns">
+      <div class="cash-panel cash-pending-panel">
+        <div class="cash-panel-head"><div><span class="cash-kicker">RECEBIMENTOS</span><h3>Atendimentos aguardando pagamento</h3><p>Receba o atendimento e envie o valor diretamente para o caixa.</p></div><button class="btn primary" data-action="new-entry">＋ Nova venda</button></div>
+        ${abertas.length?`<div class="cash-pending-list">${abertas.map(x=>`<article class="cash-pending-item"><div class="cash-pet-avatar">🐾</div><div class="cash-pending-copy"><strong>${escapeHtml(x.pet||'Pet')}</strong><span>${escapeHtml(x.tutor||'Tutor')} · ${escapeHtml(x.servico||'Serviço')}</span><small>${x.data||''}</small></div><div class="cash-pending-value"><strong>${money(x.valor)}</strong><button class="btn primary" data-action="receive-service" data-id="${x.id}">Receber</button></div></article>`).join('')}</div>`:'<div class="cash-empty"><span>✓</span><strong>Nenhum pagamento pendente</strong><p>Os atendimentos finalizados aparecerão aqui.</p></div>'}
+      </div>
+
+      <aside class="cash-panel cash-quick-panel">
+        <div class="cash-panel-head"><div><span class="cash-kicker">ATALHOS</span><h3>Operações rápidas</h3></div></div>
+        <button data-action="new-entry"><span>🛒</span><div><strong>Nova venda no PDV</strong><small>Produtos, serviços e troco</small></div><b>›</b></button>
+        <button data-action="quick-movement" data-preset="entrada"><span>↘</span><div><strong>Nova entrada</strong><small>Recebimento avulso</small></div><b>›</b></button>
+        <button data-action="quick-movement" data-preset="saida"><span>↗</span><div><strong>Nova saída</strong><small>Despesa ou retirada</small></div><b>›</b></button>
+        <button data-action="go-financeiro"><span>▤</span><div><strong>Ver financeiro</strong><small>Relatórios e movimentações</small></div><b>›</b></button>
+      </aside>
+    </div>
+
+    <div class="cash-panel cash-history-panel">
+      <div class="cash-panel-head"><div><span class="cash-kicker">MOVIMENTAÇÕES</span><h3>Últimos lançamentos pagos</h3></div><button class="btn primary" data-action="quick-movement">Nova movimentação</button></div>
+      ${ultimas.length?tableSimple(ultimas,['data','descricao','tipo','valor'],x=>[x.data,x.descricao,`<span class="badge ${x.tipo==='entrada'?'green':'red'}">${x.tipo}</span>`,money(x.valor)],'cash'):'<div class="cash-empty"><span>R$</span><strong>Nenhuma movimentação registrada</strong><p>As vendas finalizadas e lançamentos aparecerão aqui.</p></div>'}
+    </div>
+  </section>`;
+ },
  estoque(){return `<div class="card"><div class="section-title"><h2>Produtos</h2><button class="btn primary" data-action="new-stock">Novo produto</button></div>${tableSimple(db.data.estoque,['Produto','EAN','Qtd.','Mínimo','Custo','Venda'],x=>[x.nome,x.ean||'-',x.qtd,x.min,money(x.custo),money(x.valorVenda??x.custo)],'stock')}</div>`},
  boletos(){const rows=[...db.data.boletos].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));const abertos=rows.filter(x=>x.status!=='pago'),total=abertos.reduce((s,x)=>s+Number(x.valor||0),0),amanha=daysFromNow(1);return `<div class="grid stats boleto-stats"><div class="card stat"><div class="label">Boletos em aberto</div><div class="value">${abertos.length}</div></div><div class="card stat"><div class="label">Total a vencer</div><div class="value">${money(total)}</div></div><div class="card stat"><div class="label">Vencem amanhã</div><div class="value">${abertos.filter(x=>x.vencimento===amanha).length}</div></div></div><div class="card" style="margin-top:16px"><div class="section-title"><div><h2>Controle de boletos</h2><p>Cadastre empresas, parcelas e vencimentos.</p></div><button class="btn primary" data-action="new-boleto-batch">Novo cadastro</button></div>${rows.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Empresa</th><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td><strong>${escapeHtml(x.empresa)}</strong></td><td>${x.parcela||1}/${x.quantidade||1}</td><td>${formatDateBR(x.vencimento)}</td><td><strong>${money(x.valor)}</strong></td><td><span class="badge ${x.status==='pago'?'green':x.vencimento<today()?'red':'yellow'}">${x.status==='pago'?'Pago':x.vencimento<today()?'Vencido':'Em aberto'}</span></td><td><button class="btn ghost" data-action="edit-boleto" data-id="${x.id}">Editar</button> ${x.status!=='pago'?`<button class="btn primary" data-action="pay-boleto" data-id="${x.id}">Marcar pago</button>`:''} <button class="btn danger" data-action="delete-boleto" data-id="${x.id}">Excluir</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum boleto cadastrado.</div>'}</div>`},
  relatorios(){return reportView()},
