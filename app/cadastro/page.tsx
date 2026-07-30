@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { maskPhone } from '@/lib/masks';
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function CadastroPage() {
           </div>
           <div className="field">
             <label>WhatsApp</label>
-            <input name="phone" placeholder="(51) 99999-9999" required inputMode="tel" />
+            <input name="phone" placeholder="(51) 99999-9999" required inputMode="tel" maxLength={15} onInput={(e) => { e.currentTarget.value = maskPhone(e.currentTarget.value); }} />
           </div>
           <div className="field">
             <label>Senha</label>
