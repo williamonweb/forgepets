@@ -126,8 +126,8 @@ const db={
  save(){localStorage.setItem('vetcoreShopPro',JSON.stringify(this.data));render();},
  reset(){localStorage.removeItem('vetcoreShopPro');location.reload();}
 };
-const ROUTE_ALIASES={dashboard:'dashboard',clientes:'clientes',tutores:'clientes',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos','serviços':'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios','relatórios':'relatorios',fidelidade:'fidelidade',marketplace:'marketplace',modulos:'marketplace','módulos':'marketplace',config:'config',configuracoes:'config','configurações':'config'};
-const ROUTE_PATHS={dashboard:'dashboard',clientes:'tutores',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios',fidelidade:'fidelidade',config:'configuracoes'};
+const ROUTE_ALIASES={dashboard:'dashboard',clientes:'clientes',tutores:'clientes',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos','serviços':'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios','relatórios':'relatorios',fidelidade:'fidelidade',fiscal:'fiscal',marketplace:'marketplace',modulos:'marketplace','módulos':'marketplace',config:'config',configuracoes:'config','configurações':'config'};
+const ROUTE_PATHS={dashboard:'dashboard',clientes:'tutores',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios',fidelidade:'fidelidade',fiscal:'fiscal',marketplace:'marketplace',config:'configuracoes'};
 function pageFromLocation(){
  const query=new URLSearchParams(location.search).get('modulo');
  const match=location.pathname.match(/^\/app\/([^/?#]+)/i);
