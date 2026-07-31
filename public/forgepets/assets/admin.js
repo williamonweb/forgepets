@@ -29,7 +29,7 @@ const views={
   const contracted=data.companies.filter(c=>c.fiscal?.contracted),enabled=contracted.filter(c=>c.fiscal?.enabled),ready=enabled.filter(c=>c.fiscal?.active),docs=data.companies.reduce((s,c)=>s+Number(c.fiscal?.documents||0),0);
   return `<div class="stats-grid" style="margin-top:0">${stat('🧾',contracted.length,'Módulos contratados','Empresas com o adicional')}${stat('✅',enabled.length,'Módulos ativos','Liberados para configuração')}${stat('🚀',ready.length,'Prontas para emissão','Configuração fiscal ativa')}${stat('📄',docs,'Documentos fiscais','Registros no banco')}</div>
   <div class="table-wrap" style="margin-top:16px"><div class="table-toolbar"><div><b>Gestão do Módulo Fiscal</b><div class="muted">Acompanhe contratação, configuração, ambiente e volume por empresa.</div></div><button class="secondary" data-action="refresh">Atualizar</button></div>
-  <div style="overflow:auto"><table class="data-table"><thead><tr><th>Empresa</th><th>Módulo</th><th>Configuração</th><th>Município</th><th>Integração</th><th>Ambiente</th><th>Documentos</th></tr></thead><tbody>${data.companies.map(c=>{const f=c.fiscal||{};return `<tr><td><b>${escapeHtml(c.name)}</b><div class="muted">${escapeHtml(c.doc||'Sem documento')}</div></td><td>${f.enabled?'<span class="badge active">Ativo</span>':f.contracted?'<span class="badge pending">Pendente</span>':'<span class="badge inactive">Não contratado</span>'}</td><td>${f.active?'<span class="badge active">Pronta</span>':f.configured?'<span class="badge pending">Em preparação</span>':'<span class="muted">Não iniciada</span>'}</td><td>${escapeHtml(f.city||'—')}${f.state?` / ${escapeHtml(f.state)}`:''}</td><td>${f.integrationType==='MUNICIPAL'?'Prefeitura':'Padrão Nacional'}</td><td>${f.environment==='PRODUCTION'?'<span class="badge active">Produção</span>':f.environment?'<span class="badge trial">Homologação</span>':'—'}</td><td><b>${Number(f.documents||0)}</b></td></tr>`}).join('')||'<tr><td colspan="7" class="empty">Nenhuma empresa cadastrada.</td></tr>'}</tbody></table></div></div>`;
+  <div style="overflow:auto"><table class="data-table"><thead><tr><th>Empresa</th><th>Módulo</th><th>Configuração</th><th>Município</th><th>Integração</th><th>Ambiente</th><th>Documentos</th><th>Controle</th></tr></thead><tbody>${data.companies.map(c=>{const f=c.fiscal||{};return `<tr><td><b>${escapeHtml(c.name)}</b><div class="muted">${escapeHtml(c.doc||'Sem documento')}</div></td><td>${f.enabled?'<span class="badge active">Ativo</span>':f.contracted?'<span class="badge pending">Pendente</span>':'<span class="badge inactive">Não contratado</span>'}</td><td>${f.active?'<span class="badge active">Pronta</span>':f.configured?'<span class="badge pending">Em preparação</span>':'<span class="muted">Não iniciada</span>'}</td><td>${escapeHtml(f.city||'—')}${f.state?` / ${escapeHtml(f.state)}`:''}</td><td>${f.integrationType==='MUNICIPAL'?'Prefeitura':'Padrão Nacional'}</td><td>${f.environment==='PRODUCTION'?'<span class="badge active">Produção</span>':f.environment?'<span class="badge trial">Homologação</span>':'—'}</td><td><b>${Number(f.documents||0)}</b></td><td><button class="secondary" data-action="toggle-company-module" data-company-id="${escapeAttr(c.id)}" data-company-name="${escapeAttr(c.name)}" data-module-enabled="${f.enabled?'true':'false'}">${f.enabled?'Bloquear módulo':'Liberar módulo'}</button></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">Nenhuma empresa cadastrada.</td></tr>'}</tbody></table></div></div>`;
  },
  suporte(){return `<div class="hero"><div><h2>Forge Connect</h2><p>Centralize chamados das empresas e acompanhe o que precisa de resposta da equipe.</p></div><div class="hero-actions"><button class="primary" data-action="new-ticket">＋ Novo chamado</button></div></div><div class="stats-grid">${stat('🎧',data.tickets.filter(t=>t.status!=='resolved').length,'Chamados abertos','Aguardando atendimento')}${stat('✅',data.tickets.filter(t=>t.status==='resolved').length,'Resolvidos','Histórico concluído')}${stat('💬',data.tickets.reduce((s,t)=>s+Number(t.messages||0),0),'Mensagens','Em todos os chamados')}</div><div class="table-wrap" style="margin-top:16px"><div class="table-toolbar"><div><b>Chamados de suporte</b><div class="muted">Atendimento das empresas ForgePets</div></div><button class="secondary" data-action="refresh">Atualizar</button></div>${data.tickets.map(t=>`<div class="ticket-row" style="padding:15px 18px"><span class="company-logo">#</span><div class="grow"><b>${escapeHtml(t.subject)}</b><div class="muted">${escapeHtml(t.companyName)} · ${dateTimeBR(t.created)} · ${t.messages} mensagens</div></div>${badge(t.status)}${t.status!=='resolved'?`<div class="actions"><button data-close-ticket="${t.id}">Concluir</button></div>`:''}</div>`).join('')||'<div class="empty">Nenhum chamado.</div>'}</div>`},
  usuarios(){return `<div class="table-wrap"><div class="table-toolbar"><div><b>Equipe ForgePets</b><div class="muted">Usuários Master com acesso administrativo</div></div><button class="primary" data-action="new-master-user">＋ Adicionar usuário</button></div><div style="overflow:auto"><table class="data-table"><thead><tr><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Atualização</th><th>Ações</th></tr></thead><tbody>${data.users.map(u=>`<tr><td><b>${escapeHtml(u.name)}</b></td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.role)}</td><td>${badge(u.status)}</td><td>${dateTimeBR(u.last)}</td><td class="actions"><button title="Editar usuário" data-edit-master-user="${u.id}">✎ Editar</button><button title="${u.status==='active'?'Inativar':'Ativar'} usuário" data-toggle-master-user="${u.id}">${u.status==='active'?'⏻ Inativar':'✓ Ativar'}</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum usuário Master.</td></tr>'}</tbody></table></div></div>`},
@@ -55,6 +55,37 @@ function bind(){
  const signup=$('#setSignup');if(signup)signup.onclick=()=>signup.classList.toggle('on');
 }
 const actions={
+ 'toggle-company-module':async el=>{
+  const companyId=el.dataset.companyId;
+  const companyName=el.dataset.companyName||'esta empresa';
+  const currentlyEnabled=el.dataset.moduleEnabled==='true';
+  const nextEnabled=!currentlyEnabled;
+  modal(
+   nextEnabled?'Liberar Módulo Fiscal':'Bloquear Módulo Fiscal',
+   `<div class="master-module-confirm"><div class="master-module-confirm-icon">${nextEnabled?'🔓':'🔒'}</div><h3>${nextEnabled?'Liberar acesso fiscal':'Bloquear acesso fiscal'}</h3><p>Você está prestes a ${nextEnabled?'liberar':'bloquear'} o Módulo Fiscal para <b>${escapeHtml(companyName)}</b>.</p>${nextEnabled?'<div class="notice">A empresa poderá abrir o Fiscal e iniciar a configuração imediatamente.</div>':'<div class="notice danger">A configuração e o histórico serão preservados, mas o acesso ao módulo ficará bloqueado.</div>'}</div>`,
+   async close=>{
+    try{
+     const result=await api('/api/master',{
+      method:'PATCH',
+      body:JSON.stringify({
+       action:'company-module',
+       companyId,
+       module:'FISCAL',
+       enabled:nextEnabled
+      })
+     });
+     close();
+     toast(result.message||'Módulo atualizado.','success');
+     await load();
+     render();
+    }catch(error){
+     toast(error.message||'Não foi possível atualizar o módulo.','error');
+    }
+   },
+   nextEnabled?'Liberar módulo':'Bloquear módulo'
+  );
+ },
+
  'new-company':()=>editCompany(),
  'new-master-user':()=>editMasterUser(),
  'refresh':()=>refresh(true),

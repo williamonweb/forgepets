@@ -240,6 +240,77 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true, status: next.toLowerCase() });
   }
 
+  if (action === 'company-module') {
+    const companyId = String(body.companyId || body.id || '').trim();
+    const moduleCode = String(body.module || 'FISCAL').trim().toUpperCase();
+    const enabled = body.enabled === true;
+
+    if (!companyId) {
+      return NextResponse.json({ message: 'Empresa não informada.' }, { status: 400 });
+    }
+
+    if (moduleCode !== 'FISCAL') {
+      return NextResponse.json({ message: 'Módulo inválido.' }, { status: 400 });
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true, tradeName: true }
+    });
+
+    if (!company) {
+      return NextResponse.json({ message: 'Empresa não encontrada.' }, { status: 404 });
+    }
+
+    const module = await prisma.companyModule.upsert({
+      where: {
+        companyId_module: {
+          companyId,
+          module: 'FISCAL'
+        }
+      },
+      create: {
+        companyId,
+        module: 'FISCAL',
+        enabled,
+        activatedAt: enabled ? new Date() : null,
+        price: 49
+      },
+      update: {
+        enabled,
+        activatedAt: enabled ? new Date() : null
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        companyId,
+        userId: session.userId,
+        action: enabled ? 'MASTER_MODULE_ENABLED' : 'MASTER_MODULE_DISABLED',
+        entity: 'CompanyModule',
+        entityId: module.id,
+        metadata: {
+          module: 'FISCAL',
+          enabled,
+          companyName: company.tradeName || company.name,
+          source: 'MASTER_MANUAL_CONTROL'
+        }
+      }
+    });
+
+    return NextResponse.json({
+      ok: true,
+      module: {
+        code: module.module,
+        enabled: module.enabled,
+        activatedAt: module.activatedAt
+      },
+      message: enabled
+        ? 'Módulo Fiscal liberado para a empresa.'
+        : 'Módulo Fiscal bloqueado para a empresa.'
+    });
+  }
+
   if (action === 'settings') {
     await prisma.saaSSettings.upsert({
       where: { id: 'global' },

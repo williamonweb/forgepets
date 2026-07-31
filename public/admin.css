@@ -16,3 +16,11 @@
 @media(max-width:1200px){.stats-grid{grid-template-columns:repeat(3,1fr)}.dashboard-grid{grid-template-columns:1fr 1fr}.dashboard-grid .panel:first-child{grid-column:1/-1}.admin-search{display:none}}
 @media(max-width:820px){.admin-shell{display:block}.admin-sidebar{transform:translateX(-100%);transition:.22s}.admin-sidebar.open{transform:translateX(0)}.admin-main{margin-left:0}.mobile-menu{display:grid;place-items:center;width:42px;height:42px;border:1px solid var(--line);background:#fff;border-radius:10px}.admin-topbar{padding:12px 15px}.admin-top-actions .primary{font-size:0;padding:12px}.admin-top-actions .primary:after{content:'＋';font-size:18px}.admin-content{padding:16px}.hero{align-items:flex-start;flex-direction:column}.stats-grid{grid-template-columns:1fr 1fr}.dashboard-grid,.two-col,.three-col,.form-grid{grid-template-columns:1fr}.dashboard-grid .panel:first-child{grid-column:auto}.plans-grid{grid-template-columns:1fr}.data-table{min-width:900px}.table-wrap{overflow:auto}}
 @media(max-width:520px){.stats-grid{grid-template-columns:1fr}.admin-topbar p{display:none}.admin-topbar h1{font-size:20px}.hero-actions{width:100%}.hero-actions button{flex:1}.icon-btn[data-action="refresh"]{display:none}}
+
+
+/* Forge Pets v9.6.3 — controle manual de módulos no Master */
+.master-module-confirm{text-align:center;padding:8px 2px 2px}
+.master-module-confirm-icon{width:72px;height:72px;margin:0 auto 14px;border-radius:22px;display:grid;place-items:center;font-size:34px;background:linear-gradient(145deg,#ede6ff,#f8f5ff);border:1px solid #dfd3fb}
+.master-module-confirm h3{font-size:22px;margin:0 0 8px}
+.master-module-confirm p{color:#716a7d;line-height:1.6;margin:0 auto 17px;max-width:500px}
+.notice.danger{background:#fff1f2;border-color:#fecdd3;color:#9f1239}
