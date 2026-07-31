@@ -38,7 +38,7 @@ export async function GET() {
       include: {
         users: { select: { id: true, name: true, email: true, role: true, active: true, updatedAt: true } },
         fiscalConfig: true,
-        modules: { where: { module: 'FISCAL' }, select: { enabled: true, status: true } },
+        modules: { where: { module: 'FISCAL' }, select: { enabled: true } },
         _count: { select: { pets: true, tutors: true, users: true, fiscalDocuments: true } }
       }
     }),
@@ -77,7 +77,6 @@ export async function GET() {
       fiscal: {
         contracted: Boolean(c.modules[0]),
         enabled: Boolean(c.modules[0]?.enabled),
-        moduleStatus: c.modules[0]?.status || null,
         configured: Boolean(c.fiscalConfig),
         active: Boolean(c.fiscalConfig?.active),
         city: c.fiscalConfig?.city || '',
