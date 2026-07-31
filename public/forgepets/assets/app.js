@@ -1,6 +1,6 @@
 const FORGEPETS_CONTRACT_VERSION='FORGEPETS-SAAS-2026-07-V1';
 const FORGEPETS_CONTRACT_HTML=`<div class="contract-document"><h2>CONTRATO DE LICENÇA DE USO E PRESTAÇÃO DE SERVIÇOS — FORGE PETS</h2><p><b>Versão:</b> Julho de 2026 · V1</p><h3>1. Objeto</h3><p>O contrato regula o acesso à plataforma Forge Pets, disponibilizada como software por assinatura para gestão de pet shops e estabelecimentos do segmento animal.</p><h3>2. Licença de uso</h3><p>A licença é limitada, não exclusiva, intransferível e permanece válida enquanto a assinatura estiver ativa e os pagamentos estiverem regulares.</p><h3>3. Planos e módulos opcionais</h3><p>Os recursos disponíveis dependem do plano contratado. Módulos opcionais, como o Módulo Fiscal, podem possuir contratação, configuração e cobrança separadas.</p><h3>4. Cobrança recorrente</h3><p>Ao prosseguir, o contratante autoriza a cobrança recorrente pelo meio selecionado, conforme o valor e a periodicidade apresentados na contratação.</p><h3>5. Responsabilidades do contratante</h3><p>O contratante é responsável pela veracidade dos dados, pelas credenciais de acesso, pela utilização adequada do sistema e pelas informações fiscais, contábeis e operacionais inseridas.</p><h3>6. Disponibilidade e suporte</h3><p>O Forge Pets buscará manter o serviço disponível, podendo realizar manutenções, atualizações e correções necessárias à segurança e ao funcionamento da plataforma.</p><h3>7. Dados e privacidade</h3><p>Os dados serão tratados para prestação do serviço, segurança, suporte, cobrança e cumprimento de obrigações aplicáveis. O contratante deve possuir base legal para os dados de seus clientes e colaboradores inseridos na plataforma.</p><h3>8. Cancelamento</h3><p>O cancelamento impede cobranças futuras após o processamento aplicável, sem prejuízo de valores já vencidos. A exportação de dados deverá ser realizada dentro do prazo disponibilizado.</p><h3>9. Aceite eletrônico</h3><p>O aceite mediante marcação da caixa e confirmação eletrônica registra usuário, empresa, versão do contrato, data, horário, endereço IP e informações técnicas da sessão.</p><h3>10. Disposições finais</h3><p>Este texto deve ser complementado pelos dados completos das partes e revisado juridicamente antes do lançamento comercial definitivo.</p></div>`;
-const NAV=[['dashboard','▦','Dashboard'],['clientes','♙','Clientes'],['pets','🐾','Pets'],['agenda','▣','Agenda'],['atendimentos','✂','Atendimentos'],['servicos','▤','Serviços'],['caixa','▱','Caixa'],['estoque','▥','Estoque'],['financeiro','⊙','Financeiro'],['boletos','▧','Controle de boletos'],['relatorios','▧','Relatórios'],['fidelidade','♡','Fidelidade'],['marketplace','✦','Marketplace'],['config','⚙','Configurações']];
+const NAV=[['dashboard','▦','Dashboard'],['clientes','♙','Clientes'],['pets','🐾','Pets'],['agenda','▣','Agenda'],['atendimentos','✂','Atendimentos'],['servicos','▤','Serviços'],['caixa','▱','Caixa'],['estoque','▥','Estoque'],['financeiro','⊙','Financeiro'],['boletos','▧','Controle de boletos'],['relatorios','▧','Relatórios'],['fidelidade','♡','Fidelidade'],['fiscal','🧾','Fiscal'],['marketplace','✦','Marketplace'],['config','⚙','Configurações']];
 const PLAN_CATALOG={
  Essencial:{price:129,level:1,features:{fidelidade:false,pontos:false,cashback:false,recompensas:false,extratoFidelidade:false,relatorioFidelidade:false,rankingFidelidade:false,ajusteManual:false,vip:false,cupons:false,campanhas:false,marketing:false,regrasAvancadas:false}},
  Profissional:{price:179,level:2,features:{fidelidade:true,pontos:true,cashback:true,recompensas:true,extratoFidelidade:true,relatorioFidelidade:true,rankingFidelidade:true,ajusteManual:true,vip:false,cupons:false,campanhas:false,marketing:false,regrasAvancadas:false}},
@@ -251,7 +251,7 @@ function logout(){
 function go(target,{replace=false,fromHistory=false}={}){const next=ROUTE_ALIASES[String(target||'').toLowerCase()]||'dashboard';page=next;if(!fromHistory){const path=routeForPage(next);if(location.pathname!==path){history[replace?'replaceState':'pushState']({forgePetsPage:next},'',path);}}renderNav();render();window.scrollTo({top:0,behavior:'smooth'});}window.addEventListener('popstate',()=>go(pageFromLocation(),{fromHistory:true}));function renderNav(){const visible=NAV.filter(([id])=>id!=='fidelidade'||hasFeature('fidelidade'));if(page==='fidelidade'&&!hasFeature('fidelidade'))page='dashboard';$('#nav').innerHTML=visible.map(([id,icon,label])=>`<button class="nav-btn ${page===id?'active':''}" data-page="${id}"><i>${icon}</i><span>${label}</span></button>`).join('');document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));updatePlanUI();}
 function updatePlanUI(){const sub=activeSubscription();const plan=activePlan();const license=document.querySelector('.footer-status span:nth-child(2) strong');if(license)license.textContent=plan;const product=document.querySelector('.footer-product small');if(product)product.textContent=`${sub.companyName||'Pet shop'} · Plano ${plan}`;}
 function bindGlobal(){document.body.addEventListener('click',e=>{const a=e.target.closest('[data-action]');if(!a)return;e.preventDefault();actions[a.dataset.action]?.(a);});$('#backupInput').addEventListener('change',importBackup);$('#globalSearch').addEventListener('input',e=>searchAll(e.target.value));$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';render();}});}
-function render(){applyBranding();if(page==='fidelidade'&&!hasFeature('fidelidade')){page='dashboard';toast('O módulo Fidelidade está disponível nos planos Profissional e Premium.');renderNav();}const meta={dashboard:['Dashboard','Visão geral do pet shop'],clientes:['Clientes','Cadastro completo e histórico'],pets:['Pets','Cadastro e cuidados dos animais'],agenda:['Agenda','Organize os agendamentos'],atendimentos:['Atendimentos','Acompanhe o fluxo do dia'],servicos:['Serviços','Tabela de serviços e preços'],caixa:['Caixa','Entradas, saídas e fechamento'],estoque:['Estoque','Controle de produtos'],financeiro:['Financeiro','Resumo e análise financeira'],boletos:['Controle de boletos','Vencimentos e pagamentos das empresas'],relatorios:['Relatórios','Indicadores do negócio'],fidelidade:['Fidelidade','Pontos e recompensas dos clientes'],marketplace:['Marketplace','Expanda o Forge Pets com módulos adicionais'],config:['Configurações','Dados gerais do sistema']}[page]||['ForgePets',''];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];$('#content').innerHTML=(views[page]||views.dashboard)();if(page==='config')bindSettingsUI();applyInputMasks($('#content'));updateNotificationBadge();}
+function render(){applyBranding();if(page==='fidelidade'&&!hasFeature('fidelidade')){page='dashboard';toast('O módulo Fidelidade está disponível nos planos Profissional e Premium.');renderNav();}const meta={dashboard:['Dashboard','Visão geral do pet shop'],clientes:['Clientes','Cadastro completo e histórico'],pets:['Pets','Cadastro e cuidados dos animais'],agenda:['Agenda','Organize os agendamentos'],atendimentos:['Atendimentos','Acompanhe o fluxo do dia'],servicos:['Serviços','Tabela de serviços e preços'],caixa:['Caixa','Entradas, saídas e fechamento'],estoque:['Estoque','Controle de produtos'],financeiro:['Financeiro','Resumo e análise financeira'],boletos:['Controle de boletos','Vencimentos e pagamentos das empresas'],relatorios:['Relatórios','Indicadores do negócio'],fidelidade:['Fidelidade','Pontos e recompensas dos clientes'],fiscal:['Módulo Fiscal','NFS-e, configurações e histórico fiscal'],marketplace:['Marketplace','Expanda o Forge Pets com módulos adicionais'],config:['Configurações','Dados gerais do sistema']}[page]||['ForgePets',''];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];$('#content').innerHTML=(views[page]||views.dashboard)();if(page==='config')bindSettingsUI();applyInputMasks($('#content'));updateNotificationBadge();}
 const views={
  dashboard(){
   const d=today();
@@ -348,6 +348,11 @@ const views={
     </div>
   </section>`;
  },
+
+ fiscal(){
+  setTimeout(()=>loadFiscalExperience(),0);
+  return `<section class="fiscal-experience"><div class="fiscal-loading"><span class="fiscal-loader"></span><h2>Carregando Módulo Fiscal</h2><p>Consultando assinatura, configuração e documentos da empresa.</p></div></section>`;
+ },
  marketplace(){
   const sub=activeSubscription();
   const selectedModules=Array.isArray(sub.modules)?sub.modules:[];
@@ -355,7 +360,7 @@ const views={
   const fiscalActive=sub.status==='active'&&fiscalSelected;
   const fiscalPending=sub.status==='pending'&&fiscalSelected;
   const fiscalAction=fiscalActive
-   ? '<button class="btn primary" data-action="go-fiscal-config">Configurar módulo</button>'
+   ? '<button class="btn primary" data-action="go-fiscal">Abrir Módulo Fiscal</button>'
    : fiscalPending
     ? '<button class="btn ghost" disabled>Pagamento pendente</button>'
     : `<button class="btn primary" data-action="request-plan" data-plan="${escapeAttr(activePlan())}" data-module="FISCAL">Contratar agora</button>`;
@@ -473,6 +478,180 @@ function availableAgendaTimes(date,ignoreId='',serviceId=''){const cfg=db.data.c
 function searchAll(term){term=(term||'').trim().toLowerCase();if(!term){render();return;}const clientes=db.data.clientes.filter(c=>[c.nome,c.telefone,c.cpf,c.email].some(v=>String(v||'').toLowerCase().includes(term)));const pets=db.data.pets.filter(p=>[p.nome,p.raca,p.especie].some(v=>String(v||'').toLowerCase().includes(term)));const agenda=db.data.agenda.filter(a=>{const p=db.data.pets.find(x=>x.id===a.petId),s=db.data.servicos.find(x=>x.id===a.servicoId);return [p?.nome,s?.nome,a.data,a.hora,a.status].some(v=>String(v||'').toLowerCase().includes(term))});$('#pageTitle').textContent='Resultados da busca';$('#pageSubtitle').textContent=`Busca por “${term}”`;$('#content').innerHTML=`<div class="two-col"><div class="card"><div class="section-title"><h2>Clientes (${clientes.length})</h2></div>${clientes.length?clientes.map(c=>`<div class="search-result clickable" data-action="go-clientes"><strong>${c.nome}</strong><small>${c.telefone||'Sem telefone'}</small></div>`).join(''):'<div class="empty">Nenhum cliente.</div>'}</div><div class="card"><div class="section-title"><h2>Pets (${pets.length})</h2></div>${pets.length?pets.map(p=>`<div class="search-result clickable" data-action="view-pet" data-id="${p.id}"><strong>${p.nome}</strong><small>${p.raca||p.especie}</small></div>`).join(''):'<div class="empty">Nenhum pet.</div>'}</div></div><div class="card" style="margin-top:16px"><div class="section-title"><h2>Atendimentos (${agenda.length})</h2></div>${agendaList(agenda)}</div>`;}
 function movementModal(type='entrada'){actions['quick-movement']({dataset:{preset:type}})}
 
+
+let fiscalExperienceState={moduleActive:false,config:null,documents:[],step:1};
+
+function fiscalStatusLabel(status){
+ const labels={DRAFT:'Rascunho',PROCESSING:'Processando',AUTHORIZED:'Autorizada',REJECTED:'Rejeitada',CANCELED:'Cancelada'};
+ return labels[status]||status||'Rascunho';
+}
+function fiscalStatusClass(status){
+ return ({AUTHORIZED:'green',REJECTED:'red',CANCELED:'red',PROCESSING:'yellow',DRAFT:'gray'})[status]||'gray';
+}
+function fiscalConfigComplete(c){
+ return Boolean(c&&c.cnpj&&c.municipalRegistration&&c.city&&c.state&&c.ibgeCode&&c.serviceListCode&&c.issRate!==null&&c.issRate!==undefined);
+}
+function fiscalDocMoney(v){return money(Number(v||0))}
+function fiscalDate(v){return v?new Date(v).toLocaleString('pt-BR'):'—'}
+
+async function loadFiscalExperience(){
+ const host=$('#content');
+ if(!host||page!=='fiscal')return;
+ try{
+  const [cfgResult,docsResult]=await Promise.all([
+   cloud.request('/api/forge/fiscal/config'),
+   cloud.request('/api/forge/fiscal/documents')
+  ]);
+  fiscalExperienceState={
+   moduleActive:Boolean(cfgResult.moduleActive),
+   config:cfgResult.config||null,
+   documents:Array.isArray(docsResult.documents)?docsResult.documents:[],
+   step:1
+  };
+  renderFiscalExperience();
+ }catch(error){
+  host.innerHTML=`<section class="fiscal-experience"><div class="card fiscal-error"><span>!</span><h2>Não foi possível carregar o módulo</h2><p>${escapeHtml(error.message||'Tente novamente em instantes.')}</p><button class="btn primary" data-action="go-marketplace">Voltar ao Marketplace</button></div></section>`;
+ }
+}
+
+function renderFiscalExperience(){
+ const host=$('#content');
+ if(!host||page!=='fiscal')return;
+ const s=fiscalExperienceState;
+ if(!s.moduleActive){
+  host.innerHTML=`<section class="fiscal-experience"><div class="fiscal-locked">
+   <div class="fiscal-locked-icon">🔒</div>
+   <span class="fiscal-eyebrow">MÓDULO OPCIONAL</span>
+   <h2>Emita NFS-e diretamente pelo Forge Pets</h2>
+   <p>Integre os serviços do Caixa ao fluxo fiscal, acompanhe autorizações e mantenha XML e PDF organizados por empresa.</p>
+   <div class="fiscal-benefits"><span>✓ Emissão pelo Caixa</span><span>✓ Histórico fiscal</span><span>✓ XML e PDF</span><span>✓ Dados por empresa</span></div>
+   <strong>R$ 49,00 <small>/mês</small></strong>
+   <button class="btn primary" data-action="go-marketplace">Contratar no Marketplace</button>
+  </div></section>`;
+  return;
+ }
+ if(!fiscalConfigComplete(s.config)){
+  host.innerHTML=fiscalWizardHtml(s.config||{});
+  bindFiscalWizard();
+  return;
+ }
+ host.innerHTML=fiscalDashboardHtml(s.config,s.documents);
+ bindFiscalDashboard();
+}
+
+function fiscalWizardHtml(c){
+ const step=fiscalExperienceState.step||1;
+ const titles=['Dados da empresa','Município','Tributação','Integração','Revisão'];
+ const progress=titles.map((t,i)=>`<div class="fiscal-step ${i+1===step?'active':''} ${i+1<step?'done':''}"><i>${i+1<step?'✓':i+1}</i><span>${t}</span></div>`).join('');
+ const common=`<div class="fiscal-wizard-head"><div><span class="fiscal-eyebrow">CONFIGURAÇÃO INICIAL</span><h2>Bem-vindo ao Módulo Fiscal</h2><p>Vamos preparar a empresa para emitir NFS-e. Os dados devem ser confirmados com a contabilidade.</p></div><b>Etapa ${step} de 5</b></div><div class="fiscal-progress">${progress}</div>`;
+ let body='';
+ if(step===1)body=`<div class="fiscal-wizard-card"><h3>Dados da empresa</h3><p>Identificação do prestador de serviços.</p><div class="form-grid">
+  <div class="field"><label>Razão social</label><input id="fwLegalName" value="${escapeAttr(c.legalName||'')}" data-trim></div>
+  <div class="field"><label>Nome fantasia</label><input id="fwTradeName" value="${escapeAttr(c.tradeName||db.data.config.empresa||'')}" data-trim></div>
+  <div class="field"><label>CNPJ</label><input id="fwCnpj" value="${escapeAttr(c.cnpj||'')}" data-mask="cnpj" placeholder="00.000.000/0000-00"></div>
+  <div class="field"><label>Inscrição Municipal</label><input id="fwMunicipalRegistration" value="${escapeAttr(c.municipalRegistration||'')}" data-trim></div>
+ </div></div>`;
+ if(step===2)body=`<div class="fiscal-wizard-card"><h3>Município emissor</h3><p>A NFS-e pertence ao município onde o serviço é tributado.</p><div class="form-grid">
+  <div class="field"><label>Município</label><input id="fwCity" value="${escapeAttr(c.city||'')}" placeholder="Ex.: Gravataí" data-trim></div>
+  <div class="field"><label>UF</label><input id="fwState" value="${escapeAttr(c.state||'RS')}" maxlength="2" placeholder="RS" data-trim></div>
+  <div class="field full"><label>Código IBGE do município</label><input id="fwIbgeCode" value="${escapeAttr(c.ibgeCode||'')}" inputmode="numeric" maxlength="7" placeholder="7 dígitos"></div>
+ </div><div class="notice">A compatibilidade será validada na etapa de integração. Alguns municípios usam o padrão nacional e outros mantêm sistema próprio.</div></div>`;
+ if(step===3)body=`<div class="fiscal-wizard-card"><h3>Tributação do serviço</h3><p>Use os códigos informados pela contabilidade.</p><div class="form-grid">
+  <div class="field"><label>Regime tributário</label><input id="fwTaxRegime" value="${escapeAttr(c.taxRegime||'')}" placeholder="Ex.: Simples Nacional" data-trim></div>
+  <div class="field"><label>Código do serviço</label><input id="fwServiceListCode" value="${escapeAttr(c.serviceListCode||'')}" placeholder="Item da lista de serviços" data-trim></div>
+  <div class="field"><label>CNAE</label><input id="fwCnae" value="${escapeAttr(c.cnae||'')}" data-trim></div>
+  <div class="field"><label>NBS</label><input id="fwNbsCode" value="${escapeAttr(c.nbsCode||'')}" data-trim></div>
+  <div class="field"><label>Alíquota de ISS (%)</label><input id="fwIssRate" value="${escapeAttr(c.issRate??'')}" inputmode="decimal" placeholder="2,00"></div>
+  <label class="switch-field"><input id="fwSimples" type="checkbox" ${c.simplesNacional?'checked':''}><span></span><div><b>Optante pelo Simples Nacional</b><small>Confirme com a contabilidade.</small></div></label>
+ </div></div>`;
+ if(step===4)body=`<div class="fiscal-wizard-card"><h3>Integração</h3><p>Defina o ambiente e o sistema utilizado pelo município.</p><div class="form-grid">
+  <div class="field"><label>Modelo de integração</label><select id="fwIntegrationType"><option value="NATIONAL" ${c.integrationType!=='MUNICIPAL'?'selected':''}>Padrão Nacional da NFS-e</option><option value="MUNICIPAL" ${c.integrationType==='MUNICIPAL'?'selected':''}>Sistema próprio da prefeitura</option></select></div>
+  <div class="field" id="fwProviderField" style="${c.integrationType==='MUNICIPAL'?'':'display:none'}"><label>Provedor municipal</label><input id="fwMunicipalProvider" value="${escapeAttr(c.municipalProvider||'')}" placeholder="Ex.: IPM, Betha, Nota Control" data-trim></div>
+  <div class="field"><label>Ambiente inicial</label><select id="fwEnvironment"><option value="HOMOLOGATION" ${c.environment!=='PRODUCTION'?'selected':''}>Homologação / testes</option><option value="PRODUCTION" ${c.environment==='PRODUCTION'?'selected':''}>Produção</option></select></div>
+ </div><div class="fiscal-test-box"><span>🧪</span><div><b>Primeiro em homologação</b><p>A emissão real será liberada somente após validar os dados, credenciais e compatibilidade do município.</p></div></div></div>`;
+ if(step===5)body=`<div class="fiscal-wizard-card fiscal-review"><h3>Revisão da configuração</h3><p>Confira os dados antes de salvar.</p>
+  <div class="fiscal-review-grid">
+   <div><small>Empresa</small><b>${escapeHtml(c.legalName||'Não informado')}</b><span>${escapeHtml(c.cnpj||'CNPJ pendente')}</span></div>
+   <div><small>Município</small><b>${escapeHtml(c.city||'Não informado')} / ${escapeHtml(c.state||'—')}</b><span>IBGE ${escapeHtml(c.ibgeCode||'pendente')}</span></div>
+   <div><small>Serviço</small><b>${escapeHtml(c.serviceListCode||'Não informado')}</b><span>ISS ${escapeHtml(String(c.issRate??'—'))}%</span></div>
+   <div><small>Integração</small><b>${c.integrationType==='MUNICIPAL'?'Prefeitura / provedor':'Padrão Nacional'}</b><span>${c.environment==='PRODUCTION'?'Produção':'Homologação'}</span></div>
+  </div>
+  <label class="switch-field full"><input id="fwActive" type="checkbox" ${c.active?'checked':''}><span></span><div><b>Configuração pronta para emissão</b><small>Deixe desligado enquanto estiver apenas preparando os dados.</small></div></label>
+ </div>`;
+ return `<section class="fiscal-experience">${common}${body}<div class="fiscal-wizard-actions"><button class="btn ghost" id="fiscalWizardBack" ${step===1?'disabled':''}>← Voltar</button><button class="btn primary" id="fiscalWizardNext">${step===5?'Salvar configuração':'Próximo →'}</button></div></section>`;
+}
+
+function fiscalCollectStep(){
+ const c={...(fiscalExperienceState.config||{})};
+ const val=id=>$('#'+id)?.value?.trim();
+ if($('#fwLegalName'))Object.assign(c,{legalName:val('fwLegalName'),tradeName:val('fwTradeName'),cnpj:val('fwCnpj'),municipalRegistration:val('fwMunicipalRegistration')});
+ if($('#fwCity'))Object.assign(c,{city:val('fwCity'),state:(val('fwState')||'').toUpperCase(),ibgeCode:val('fwIbgeCode')});
+ if($('#fwTaxRegime'))Object.assign(c,{taxRegime:val('fwTaxRegime'),serviceListCode:val('fwServiceListCode'),cnae:val('fwCnae'),nbsCode:val('fwNbsCode'),issRate:val('fwIssRate'),simplesNacional:$('#fwSimples').checked});
+ if($('#fwIntegrationType'))Object.assign(c,{integrationType:val('fwIntegrationType'),municipalProvider:val('fwMunicipalProvider'),environment:val('fwEnvironment')});
+ if($('#fwActive'))c.active=$('#fwActive').checked;
+ fiscalExperienceState.config=c;
+ return c;
+}
+function fiscalValidateStep(step,c){
+ if(step===1&&(!c.cnpj||String(c.cnpj).replace(/\D/g,'').length!==14))return 'Informe um CNPJ válido com 14 dígitos.';
+ if(step===1&&!c.municipalRegistration)return 'Informe a Inscrição Municipal.';
+ if(step===2&&(!c.city||!c.state||c.state.length!==2))return 'Informe o município e a UF.';
+ if(step===2&&String(c.ibgeCode||'').replace(/\D/g,'').length!==7)return 'Informe o código IBGE com 7 dígitos.';
+ if(step===3&&!c.serviceListCode)return 'Informe o código do serviço.';
+ if(step===3&&(c.issRate===''||c.issRate===null||c.issRate===undefined))return 'Informe a alíquota de ISS.';
+ if(step===4&&c.integrationType==='MUNICIPAL'&&!c.municipalProvider)return 'Informe o provedor utilizado pela prefeitura.';
+ return '';
+}
+function bindFiscalWizard(){
+ bindAllMasks(document);
+ $('#fwIntegrationType')?.addEventListener('change',e=>{$('#fwProviderField').style.display=e.target.value==='MUNICIPAL'?'block':'none';});
+ $('#fiscalWizardBack').onclick=()=>{fiscalCollectStep();fiscalExperienceState.step=Math.max(1,fiscalExperienceState.step-1);renderFiscalExperience();};
+ $('#fiscalWizardNext').onclick=async()=>{
+  const c=fiscalCollectStep(),error=fiscalValidateStep(fiscalExperienceState.step,c);
+  if(error)return toast(error,'error');
+  if(fiscalExperienceState.step<5){fiscalExperienceState.step++;renderFiscalExperience();return;}
+  try{
+   const result=await cloud.request('/api/forge/fiscal/config',{method:'PUT',body:JSON.stringify(c)});
+   fiscalExperienceState.config=result.config;
+   toast(result.message||'Configuração fiscal salva.','success');
+   renderFiscalExperience();
+  }catch(error){toast(error.message||'Não foi possível salvar a configuração.','error');}
+ };
+}
+function fiscalDashboardHtml(c,docs){
+ const authorized=docs.filter(d=>d.status==='AUTHORIZED');
+ const canceled=docs.filter(d=>d.status==='CANCELED');
+ const now=new Date(),month=now.getMonth(),year=now.getFullYear();
+ const monthly=authorized.filter(d=>{const x=new Date(d.issuedAt||d.createdAt);return x.getMonth()===month&&x.getFullYear()===year;});
+ const todayDocs=authorized.filter(d=>new Date(d.issuedAt||d.createdAt).toDateString()===now.toDateString());
+ const iss=monthly.reduce((sum,d)=>sum+Number(d.issAmount||0),0);
+ const rows=docs.length?docs.map(d=>`<tr><td><b>${escapeHtml(d.nfseNumber||d.rpsNumber||'Aguardando')}</b></td><td>${fiscalDate(d.issuedAt||d.createdAt)}</td><td>${escapeHtml(d.tutorName||'Consumidor')}</td><td>${escapeHtml(d.serviceDescription||'Serviço')}</td><td><b>${fiscalDocMoney(d.serviceAmount)}</b></td><td><span class="badge ${fiscalStatusClass(d.status)}">${fiscalStatusLabel(d.status)}</span></td><td>${d.pdfUrl?`<a class="btn ghost" href="${escapeAttr(d.pdfUrl)}" target="_blank">PDF</a>`:'—'} ${d.xmlUrl?`<a class="btn ghost" href="${escapeAttr(d.xmlUrl)}" target="_blank">XML</a>`:''}</td></tr>`).join(''):'<tr><td colspan="7"><div class="empty">Nenhum documento fiscal registrado ainda.</div></td></tr>';
+ return `<section class="fiscal-experience">
+  <div class="fiscal-dashboard-hero"><div><span class="fiscal-eyebrow">MÓDULO FISCAL ATIVO</span><h2>Central de NFS-e</h2><p>${escapeHtml(c.tradeName||c.legalName||'Empresa')} · ${escapeHtml(c.city||'')} / ${escapeHtml(c.state||'')}</p></div><div class="fiscal-environment ${c.environment==='PRODUCTION'?'production':'homologation'}"><small>AMBIENTE</small><b>${c.environment==='PRODUCTION'?'Produção':'Homologação'}</b><span>${c.active?'Configuração liberada':'Configuração em preparação'}</span></div></div>
+  <div class="fiscal-kpis">
+   <article><span>🧾</span><small>Emitidas hoje</small><strong>${todayDocs.length}</strong><em>notas autorizadas</em></article>
+   <article><span>📅</span><small>Emitidas no mês</small><strong>${monthly.length}</strong><em>${fiscalDocMoney(monthly.reduce((s,d)=>s+Number(d.serviceAmount||0),0))} em serviços</em></article>
+   <article><span>↩</span><small>Canceladas</small><strong>${canceled.length}</strong><em>histórico total</em></article>
+   <article><span>％</span><small>ISS estimado no mês</small><strong>${fiscalDocMoney(iss)}</strong><em>conforme documentos</em></article>
+  </div>
+  <div class="fiscal-dashboard-actions"><button class="btn primary" id="fiscalNewDocument" ${!c.active?'disabled':''}>＋ Emitir NFS-e</button><button class="btn ghost" id="fiscalEditConfig">⚙ Configurações</button><button class="btn ghost" id="fiscalRefresh">↻ Atualizar</button></div>
+  ${!c.active?'<div class="notice fiscal-warning">A configuração ainda não está marcada como pronta para emissão. Revise os dados e conclua a homologação.</div>':''}
+  <div class="card fiscal-history-card"><div class="section-title"><div><h2>Histórico fiscal</h2><p>Documentos vinculados à empresa.</p></div><div class="fiscal-filter"><input id="fiscalHistorySearch" placeholder="Buscar tutor, serviço ou número..."></div></div>
+   <div class="table-wrap"><table class="table"><thead><tr><th>NFS-e / RPS</th><th>Data</th><th>Tutor</th><th>Serviço</th><th>Valor</th><th>Status</th><th>Arquivos</th></tr></thead><tbody id="fiscalHistoryRows">${rows}</tbody></table></div>
+  </div>
+ </section>`;
+}
+function bindFiscalDashboard(){
+ $('#fiscalEditConfig').onclick=()=>{fiscalExperienceState.step=1;fiscalExperienceState.config={...fiscalExperienceState.config,active:false};renderFiscalExperience();};
+ $('#fiscalRefresh').onclick=loadFiscalExperience;
+ $('#fiscalNewDocument').onclick=()=>modal('Emitir NFS-e',`<div class="fiscal-coming"><span>🧾</span><h3>Emissão preparada</h3><p>A tela e o banco estão prontos. A transmissão real será conectada à API compatível com o município cadastrado.</p><div class="notice">Enquanto a integração externa não estiver habilitada, nenhuma nota será enviada à prefeitura.</div></div>`,close=>close(),'Entendi');
+ $('#fiscalHistorySearch')?.addEventListener('input',e=>{
+  const q=normalize(e.target.value);
+  const docs=fiscalExperienceState.documents.filter(d=>normalize([d.nfseNumber,d.rpsNumber,d.tutorName,d.serviceDescription,d.status].join(' ')).includes(q));
+  $('#fiscalHistoryRows').innerHTML=docs.length?docs.map(d=>`<tr><td><b>${escapeHtml(d.nfseNumber||d.rpsNumber||'Aguardando')}</b></td><td>${fiscalDate(d.issuedAt||d.createdAt)}</td><td>${escapeHtml(d.tutorName||'Consumidor')}</td><td>${escapeHtml(d.serviceDescription||'Serviço')}</td><td><b>${fiscalDocMoney(d.serviceAmount)}</b></td><td><span class="badge ${fiscalStatusClass(d.status)}">${fiscalStatusLabel(d.status)}</span></td><td>${d.pdfUrl?`<a class="btn ghost" href="${escapeAttr(d.pdfUrl)}" target="_blank">PDF</a>`:'—'} ${d.xmlUrl?`<a class="btn ghost" href="${escapeAttr(d.xmlUrl)}" target="_blank">XML</a>`:''}</td></tr>`).join(''):'<tr><td colspan="7"><div class="empty">Nenhum resultado encontrado.</div></td></tr>';
+ });
+}
+
 const actions={
  'view-subscription-invoice':b=>{const inv=subscriptionPayments().find(x=>String(x.id)===String(b.dataset.id));if(!inv)return toast('Fatura não encontrada.');const paid=inv.status==='paid';modal(`Fatura #${String(inv.id).slice(-8).toUpperCase()}`,`<div class="invoice-detail"><div class="invoice-detail-head"><div><span>FORGEPETS · ASSINATURA</span><h2>${escapeHtml(inv.companyName||activeSubscription().companyName||'Pet shop')}</h2><p>Plano ${escapeHtml(inv.plan||activePlan())}</p></div><i class="invoice-status ${subscriptionStatusClass(inv.status)}">${subscriptionStatusLabel(inv.status)}</i></div><div class="invoice-detail-grid"><div><small>Valor</small><strong>${money(inv.amount)}</strong></div><div><small>Vencimento</small><strong>${inv.due?new Date(`${inv.due}T12:00:00`).toLocaleDateString('pt-BR'):'—'}</strong></div><div><small>Forma de pagamento</small><strong>${escapeHtml(inv.method||'Não informado')}</strong></div><div><small>Pagamento</small><strong>${inv.paidAt?new Date(inv.paidAt).toLocaleString('pt-BR'):'Aguardando'}</strong></div></div><div class="invoice-description"><span>Descrição</span><b>Assinatura mensal ForgePets · Plano ${escapeHtml(inv.plan||activePlan())}</b><small>Competência: ${inv.subscriptionCycle?new Date(`${inv.subscriptionCycle}T12:00:00`).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'—'}</small></div>${paid?'<div class="invoice-paid-note">✓ Pagamento confirmado. Esta fatura está quitada.</div>':'<div class="invoice-pending-note">Aguardando confirmação do pagamento.</div>'}</div>`,close=>close(),'Fechar');},
  'pay-subscription-invoice':b=>{const payments=subscriptionPayments(),inv=payments.find(x=>String(x.id)===String(b.dataset.id));if(!inv)return toast('Fatura não encontrada.');modal('Confirmar pagamento',`<p>Deseja simular o pagamento da fatura de <b>${money(inv.amount)}</b> com vencimento em <b>${new Date(`${inv.due}T12:00:00`).toLocaleDateString('pt-BR')}</b>?</p><div class="notice">Na versão online, esta confirmação será recebida automaticamente pelo Asaas.</div>`,close=>{inv.status='paid';inv.paidAt=new Date().toISOString();saveSubscriptionPayments(payments);const sub=activeSubscription();localStorage.setItem('forgepets_active_subscription',JSON.stringify({...sub,status:'active',lastPaymentStatus:'paid'}));close();render();toast('Fatura marcada como paga.');},'Confirmar pagamento');},
@@ -533,20 +712,9 @@ const actions={
   },'Confirmar assinatura');
   setTimeout(()=>{document.querySelectorAll('input[name="subscriptionMethod"]').forEach(input=>input.addEventListener('change',()=>{document.querySelectorAll('.payment-option').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));const selected=document.querySelector('input[name="subscriptionMethod"]:checked')?.value;$('#cardFields').style.display=selected==='card'?'grid':'none';}));const fiscal=$('#moduleFiscal');const updateCheckoutTotal=()=>{const total=PLAN_CATALOG[newPlan].price+(fiscal?.checked?OPTIONAL_MODULES.FISCAL.price:0);if($('#checkoutModuleLine'))$('#checkoutModuleLine').style.display=fiscal?.checked?'flex':'none';if($('#checkoutTotalValue'))$('#checkoutTotalValue').textContent=money(total);if($('#contractTotalValue'))$('#contractTotalValue').textContent=`${money(total)}/mês`;fiscal?.closest('.checkout-module-option')?.classList.toggle('selected',!!fiscal.checked);};fiscal?.addEventListener('change',updateCheckoutTotal);updateCheckoutTotal();},0);
  },
-  'go-fiscal-config':async()=>{
-  try{
-   const [cfgResult,docsResult]=await Promise.all([cloud.request('/api/forge/fiscal/config'),cloud.request('/api/forge/fiscal/documents')]);
-   if(!cfgResult.moduleActive)return toast('O Módulo Fiscal ainda não está ativo para esta empresa.','error');
-   const f=cfgResult.config||{},docs=docsResult.documents||[];
-   const statusLabel={DRAFT:'Rascunho',PROCESSING:'Processando',AUTHORIZED:'Autorizada',REJECTED:'Rejeitada',CANCELED:'Cancelada'};
-   const rows=docs.length?`<div class="fiscal-history-list">${docs.map(d=>`<div class="fiscal-history-row"><div><b>${escapeHtml(d.nfseNumber?`NFS-e ${d.nfseNumber}`:`Documento ${String(d.id).slice(-8).toUpperCase()}`)}</b><small>${new Date(d.createdAt).toLocaleString('pt-BR')} · ${escapeHtml(d.serviceDescription||'Serviço')}</small></div><strong>${money(d.serviceAmount)}</strong><i class="fiscal-doc-status ${String(d.status).toLowerCase()}">${statusLabel[d.status]||d.status}</i>${d.pdfUrl?`<a class="btn ghost small" href="${escapeAttr(d.pdfUrl)}" target="_blank" rel="noopener">PDF</a>`:'<span></span>'}</div>`).join('')}</div>`:`<div class="fiscal-empty"><span>🧾</span><b>Nenhuma NFS-e emitida</b><small>Os documentos emitidos pelo Caixa aparecerão aqui.</small></div>`;
-   modal('Módulo Fiscal — NFS-e',`<div class="fiscal-module-shell"><div class="fiscal-module-head"><div><span>MÓDULO FISCAL</span><h2>Configuração da NFS-e</h2><p>Cadastre os dados do prestador e mantenha a integração em homologação até concluir os testes.</p></div><i class="fiscal-environment-badge ${f.environment==='PRODUCTION'?'production':'homologation'}">${f.environment==='PRODUCTION'?'PRODUÇÃO':'HOMOLOGAÇÃO'}</i></div><div class="fiscal-tabs"><button type="button" class="active" data-fiscal-tab="config">Configuração</button><button type="button" data-fiscal-tab="history">Histórico (${docs.length})</button></div><section data-fiscal-panel="config"><div class="fiscal-alert"><b>Primeira etapa</b><span>Esta versão prepara cadastro, validação e histórico. A transmissão real será conectada depois à API Nacional ou ao provedor da prefeitura.</span></div><div class="form-grid fiscal-form"><div class="field full"><label>Razão social</label><input id="fiscalLegalName" value="${escapeAttr(f.legalName||'')}" data-trim></div><div class="field"><label>Nome fantasia</label><input id="fiscalTradeName" value="${escapeAttr(f.tradeName||'')}" data-trim></div><div class="field"><label>CNPJ</label><input id="fiscalCnpj" data-mask="cpfcnpj" value="${escapeAttr(f.cnpj||'')}" placeholder="00.000.000/0000-00"></div><div class="field"><label>Inscrição Municipal</label><input id="fiscalMunicipalRegistration" value="${escapeAttr(f.municipalRegistration||'')}" data-trim></div><div class="field"><label>Regime tributário</label><select id="fiscalTaxRegime"><option value="">Selecione</option><option ${f.taxRegime==='MEI'?'selected':''}>MEI</option><option ${f.taxRegime==='Simples Nacional'?'selected':''}>Simples Nacional</option><option ${f.taxRegime==='Lucro Presumido'?'selected':''}>Lucro Presumido</option><option ${f.taxRegime==='Lucro Real'?'selected':''}>Lucro Real</option></select></div><div class="field"><label>Município</label><input id="fiscalCity" value="${escapeAttr(f.city||'')}" data-trim></div><div class="field"><label>UF</label><input id="fiscalState" value="${escapeAttr(f.state||'')}" maxlength="2" placeholder="RS" data-trim></div><div class="field"><label>Código IBGE do município</label><input id="fiscalIbgeCode" value="${escapeAttr(f.ibgeCode||'')}" inputmode="numeric" maxlength="7"></div><div class="field"><label>Código do serviço</label><input id="fiscalServiceListCode" value="${escapeAttr(f.serviceListCode||'')}" placeholder="Ex.: 14.01" data-trim></div><div class="field"><label>CNAE</label><input id="fiscalCnae" value="${escapeAttr(f.cnae||'')}" data-trim></div><div class="field"><label>Código NBS</label><input id="fiscalNbsCode" value="${escapeAttr(f.nbsCode||'')}" data-trim></div><div class="field"><label>Alíquota de ISS (%)</label><input id="fiscalIssRate" value="${escapeAttr(f.issRate??'')}" inputmode="decimal" placeholder="2,00"></div><div class="field"><label>Integração</label><select id="fiscalIntegrationType"><option value="NATIONAL" ${f.integrationType!=='MUNICIPAL'?'selected':''}>Padrão Nacional da NFS-e</option><option value="MUNICIPAL" ${f.integrationType==='MUNICIPAL'?'selected':''}>Sistema próprio da prefeitura</option></select></div><div class="field" id="fiscalProviderField" style="${f.integrationType==='MUNICIPAL'?'':'display:none'}"><label>Provedor da prefeitura</label><input id="fiscalMunicipalProvider" value="${escapeAttr(f.municipalProvider||'')}" placeholder="Ex.: Nota Control, IPM, Betha..." data-trim></div><div class="field"><label>Ambiente</label><select id="fiscalEnvironment"><option value="HOMOLOGATION" ${f.environment!=='PRODUCTION'?'selected':''}>Homologação / testes</option><option value="PRODUCTION" ${f.environment==='PRODUCTION'?'selected':''}>Produção</option></select></div><label class="switch-field full"><input id="fiscalSimples" type="checkbox" ${f.simplesNacional?'checked':''}><span></span><div><b>Optante pelo Simples Nacional</b><small>Marque conforme o enquadramento informado pela contabilidade.</small></div></label><label class="switch-field full"><input id="fiscalActive" type="checkbox" ${f.active?'checked':''}><span></span><div><b>Configuração pronta para emissão</b><small>Ative somente depois de validar os dados e concluir a homologação.</small></div></label></div></section><section data-fiscal-panel="history" style="display:none">${rows}</section></div>`,async close=>{
-    const body={legalName:$('#fiscalLegalName').value,tradeName:$('#fiscalTradeName').value,cnpj:$('#fiscalCnpj').value,municipalRegistration:$('#fiscalMunicipalRegistration').value,taxRegime:$('#fiscalTaxRegime').value,simplesNacional:$('#fiscalSimples').checked,city:$('#fiscalCity').value,state:$('#fiscalState').value,ibgeCode:$('#fiscalIbgeCode').value,serviceListCode:$('#fiscalServiceListCode').value,cnae:$('#fiscalCnae').value,nbsCode:$('#fiscalNbsCode').value,issRate:$('#fiscalIssRate').value,integrationType:$('#fiscalIntegrationType').value,municipalProvider:$('#fiscalMunicipalProvider').value,environment:$('#fiscalEnvironment').value,active:$('#fiscalActive').checked};
-    try{const saved=await cloud.request('/api/forge/fiscal/config',{method:'PUT',body:JSON.stringify(body)});toast(saved.message||'Configuração fiscal salva.','success');close();}catch(error){setModalError(error.message||'Não foi possível salvar a configuração fiscal.');}
-   },'Salvar configuração');
-   setTimeout(()=>{bindAllMasks(document);document.querySelectorAll('[data-fiscal-tab]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-fiscal-tab]').forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('[data-fiscal-panel]').forEach(panel=>panel.style.display=panel.dataset.fiscalPanel===btn.dataset.fiscalTab?'block':'none');}));$('#fiscalIntegrationType')?.addEventListener('change',e=>{$('#fiscalProviderField').style.display=e.target.value==='MUNICIPAL'?'block':'none';});},0);
-  }catch(error){toast(error.message||'Não foi possível abrir o Módulo Fiscal.','error');}
- },
+  'go-fiscal-config':()=>go('fiscal'),
+ 'go-fiscal':()=>go('fiscal'),
+ 'go-marketplace':()=>go('marketplace'),
  'request-module':async b=>{try{const result=await cloud.request('/api/forge/modules',{method:'POST',body:JSON.stringify({module:b.dataset.module})});toast(result.message||'Solicitação registrada.','success');}catch(error){toast(error.message||'Não foi possível solicitar o módulo.','error');}},
  'receive-service':b=>{const item=db.data.pendencias.find(x=>x.id===b.dataset.id);if(item)openReceivePaymentModal(item);},
  'loyalty-settings':()=>go('config'),

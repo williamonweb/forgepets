@@ -1,0 +1,12 @@
+FORGE PETS v9.4.2 — CORREÇÃO DE CPF/CNPJ NO CHECKOUT
+
+Corrige o erro:
+Unique constraint failed on the fields: (document)
+
+O CPF/CNPJ digitado no checkout continua sendo enviado ao Asaas para criar a cobrança.
+Porém, quando esse documento já estiver vinculado a outra empresa/tenant, o sistema
+não tenta gravá-lo novamente na tabela Company. Assim, o checkout não quebra e a
+restrição de unicidade da empresa é preservada.
+
+Isso é especialmente útil em contas de teste, nas quais o mesmo responsável pode
+assinar mais de uma empresa usando o próprio CPF.

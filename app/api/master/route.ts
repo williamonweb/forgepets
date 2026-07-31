@@ -37,7 +37,9 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
       include: {
         users: { select: { id: true, name: true, email: true, role: true, active: true, updatedAt: true } },
-        _count: { select: { pets: true, tutors: true, users: true } }
+        fiscalConfig: true,
+        modules: { where: { module: 'FISCAL' }, select: { enabled: true, status: true } },
+        _count: { select: { pets: true, tutors: true, users: true, fiscalDocuments: true } }
       }
     }),
     prisma.user.findMany({ where: { role: { in: [UserRole.MASTER] } }, orderBy: { createdAt: 'asc' } }),
@@ -71,7 +73,19 @@ export async function GET() {
       asaasCustomerId: c.asaasCustomerId,
       asaasSubscriptionId: c.asaasSubscriptionId,
       downgradeLockedUntil: c.downgradeLockedUntil,
-      onboardingCompleted: c.onboardingCompleted
+      onboardingCompleted: c.onboardingCompleted,
+      fiscal: {
+        contracted: Boolean(c.modules[0]),
+        enabled: Boolean(c.modules[0]?.enabled),
+        moduleStatus: c.modules[0]?.status || null,
+        configured: Boolean(c.fiscalConfig),
+        active: Boolean(c.fiscalConfig?.active),
+        city: c.fiscalConfig?.city || '',
+        state: c.fiscalConfig?.state || '',
+        environment: c.fiscalConfig?.environment || null,
+        integrationType: c.fiscalConfig?.integrationType || null,
+        documents: c._count.fiscalDocuments
+      }
     };
   });
 
