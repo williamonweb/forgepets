@@ -821,7 +821,7 @@ function fiscalValidateStep(step,c){
  return '';
 }
 function bindFiscalWizard(){
- bindAllMasks(document);
+ applyInputMasks(document);
  $('#fwIntegrationType')?.addEventListener('change',e=>{$('#fwProviderField').style.display=e.target.value==='MUNICIPAL'?'block':'none';});
  $('#fiscalWizardBack').onclick=()=>{fiscalCollectStep();fiscalExperienceState.step=Math.max(1,fiscalExperienceState.step-1);renderFiscalExperience();};
  $('#fiscalWizardNext').onclick=async()=>{
