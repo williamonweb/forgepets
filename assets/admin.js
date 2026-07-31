@@ -56,35 +56,50 @@ function bind(){
  const signup=$('#setSignup');if(signup)signup.onclick=()=>signup.classList.toggle('on');
 }
 const actions={
- 'toggle-company-module':async el=>{
+ 'toggle-company-module':el=>{
   const companyId=el.dataset.companyId;
   const companyName=el.dataset.companyName||'esta empresa';
   const currentlyEnabled=el.dataset.moduleEnabled==='true';
   const nextEnabled=!currentlyEnabled;
+
   modal(
    nextEnabled?'Liberar Módulo Fiscal':'Bloquear Módulo Fiscal',
-   `<div class="master-module-confirm"><div class="master-module-confirm-icon">${nextEnabled?'🔓':'🔒'}</div><h3>${nextEnabled?'Liberar acesso fiscal':'Bloquear acesso fiscal'}</h3><p>Você está prestes a ${nextEnabled?'liberar':'bloquear'} o Módulo Fiscal para <b>${escapeHtml(companyName)}</b>.</p>${nextEnabled?'<div class="notice">A empresa poderá abrir o Fiscal e iniciar a configuração imediatamente.</div>':'<div class="notice danger">A configuração e o histórico serão preservados, mas o acesso ao módulo ficará bloqueado.</div>'}</div>`,
-   async close=>{
-    try{
-     const result=await api('/api/master',{
-      method:'PATCH',
-      body:JSON.stringify({
-       action:'company-module',
-       companyId,
-       module:'FISCAL',
-       enabled:nextEnabled
-      })
-     });
-     close();
-     toast(result.message||'Módulo atualizado.','success');
-     await load();
-     render();
-    }catch(error){
-     toast(error.message||'Não foi possível atualizar o módulo.','error');
-    }
-   },
-   nextEnabled?'Liberar módulo':'Bloquear módulo'
+   `<div class="master-module-confirm">
+      <div class="master-module-confirm-icon">${nextEnabled?'🔓':'🔒'}</div>
+      <h3>${nextEnabled?'Liberar acesso fiscal':'Bloquear acesso fiscal'}</h3>
+      <p>Você está prestes a ${nextEnabled?'liberar':'bloquear'} o Módulo Fiscal para <b>${escapeHtml(companyName)}</b>.</p>
+      ${nextEnabled
+        ?'<div class="notice">A empresa poderá abrir o Fiscal e iniciar a configuração imediatamente.</div>'
+        :'<div class="notice danger">A configuração e o histórico serão preservados, mas o acesso ficará bloqueado.</div>'}
+    </div>`,
+   `<button class="secondary" data-close>Cancelar</button>
+    <button class="${nextEnabled?'primary':'danger'}" id="confirmCompanyModule">
+      ${nextEnabled?'Liberar módulo':'Bloquear módulo'}
+    </button>`
   );
+
+  $('#confirmCompanyModule').onclick=async()=>{
+   const confirmButton=$('#confirmCompanyModule');
+   confirmButton.disabled=true;
+   confirmButton.textContent=nextEnabled?'Liberando...':'Bloqueando...';
+
+   try{
+    const result=await api('PATCH',{
+     action:'company-module',
+     companyId,
+     module:'FISCAL',
+     enabled:nextEnabled
+    });
+
+    $('#adminModalRoot').innerHTML='';
+    toast(result.message||'Módulo atualizado.');
+    await refresh();
+   }catch(error){
+    confirmButton.disabled=false;
+    confirmButton.textContent=nextEnabled?'Liberar módulo':'Bloquear módulo';
+    toast(error.message||'Não foi possível atualizar o módulo.');
+   }
+  };
  },
 
  'new-company':()=>editCompany(),
@@ -98,7 +113,7 @@ const actions={
  'export-backup':()=>download(`forgepets-master-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(data,null,2))
 };
 function download(name,content,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b||!actions[b.dataset.action])return;if(b.dataset.action==='new-ticket'){actions['new-ticket']();setTimeout(()=>{$('#saveTicket').onclick=async()=>{const o=Object.fromEntries(new FormData($('#ticketForm')).entries());try{await api('POST',{action:'ticket',...o});$('#adminModalRoot').innerHTML='';toast('Chamado criado.');refresh()}catch(err){toast(err.message)}}},0);return}actions[b.dataset.action]()});
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b||!actions[b.dataset.action])return;if(b.dataset.action==='new-ticket'){actions['new-ticket']();setTimeout(()=>{$('#saveTicket').onclick=async()=>{const o=Object.fromEntries(new FormData($('#ticketForm')).entries());try{await api('POST',{action:'ticket',...o});$('#adminModalRoot').innerHTML='';toast('Chamado criado.');refresh()}catch(err){toast(err.message)}}},0);return}actions[b.dataset.action](b)});
 $('#masterSearch').oninput=e=>{page='empresas';render();setTimeout(()=>{if($('#companyFilter')){$('#companyFilter').value=e.target.value;$('#companyFilter').dispatchEvent(new Event('input'))}})};
 $('#mobileMenu').onclick=()=>$('.admin-sidebar').classList.toggle('open');
 refresh(true);
