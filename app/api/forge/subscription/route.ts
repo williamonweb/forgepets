@@ -87,7 +87,8 @@ export async function GET(request: NextRequest) {
       id: true, name: true, tradeName: true, document: true, email: true, phone: true,
       plan: true, subscriptionStatus: true, asaasCustomerId: true, asaasSubscriptionId: true,
       billingType: true, nextBillingDate: true, downgradeLockedUntil: true, pendingPlan: true, pendingPlanRequestedAt: true,
-      trialEndsAt: true
+      trialEndsAt: true,
+      modules: { select: { module: true, enabled: true, price: true, activatedAt: true, expiresAt: true } }
     }
   });
 
@@ -125,7 +126,9 @@ export async function GET(request: NextRequest) {
       paymentPending: !!company.asaasSubscriptionId && !active,
       plan: publicPlanName(company.plan),
       pendingPlan: company.pendingPlan ? publicPlanName(company.pendingPlan) : null,
-      nextBillingDate: company.nextBillingDate
+      nextBillingDate: company.nextBillingDate,
+      modules: company.modules.map(item => item.module),
+      activeModules: company.modules.filter(item => item.enabled).map(item => item.module)
     });
   }
 
@@ -173,7 +176,14 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     subscription: {
       ...company,
-      planName: publicPlanName(company.plan)
+      planName: publicPlanName(company.plan),
+      modules: company.modules.map(item => ({
+        code: item.module,
+        enabled: item.enabled,
+        price: item.price ? Number(item.price) : null,
+        activatedAt: item.activatedAt,
+        expiresAt: item.expiresAt
+      }))
     }
   });
 }
