@@ -5,6 +5,7 @@ const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'B
 const dateBR=v=>v?new Date(v).toLocaleDateString('pt-BR'):'—';
 const dateTimeBR=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
 const escapeHtml=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const escapeAttr=v=>escapeHtml(v);
 const company=id=>data.companies.find(x=>x.id===id);
 function badge(status){const labels={active:'Ativa',trial:'Teste',blocked:'Bloqueada',overdue:'Inadimplente',inactive:'Inativa',paid:'Pago',pending:'Pendente',cancelled:'Cancelada',canceled:'Cancelada',open:'Aberto',waiting_customer:'Aguardando cliente',waiting_forge:'Aguardando Forge',resolved:'Resolvido'};return `<span class="badge ${status}">${labels[status]||status}</span>`}
 function toast(msg){const el=document.createElement('div');el.className='admin-toast';el.textContent=msg;$('#adminToastRoot').append(el);setTimeout(()=>el.remove(),3000)}
