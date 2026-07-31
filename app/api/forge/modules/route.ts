@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ModuleCode } from '@prisma/client';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { syncCompanyBilling } from '@/lib/asaas/sync';
 
 export const runtime = 'nodejs';
 const CATALOG = {
@@ -16,6 +17,11 @@ const CATALOG = {
 export async function GET() {
   const session = await getSession();
   if (!session?.companyId) return NextResponse.json({ message: 'Sessão inválida.' }, { status: 401 });
+  try {
+    await syncCompanyBilling(session.companyId);
+  } catch (error) {
+    console.warn('[ForgePets] Não foi possível sincronizar módulos com o Asaas:', error instanceof Error ? error.message : error);
+  }
   const rows = await prisma.companyModule.findMany({ where: { companyId: session.companyId } });
   const state = new Map(rows.map(row => [row.module, row]));
   return NextResponse.json({ modules: Object.entries(CATALOG).map(([code, item]) => ({ code, ...item, enabled: state.get(code as ModuleCode)?.enabled || false, expiresAt: state.get(code as ModuleCode)?.expiresAt || null })) });

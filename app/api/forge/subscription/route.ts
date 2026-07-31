@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { asaasRequest, AsaasBillingType, normalizeDocument } from '@/lib/asaas/client';
 import { PLAN_CONFIG, PublicPlanName, publicPlanName } from '@/lib/asaas/plans';
+import { syncCompanyBilling } from '@/lib/asaas/sync';
 
 export const runtime = 'nodejs';
 
@@ -71,6 +72,14 @@ function billingType(method: string): AsaasBillingType {
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session?.companyId) return NextResponse.json({ message: 'Sessão inválida.' }, { status: 401 });
+
+  if (request.nextUrl.searchParams.get('status') === '1') {
+    try {
+      await syncCompanyBilling(session.companyId);
+    } catch (error) {
+      console.warn('[ForgePets] Falha ao reconciliar assinatura:', error instanceof Error ? error.message : error);
+    }
+  }
 
   const company = await prisma.company.findUnique({
     where: { id: session.companyId },

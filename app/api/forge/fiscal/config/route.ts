@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { FiscalEnvironment, FiscalIntegrationType, ModuleCode } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { syncCompanyBilling } from '@/lib/asaas/sync';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +17,11 @@ async function fiscalAccess(companyId: string) {
 export async function GET() {
   const session = await getSession();
   if (!session?.companyId) return NextResponse.json({ message: 'Sessão inválida.' }, { status: 401 });
+  try {
+    await syncCompanyBilling(session.companyId);
+  } catch (error) {
+    console.warn('[ForgePets] Não foi possível sincronizar o módulo fiscal:', error instanceof Error ? error.message : error);
+  }
   const moduleActive = await fiscalAccess(session.companyId);
   const config = await prisma.fiscalConfig.findUnique({ where: { companyId: session.companyId } });
   return NextResponse.json({ moduleActive, config });

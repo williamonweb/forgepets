@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { PLAN_CONFIG, publicPlanName } from '@/lib/asaas/plans';
+import { syncCompanyBilling } from '@/lib/asaas/sync';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +32,18 @@ function asDate(value: unknown) {
 export async function GET() {
   const session = await requireMaster();
   if (!session) return NextResponse.json({ message: 'Acesso restrito ao Master.' }, { status: 403 });
+
+  const pendingBillingCompanies = await prisma.company.findMany({
+    where: {
+      asaasSubscriptionId: { not: null },
+      modules: { some: { module: 'FISCAL', enabled: false } }
+    },
+    select: { id: true }
+  });
+
+  await Promise.allSettled(
+    pendingBillingCompanies.map(company => syncCompanyBilling(company.id))
+  );
 
   const [companies, users, tickets, logs, webhookEvents, settings] = await Promise.all([
     prisma.company.findMany({
