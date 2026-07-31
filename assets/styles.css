@@ -376,3 +376,20 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 
 /* Forge Pets v9.6.0 — Fiscal + Caixa */
 .pdv-fiscal-option{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin-top:12px;border:1px solid #e7ddff;border-radius:14px;background:#fbf9ff;cursor:pointer}.pdv-fiscal-option input{margin-top:3px;accent-color:#6d28d9}.pdv-fiscal-option span{display:grid;gap:2px}.pdv-fiscal-option b{font-size:13px}.pdv-fiscal-option small{font-size:11px;color:#776d86}.fiscal-issue-form textarea{resize:vertical;min-height:100px}.fiscal-history-card .btn.ghost{padding:6px 9px;font-size:11px}
+
+
+/* Forge Pets v9.6.4 — Financeiro real x previsto */
+.finance-workspace{display:grid;gap:16px}
+.finance-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:25px 27px;border-radius:23px;background:linear-gradient(135deg,#27104f,#682ed3);color:#fff}
+.finance-eyebrow{font-size:11px;font-weight:900;letter-spacing:.14em;color:#dacaff}.finance-hero h2{font-size:27px;margin:7px 0}.finance-hero p{margin:0;color:#ddd0f6}
+.finance-hero-actions{display:flex;gap:9px;flex-wrap:wrap}.finance-hero .btn.ghost{background:#ffffff15;color:#fff;border-color:#ffffff30}
+.finance-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.finance-kpi{background:#fff;border:1px solid #e9e3f2;border-radius:18px;padding:19px;display:grid;gap:4px;position:relative;overflow:hidden}
+.finance-kpi>span{font-size:25px}.finance-kpi small{font-weight:800;color:#777080}.finance-kpi strong{font-size:25px}.finance-kpi em{font-style:normal;color:#91899c;font-size:12px;line-height:1.45}
+.finance-kpi.real{border-color:#c7b4fb;background:linear-gradient(145deg,#fff,#f7f3ff)}.finance-kpi.warning{border-color:#fed7aa}.finance-kpi.today{border-color:#fde68a}.finance-kpi.danger{border-color:#fecaca}.finance-kpi.forecast{border-color:#bfdbfe;background:#f7fbff}
+.finance-alert-strip{display:grid;grid-template-columns:1fr 1fr;gap:12px}.finance-alert-strip>div{background:#fff;border:1px solid #e9e3f2;border-radius:16px;padding:16px;display:grid;gap:5px}.finance-alert-strip span{color:#716a7b}
+.finance-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.finance-tabs button{border:1px solid #e3dced;background:#fff;border-radius:999px;padding:9px 13px;font-weight:800;color:#70677c;cursor:pointer}.finance-tabs button.active{background:var(--purple);color:#fff;border-color:var(--purple)}.finance-tabs b{display:inline-grid;place-items:center;min-width:21px;height:21px;margin-left:6px;border-radius:999px;background:#f0ebf7;font-size:11px}.finance-tabs button.active b{background:#ffffff25}
+.table-sub{display:block;color:#91899c;font-weight:400;margin-top:3px}.btn.small{padding:7px 10px;font-size:12px}
+.badge.orange{background:#fff1df;color:#b45309}.badge.yellow{background:#fff8cf;color:#8a6500}
+.payment-confirmation{text-align:center}.payment-confirmation h3{font-size:22px;margin:0 0 10px}.payment-confirmation p{margin:6px 0}
+@media(max-width:900px){.finance-kpis{grid-template-columns:repeat(2,1fr)}.finance-hero{align-items:flex-start;flex-direction:column}.finance-alert-strip{grid-template-columns:1fr}}
+@media(max-width:560px){.finance-kpis{grid-template-columns:1fr}}

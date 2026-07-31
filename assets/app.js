@@ -373,7 +373,74 @@ const views={
 
  pets(){const rows=sortAlpha(db.data.pets,'nome').filter(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return [p.nome,c?.nome].some(v=>normalize(v).includes(normalize(petSearch)))});return `<div class="card"><div class="section-title"><h2>Pets cadastrados</h2><button class="btn primary" data-action="new-pet-select">Novo pet</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(petSearch)}" placeholder="Buscar pelo nome do pet ou do tutor..." oninput="setPetSearch(this.value)"></div><div class="result-count">${rows.length} pet(s) encontrado(s) · ordem alfabética</div>${rows.length?`<div class="table-wrap"><table class="table pet-list-table"><thead><tr><th>Pet</th><th>Tutor</th><th>Espécie / raça</th><th>Cor</th><th></th></tr></thead><tbody>${rows.map(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return `<tr class="clickable" data-action="view-pet" data-id="${p.id}"><td><span class="pet-list-name"><span class="mini-avatar">${p.especie==='Felino'?'🐱':p.especie==='Canino'?'🐶':'🐾'}</span><strong>${p.nome}</strong></span></td><td>${c?.nome||'-'}</td><td>${p.especie||'-'}${p.raca?` · ${p.raca}`:''}</td><td>${p.cor||'-'}</td><td><button class="btn ghost" data-action="view-pet" data-id="${p.id}">Ver ficha</button> <button class="btn ghost" data-action="edit-pet" data-id="${p.id}">Editar</button> <button class="btn danger" data-action="delete-pet" data-id="${p.id}">Excluir</button></td></tr>`}).join('')}</tbody></table></div>`:`<div class="empty">${petSearch?'Nenhum pet encontrado.':'Nenhum pet cadastrado.'}</div>`}</div>`},
  atendimentos(){const rows=[...db.data.agenda].sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora));return `<div class="card"><div class="section-title"><h2>Fluxo de atendimentos</h2><button class="btn primary" data-action="quick-appointment">Novo atendimento</button></div><div class="status-tabs"><button class="btn ghost" data-action="filter-status" data-status="todos">Todos</button><button class="btn ghost" data-action="filter-status" data-status="Agendado">Aguardando</button><button class="btn ghost" data-action="filter-status" data-status="Concluído">Finalizados</button></div>${agendaList(rows)}</div>`},
- financeiro(){return `<div class="grid stats"><div class="card stat clickable" data-action="new-entry"><div class="label">Entradas</div><div class="value">${money(sumType('entrada'))}</div><div class="trend">Clique para lançar</div></div><div class="card stat clickable" data-action="new-expense"><div class="label">Saídas</div><div class="value">${money(sumType('saida'))}</div><div class="trend">Clique para lançar</div></div><div class="card stat clickable" data-action="go-caixa"><div class="label">Saldo atual</div><div class="value">${money(balance())}</div><div class="trend">Ver movimentações</div></div><div class="card stat"><div class="label">Ticket médio</div><div class="value">${money(db.data.caixa.filter(x=>x.tipo==='entrada').length?sumType('entrada')/db.data.caixa.filter(x=>x.tipo==='entrada').length:0)}</div></div></div><div class="card" style="margin-top:16px"><div class="section-title"><h2>Últimas movimentações</h2><button class="btn primary" data-action="quick-movement">Nova movimentação</button></div>${tableSimple([...db.data.caixa].reverse().slice(0,15),['data','descricao','tipo','valor'],x=>[x.data,x.descricao,`<span class="badge ${x.tipo==='entrada'?'green':'red'}">${x.tipo}</span>`,money(x.valor)],'cash')}</div>`},
+ financeiro(){
+  ensureData();
+  const summary=financialSummary();
+  const filter=window.financeExpenseFilter||'all';
+  const expenses=filteredExpenses(filter);
+  const expenseRows=expenses.length?expenses.map(expense=>{
+    const status=expenseStatus(expense);
+    return `<tr>
+      <td><b>${escapeHtml(expense.descricao||'Despesa')}</b><small class="table-sub">${escapeHtml(expense.categoria||'Geral')}</small></td>
+      <td>${formatDateBR(expense.vencimento)}</td>
+      <td><span class="badge ${expenseStatusClass(status)}">${expenseStatusLabel(status)}</span></td>
+      <td><b>${money(expense.valor)}</b></td>
+      <td>${expense.status==='pago'
+        ? `<span class="muted">${expense.paidAt?formatDateBR(String(expense.paidAt).slice(0,10)):'Pago'}</span>`
+        : `<button class="btn primary small" data-action="pay-expense" data-id="${expense.id}">Marcar paga</button>`}
+        <button class="btn ghost small" data-action="edit-expense" data-id="${expense.id}">Editar</button>
+      </td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="5"><div class="empty">Nenhuma despesa nesta situação.</div></td></tr>';
+
+  return `<section class="finance-workspace">
+    <div class="finance-hero">
+      <div>
+        <span class="finance-eyebrow">VISÃO FINANCEIRA</span>
+        <h2>Saldo real e compromissos separados</h2>
+        <p>Contas pendentes aparecem na previsão, mas só descontam do saldo quando forem pagas.</p>
+      </div>
+      <div class="finance-hero-actions">
+        <button class="btn primary" data-action="new-entry">＋ Nova receita</button>
+        <button class="btn ghost" data-action="new-expense">＋ Nova despesa</button>
+      </div>
+    </div>
+
+    <div class="finance-kpis">
+      <article class="finance-kpi real"><span>💰</span><small>Saldo real</small><strong>${money(summary.realBalance)}</strong><em>Receitas recebidas menos despesas pagas</em></article>
+      <article><span>🔵</span><small>Receitas previstas</small><strong>${money(summary.pendingIncome)}</strong><em>Valores ainda não recebidos</em></article>
+      <article class="warning"><span>🟠</span><small>Despesas a vencer</small><strong>${money(summary.upcoming)}</strong><em>Vencimento após hoje</em></article>
+      <article class="today"><span>🟡</span><small>Vencem hoje</small><strong>${money(summary.dueToday)}</strong><em>Compromissos do dia</em></article>
+      <article class="danger"><span>🔴</span><small>Despesas vencidas</small><strong>${money(summary.overdue)}</strong><em>Contas pendentes em atraso</em></article>
+      <article class="forecast"><span>📈</span><small>Saldo previsto</small><strong>${money(summary.forecastBalance)}</strong><em>Saldo real + receitas previstas − despesas pendentes</em></article>
+    </div>
+
+    <div class="finance-alert-strip">
+      <div><b>Depois dos compromissos</b><span>Saldo disponível após todas as despesas pendentes: <strong>${money(summary.availableAfterExpenses)}</strong></span></div>
+      <div><b>Projeção completa</b><span>Incluindo receitas futuras: <strong>${money(summary.forecastBalance)}</strong></span></div>
+    </div>
+
+    <div class="card finance-expenses-card">
+      <div class="section-title">
+        <div><h2>Contas a pagar</h2><p>As despesas só entram no saldo real quando forem marcadas como pagas.</p></div>
+        <button class="btn primary" data-action="new-expense">Nova despesa</button>
+      </div>
+      <div class="finance-tabs">
+        ${financeFilterButton('all','Todas',filter,db.data.despesas.length)}
+        ${financeFilterButton('overdue','Vencidas',filter,summary.overdueCount)}
+        ${financeFilterButton('today','Vencem hoje',filter,summary.dueTodayCount)}
+        ${financeFilterButton('upcoming','A vencer',filter,summary.upcomingCount)}
+        ${financeFilterButton('paid','Pagas',filter,summary.paidCount)}
+      </div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Despesa</th><th>Vencimento</th><th>Situação</th><th>Valor</th><th>Ações</th></tr></thead><tbody>${expenseRows}</tbody></table></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="section-title"><div><h2>Movimentações realizadas</h2><p>Somente valores que realmente entraram ou saíram.</p></div><button class="btn ghost" data-action="quick-movement">Nova movimentação</button></div>
+      ${tableSimple([...db.data.caixa].reverse().slice(0,15),['data','descricao','tipo','valor'],x=>[formatDateBR(x.data),x.descricao,`<span class="badge ${x.tipo==='entrada'?'green':'red'}">${x.tipo==='entrada'?'Receita':'Despesa paga'}</span>`,money(x.valor)],'cash')}
+    </div>
+  </section>`;
+ },
  fidelidade(){
   const plan=activePlan(),clientes=db.data.clientes||[];
   if(!hasFeature('fidelidade'))return `<div class="card locked-module"><div class="locked-icon">🔒</div><h2>Programa de fidelidade</h2><p>Disponível a partir do Plano Profissional.</p><button class="btn primary" data-action="show-plans">Conhecer planos</button></div>`;
@@ -462,7 +529,7 @@ function toast(message,type='auto',options={}){
  setTimeout(close,Number(options.duration||4200));
 }
 
-function ensureData(){db.data.clientes=db.data.clientes||[];db.data.pets=db.data.pets||[];db.data.agenda=db.data.agenda||[];db.data.servicos=db.data.servicos||[];db.data.caixa=db.data.caixa||[];db.data.pendencias=db.data.pendencias||[];db.data.estoque=db.data.estoque||[];db.data.boletos=db.data.boletos||[];db.data.vendas=db.data.vendas||[];db.data.cupons=db.data.cupons||[];db.data.campanhas=db.data.campanhas||[];db.data.loyaltyHistory=db.data.loyaltyHistory||[];db.data.recompensas=db.data.recompensas||[{id:'reward-banho',nome:'Banho gratuito',pontos:500,valor:60,ativo:true},{id:'reward-hidratacao',nome:'Hidratação gratuita',pontos:300,valor:35,ativo:true},{id:'reward-vale20',nome:'Vale-compras de R$ 20,00',pontos:200,valor:20,ativo:true}];db.data.config={empresa:'Meu Pet Shop',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',telefoneUsuario:'',fotoUsuario:'',perfilUsuario:'Administrador',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',pontosPorReal:1,percentualCashback:2,cuponsAtivos:true,campanhaAniversario:true,beneficiosVip:{Bronze:0,Prata:3,Ouro:5,Diamante:8},cupomAniversarioPercentual:10,cupomAniversarioValidade:15,...db.data.config};}
+function ensureData(){db.data.clientes=db.data.clientes||[];db.data.pets=db.data.pets||[];db.data.agenda=db.data.agenda||[];db.data.servicos=db.data.servicos||[];db.data.caixa=db.data.caixa||[];db.data.despesas=db.data.despesas||[];db.data.receitasPrevistas=db.data.receitasPrevistas||[];db.data.pendencias=db.data.pendencias||[];db.data.estoque=db.data.estoque||[];db.data.boletos=db.data.boletos||[];db.data.vendas=db.data.vendas||[];db.data.cupons=db.data.cupons||[];db.data.campanhas=db.data.campanhas||[];db.data.loyaltyHistory=db.data.loyaltyHistory||[];db.data.recompensas=db.data.recompensas||[{id:'reward-banho',nome:'Banho gratuito',pontos:500,valor:60,ativo:true},{id:'reward-hidratacao',nome:'Hidratação gratuita',pontos:300,valor:35,ativo:true},{id:'reward-vale20',nome:'Vale-compras de R$ 20,00',pontos:200,valor:20,ativo:true}];db.data.config={empresa:'Meu Pet Shop',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',telefoneUsuario:'',fotoUsuario:'',perfilUsuario:'Administrador',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',pontosPorReal:1,percentualCashback:2,cuponsAtivos:true,campanhaAniversario:true,beneficiosVip:{Bronze:0,Prata:3,Ouro:5,Diamante:8},cupomAniversarioPercentual:10,cupomAniversarioValidade:15,...db.data.config};}
 
 function vipLevel(cliente){const pts=Number(cliente?.pontos||0),levels=[...(db.data.config.niveisVip||[{nome:'Bronze',min:0},{nome:'Prata',min:500},{nome:'Ouro',min:1500},{nome:'Diamante',min:5000}])].sort((a,b)=>Number(a.min)-Number(b.min));return levels.filter(x=>pts>=Number(x.min||0)).pop()?.nome||'Bronze';}
 function vipDiscount(cliente){return Number((db.data.config.beneficiosVip||{})[vipLevel(cliente)]||0);}
@@ -472,6 +539,109 @@ function runPremiumAutomations(){ensureData();if(!hasFeature('vip'))return;const
  db.data.clientes.forEach(c=>{const level=vipLevel(c),key=`vip-${c.id}-${level}`;if(level!=='Bronze'&&!db.data.cupons.some(x=>x.key===key)){const discount=vipDiscount(c);if(discount>0){const exp=new Date();exp.setDate(exp.getDate()+30);db.data.cupons.push({id:uid(),key,codigo:`VIP${level.toUpperCase().slice(0,3)}${String(c.id).slice(-4).toUpperCase()}`,clienteId:c.id,tipo:'percentual',valor:discount,origem:`Benefício ${level}`,validade:exp.toISOString().slice(0,10),status:'ativo',createdAt:new Date().toISOString()});}}});
  localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));}
 function loyaltyReport(){const h=db.data.loyaltyHistory||[],earned=h.filter(x=>['pontos_ganhos','cashback_gerado'].includes(x.tipo)),redeemed=h.filter(x=>['pontos_resgatados','cashback_usado','cupom_usado'].includes(x.tipo));const vip=db.data.clientes.reduce((acc,c)=>{const l=vipLevel(c);acc[l]=(acc[l]||0)+1;return acc;},{});return {earned,redeemed,vip};}
+
+
+function dateAtNoon(value){
+ if(!value)return null;
+ const date=new Date(`${String(value).slice(0,10)}T12:00:00`);
+ return Number.isNaN(date.getTime())?null:date;
+}
+function expenseStatus(expense){
+ if(expense.status==='pago')return 'paid';
+ const due=dateAtNoon(expense.vencimento);
+ const now=dateAtNoon(today());
+ if(!due||!now)return 'upcoming';
+ if(due.getTime()<now.getTime())return 'overdue';
+ if(due.getTime()===now.getTime())return 'today';
+ return 'upcoming';
+}
+function expenseStatusLabel(status){
+ return ({overdue:'Vencida',today:'Vence hoje',upcoming:'A vencer',paid:'Paga'})[status]||'A vencer';
+}
+function expenseStatusClass(status){
+ return ({overdue:'red',today:'yellow',upcoming:'orange',paid:'green'})[status]||'gray';
+}
+function pendingIncomeItems(){
+ ensureData();
+ return db.data.receitasPrevistas||[];
+}
+function financialSummary(){
+ ensureData();
+ const realBalance=balance();
+ const pendingExpenses=db.data.despesas.filter(x=>x.status!=='pago');
+ const upcoming=pendingExpenses.filter(x=>expenseStatus(x)==='upcoming').reduce((s,x)=>s+Number(x.valor||0),0);
+ const dueToday=pendingExpenses.filter(x=>expenseStatus(x)==='today').reduce((s,x)=>s+Number(x.valor||0),0);
+ const overdue=pendingExpenses.filter(x=>expenseStatus(x)==='overdue').reduce((s,x)=>s+Number(x.valor||0),0);
+ const pendingIncome=pendingIncomeItems().filter(x=>x.status!=='recebido').reduce((s,x)=>s+Number(x.valor||0),0);
+ const pendingTotal=upcoming+dueToday+overdue;
+ return {
+  realBalance,
+  pendingIncome,
+  upcoming,
+  dueToday,
+  overdue,
+  availableAfterExpenses:realBalance-pendingTotal,
+  forecastBalance:realBalance+pendingIncome-pendingTotal,
+  upcomingCount:pendingExpenses.filter(x=>expenseStatus(x)==='upcoming').length,
+  dueTodayCount:pendingExpenses.filter(x=>expenseStatus(x)==='today').length,
+  overdueCount:pendingExpenses.filter(x=>expenseStatus(x)==='overdue').length,
+  paidCount:db.data.despesas.filter(x=>x.status==='pago').length
+ };
+}
+function filteredExpenses(filter='all'){
+ ensureData();
+ const rows=[...db.data.despesas].sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
+ if(filter==='all')return rows;
+ return rows.filter(x=>expenseStatus(x)===filter);
+}
+function financeFilterButton(key,label,current,count){
+ return `<button class="${current===key?'active':''}" data-action="filter-expenses" data-filter="${key}">${label}<b>${count}</b></button>`;
+}
+function openExpenseModal(expense=null){
+ const editing=Boolean(expense);
+ modal(editing?'Editar despesa':'Nova despesa',`<div class="form-grid">
+  <div class="field full"><label>Descrição *</label><input id="expenseDescription" value="${escapeAttr(expense?.descricao||'')}" placeholder="Ex.: Aluguel, energia, fornecedor" data-trim></div>
+  <div class="field"><label>Categoria</label><input id="expenseCategory" value="${escapeAttr(expense?.categoria||'Geral')}" placeholder="Ex.: Estrutura"></div>
+  <div class="field"><label>Valor *</label><input id="expenseValue" data-mask="money" inputmode="numeric" value="${expense?money(expense.valor):''}" placeholder="R$ 0,00"></div>
+  <div class="field"><label>Vencimento *</label><input id="expenseDueDate" type="date" value="${expense?.vencimento||today()}"></div>
+  <div class="field"><label>Situação</label><select id="expensePaymentStatus"><option value="pendente" ${expense?.status!=='pago'?'selected':''}>Pendente</option><option value="pago" ${expense?.status==='pago'?'selected':''}>Já paga</option></select></div>
+  <div class="field"><label>Forma de pagamento</label><select id="expensePaymentMethod"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Boleto</option><option>Transferência</option></select></div>
+  <div class="field full"><label>Observações</label><textarea id="expenseNotes" rows="3">${escapeHtml(expense?.observacoes||'')}</textarea></div>
+ </div><div class="notice">Enquanto estiver pendente, esta despesa aparecerá apenas na previsão e não reduzirá o saldo real.</div>`,close=>{
+  const descricao=$('#expenseDescription').value.trim();
+  const valor=parseLocaleNumber($('#expenseValue').value);
+  const vencimento=$('#expenseDueDate').value;
+  const status=$('#expensePaymentStatus').value;
+  if(!descricao||valor<=0||!vencimento)return toast('Preencha descrição, valor e vencimento.','error');
+  const payload={
+   id:expense?.id||uid(),
+   descricao,
+   categoria:$('#expenseCategory').value.trim()||'Geral',
+   valor,
+   vencimento,
+   status,
+   forma:$('#expensePaymentMethod').value,
+   observacoes:$('#expenseNotes').value.trim(),
+   createdAt:expense?.createdAt||new Date().toISOString(),
+   updatedAt:new Date().toISOString()
+  };
+  if(editing)Object.assign(expense,payload);else db.data.despesas.push(payload);
+  if(status==='pago'&&!payload.caixaMovementId){
+   const movement={id:uid(),tipo:'saida',data:today(),descricao:payload.descricao,valor:payload.valor,forma:payload.forma,expenseId:payload.id};
+   db.data.caixa.push(movement);
+   payload.caixaMovementId=movement.id;
+   payload.paidAt=new Date().toISOString();
+  }
+  if(status!=='pago'&&payload.caixaMovementId){
+   const index=db.data.caixa.findIndex(x=>x.id===payload.caixaMovementId);
+   if(index>=0)db.data.caixa.splice(index,1);
+   payload.caixaMovementId=null;
+   payload.paidAt=null;
+  }
+  db.save();close();render();toast(editing?'Despesa atualizada.':'Despesa cadastrada.','success');
+ },editing?'Salvar alterações':'Cadastrar despesa');
+ applyInputMasks($('.modal'));
+}
 
 function boletoAlerts(){ensureData();const tomorrow=daysFromNow(1);return db.data.boletos.filter(x=>x.status!=='pago'&&x.vencimento===tomorrow);}
 function updateNotificationBadge(){const badge=document.querySelector('[data-action="notifications"] b');if(!badge)return;const count=boletoAlerts().length;badge.textContent=String(count);badge.style.display=count?'grid':'none';badge.setAttribute('aria-label',`${count} boleto(s) vencendo amanhã`);}
@@ -674,6 +844,21 @@ function bindFiscalDashboard(){
 }
 
 const actions={
+ 'filter-expenses':b=>{window.financeExpenseFilter=b.dataset.filter||'all';render();},
+ 'pay-expense':b=>{
+  const expense=db.data.despesas.find(x=>String(x.id)===String(b.dataset.id));
+  if(!expense)return toast('Despesa não encontrada.','error');
+  modal('Confirmar pagamento',`<div class="payment-confirmation"><h3>${escapeHtml(expense.descricao)}</h3><p>Valor: <b>${money(expense.valor)}</b></p><p>Vencimento: <b>${formatDateBR(expense.vencimento)}</b></p><div class="notice">Ao confirmar, o valor será lançado como saída e passará a reduzir o saldo real.</div></div>`,close=>{
+   expense.status='pago';
+   expense.paidAt=new Date().toISOString();
+   const movement={id:uid(),tipo:'saida',data:today(),descricao:expense.descricao,valor:Number(expense.valor),forma:expense.forma||'PIX',expenseId:expense.id};
+   db.data.caixa.push(movement);
+   expense.caixaMovementId=movement.id;
+   db.save();close();render();toast('Despesa marcada como paga.','success');
+  },'Confirmar pagamento');
+ },
+ 'edit-expense':b=>{const expense=db.data.despesas.find(x=>String(x.id)===String(b.dataset.id));if(expense)openExpenseModal(expense);},
+
  'view-subscription-invoice':b=>{const inv=subscriptionPayments().find(x=>String(x.id)===String(b.dataset.id));if(!inv)return toast('Fatura não encontrada.');const paid=inv.status==='paid';modal(`Fatura #${String(inv.id).slice(-8).toUpperCase()}`,`<div class="invoice-detail"><div class="invoice-detail-head"><div><span>FORGEPETS · ASSINATURA</span><h2>${escapeHtml(inv.companyName||activeSubscription().companyName||'Pet shop')}</h2><p>Plano ${escapeHtml(inv.plan||activePlan())}</p></div><i class="invoice-status ${subscriptionStatusClass(inv.status)}">${subscriptionStatusLabel(inv.status)}</i></div><div class="invoice-detail-grid"><div><small>Valor</small><strong>${money(inv.amount)}</strong></div><div><small>Vencimento</small><strong>${inv.due?new Date(`${inv.due}T12:00:00`).toLocaleDateString('pt-BR'):'—'}</strong></div><div><small>Forma de pagamento</small><strong>${escapeHtml(inv.method||'Não informado')}</strong></div><div><small>Pagamento</small><strong>${inv.paidAt?new Date(inv.paidAt).toLocaleString('pt-BR'):'Aguardando'}</strong></div></div><div class="invoice-description"><span>Descrição</span><b>Assinatura mensal ForgePets · Plano ${escapeHtml(inv.plan||activePlan())}</b><small>Competência: ${inv.subscriptionCycle?new Date(`${inv.subscriptionCycle}T12:00:00`).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'—'}</small></div>${paid?'<div class="invoice-paid-note">✓ Pagamento confirmado. Esta fatura está quitada.</div>':'<div class="invoice-pending-note">Aguardando confirmação do pagamento.</div>'}</div>`,close=>close(),'Fechar');},
  'pay-subscription-invoice':b=>{const payments=subscriptionPayments(),inv=payments.find(x=>String(x.id)===String(b.dataset.id));if(!inv)return toast('Fatura não encontrada.');modal('Confirmar pagamento',`<p>Deseja simular o pagamento da fatura de <b>${money(inv.amount)}</b> com vencimento em <b>${new Date(`${inv.due}T12:00:00`).toLocaleDateString('pt-BR')}</b>?</p><div class="notice">Na versão online, esta confirmação será recebida automaticamente pelo Asaas.</div>`,close=>{inv.status='paid';inv.paidAt=new Date().toISOString();saveSubscriptionPayments(payments);const sub=activeSubscription();localStorage.setItem('forgepets_active_subscription',JSON.stringify({...sub,status:'active',lastPaymentStatus:'paid'}));close();render();toast('Fatura marcada como paga.');},'Confirmar pagamento');},
  'new-boleto-batch':()=>{modal('Cadastrar boletos',`<div class="form-grid"><div class="field full"><label>Empresa *</label><input id="boletoEmpresa" data-trim placeholder="Nome da empresa"></div><div class="field"><label>Valor de cada boleto *</label><input id="boletoValor" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field"><label>Quantidade de boletos *</label><input id="boletoQtd" type="number" min="1" max="60" value="1"></div><div class="field full"><label>Vencimento de cada boleto</label><div id="boletoDates" class="boleto-date-grid"></div></div></div>`,close=>{const empresa=$('#boletoEmpresa').value.trim(),valor=parseLocaleNumber($('#boletoValor').value),qtd=Number($('#boletoQtd').value||0),dates=[...document.querySelectorAll('[data-boleto-date]')].map(x=>x.value);if(!empresa||valor<=0||qtd<1)return toast('Preencha empresa, valor e quantidade.');if(dates.length!==qtd||dates.some(x=>!x))return toast('Informe o vencimento de todos os boletos.');dates.forEach((v,i)=>db.data.boletos.push({id:uid(),loteId:uid(),empresa,valor,quantidade:qtd,parcela:i+1,vencimento:v,status:'aberto',createdAt:new Date().toISOString()}));db.save();close();toast(`${qtd} boleto(s) cadastrado(s).`);});const q=$('#boletoQtd'),box=$('#boletoDates');const draw=()=>{const count=Math.min(60,Math.max(1,Number(q.value||1))),previous=[...box.querySelectorAll('input')].map(x=>x.value);box.innerHTML=Array.from({length:count},(_,i)=>`<div class="field"><label>Boleto ${i+1}</label><input type="date" data-boleto-date value="${previous[i]||daysFromNow(i*30+1)}"></div>`).join('');};q.addEventListener('input',draw);draw();},
@@ -758,7 +943,7 @@ const actions={
  'new-pet-select':()=>{if(!db.data.clientes.length)return toast('Cadastre um cliente primeiro.');modal('Escolha o tutor',`<div class="field"><label>Tutor</label><select id="petTutor">${db.data.clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>`,close=>{const id=$('#petTutor').value;close();actions['new-pet']({dataset:{id}});},'Continuar');},
  'quick-sale':()=>openSaleModal(),
  'new-entry':()=>openSaleModal(),
- 'new-expense':()=>movementModal('saida'),
+ 'new-expense':()=>openExpenseModal(),
  'notifications':()=>{const bills=boletoAlerts();modal('Notificações',`<div class="notice-list">${bills.length?bills.map(x=>`<button class="notice notice-button" data-action="go-boletos"><span>🧾</span><div><b>Boleto vence amanhã</b><small>${escapeHtml(x.empresa)} · ${money(x.valor)} · ${formatDateBR(x.vencimento)}</small></div></button>`).join(''):'<div class="notice">✓ Nenhum boleto vence amanhã.</div>'}<div class="notice">⚠ Confira os produtos com estoque baixo.</div><div class="notice">📅 Revise os atendimentos de hoje.</div></div>`,close=>close(),'Fechar')},
  'birthdays-week':()=>openBirthdayWeek(),
  'whatsapp-center':()=>{if(!db.data.clientes.length)return toast('Cadastre clientes com WhatsApp primeiro.');modal('Central de WhatsApp',`<div class="form-grid"><div class="field full"><label>Cliente</label><select id="wCliente">${db.data.clientes.map(c=>`<option value="${c.id}">${c.nome} · ${c.telefone||'sem telefone'}</option>`).join('')}</select></div><div class="field full"><label>Mensagem</label><textarea id="wMsg">Olá! Passando para lembrar do atendimento do seu pet. 🐾</textarea></div></div>`,close=>{const c=db.data.clientes.find(x=>x.id===$('#wCliente').value);if(!c?.telefone)return toast('Este cliente não possui telefone.');const phone=c.telefone.replace(/\D/g,'');window.open(`https://wa.me/55${phone}?text=${encodeURIComponent($('#wMsg').value)}`,'_blank');close();},'Abrir WhatsApp');},
