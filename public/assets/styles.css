@@ -373,3 +373,6 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .fiscal-dashboard-actions{display:flex;gap:10px;flex-wrap:wrap}.fiscal-warning{border-color:#f0c36a;background:#fff8e5}.fiscal-history-card{margin:0}.fiscal-filter input{min-width:280px}.fiscal-coming{text-align:center;padding:15px}.fiscal-coming>span{font-size:48px}.fiscal-coming h3{font-size:23px;margin:10px 0}
 @media(max-width:900px){.fiscal-progress{grid-template-columns:1fr}.fiscal-step span{display:block}.fiscal-kpis{grid-template-columns:repeat(2,1fr)}.fiscal-wizard-head,.fiscal-dashboard-hero{flex-direction:column}.fiscal-review-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.fiscal-kpis{grid-template-columns:1fr}.fiscal-filter input{min-width:0;width:100%}}
+
+/* Forge Pets v9.6.0 — Fiscal + Caixa */
+.pdv-fiscal-option{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin-top:12px;border:1px solid #e7ddff;border-radius:14px;background:#fbf9ff;cursor:pointer}.pdv-fiscal-option input{margin-top:3px;accent-color:#6d28d9}.pdv-fiscal-option span{display:grid;gap:2px}.pdv-fiscal-option b{font-size:13px}.pdv-fiscal-option small{font-size:11px;color:#776d86}.fiscal-issue-form textarea{resize:vertical;min-height:100px}.fiscal-history-card .btn.ghost{padding:6px 9px;font-size:11px}

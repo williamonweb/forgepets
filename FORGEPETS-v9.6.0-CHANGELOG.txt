@@ -1,0 +1,18 @@
+FORGE PETS v9.6.0 — INÍCIO DO MÓDULO FISCAL
+
+IMPLEMENTADO
+- Dashboard Fiscal e wizard de configuração já existentes preservados.
+- Emissão manual agora abre formulário funcional.
+- Registro de documento fiscal no PostgreSQL/Prisma.
+- Cálculo estimado de ISS conforme alíquota configurada.
+- Histórico fiscal atualizado após novo registro.
+- Validação de módulo ativo e configuração fiscal.
+- Integração inicial com o Caixa.
+- Opção “Registrar NFS-e desta venda”.
+- Somente os serviços da venda entram na solicitação fiscal.
+- Auditoria FISCAL_DOCUMENT_CREATED.
+- Versão atualizada para 9.6.0.
+
+IMPORTANTE
+Esta fase registra a solicitação fiscal e prepara o fluxo no Forge Pets.
+A transmissão real para prefeitura, autorização, XML e PDF depende da integração com um provedor fiscal ou API municipal/nacional e ainda não está ativa.

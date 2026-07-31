@@ -641,10 +641,30 @@ function fiscalDashboardHtml(c,docs){
   </div>
  </section>`;
 }
+function openFiscalDocumentModal(prefill={}){
+ const c=fiscalExperienceState.config||{},defaultRate=Number(c.issRate||0);
+ modal('Nova NFS-e',`<div class="fiscal-issue-form"><div class="notice"><b>Emissão controlada:</b> este fluxo registra a solicitação no Forge Pets. A transmissão à prefeitura será habilitada após a integração do município.</div><div class="form-grid">
+  <div class="field"><label>Tutor / tomador</label><input id="fdTutorName" value="${escapeAttr(prefill.tutorName||'')}" placeholder="Nome do cliente" data-trim></div>
+  <div class="field"><label>CPF/CNPJ do tomador</label><input id="fdTutorDocument" value="${escapeAttr(prefill.tutorDocument||'')}" inputmode="numeric" placeholder="Somente números"></div>
+  <div class="field full"><label>Descrição do serviço</label><textarea id="fdServiceDescription" rows="4" placeholder="Descreva o serviço prestado">${escapeHtml(prefill.serviceDescription||'')}</textarea></div>
+  <div class="field"><label>Valor do serviço</label><input id="fdServiceAmount" data-mask="money" inputmode="numeric" value="${prefill.serviceAmount?money(prefill.serviceAmount):''}" placeholder="R$ 0,00"></div>
+  <div class="field"><label>Alíquota de ISS</label><input value="${escapeAttr(String(defaultRate).replace('.',','))}%" disabled></div>
+  <div class="field full"><label>Referência da venda</label><input id="fdSaleReference" value="${escapeAttr(prefill.saleReference||'')}" placeholder="Ex.: Venda #000123" data-trim></div>
+ </div></div>`,async close=>{
+  const tutorName=$('#fdTutorName')?.value.trim()||'',tutorDocument=onlyDigits($('#fdTutorDocument')?.value||''),serviceDescription=$('#fdServiceDescription')?.value.trim()||'',serviceAmount=parseLocaleNumber($('#fdServiceAmount')?.value),saleReference=$('#fdSaleReference')?.value.trim()||'';
+  if(!serviceDescription||serviceAmount<=0)return setModalError('Informe a descrição e um valor válido para o serviço.');
+  if(tutorDocument&&![11,14].includes(tutorDocument.length))return setModalError('O CPF/CNPJ do tomador deve ter 11 ou 14 dígitos.');
+  try{
+   const result=await cloud.request('/api/forge/fiscal/documents',{method:'POST',body:JSON.stringify({tutorName,tutorDocument,serviceDescription,serviceAmount,saleReference})});
+   close();toast(result.message||'Documento fiscal registrado.','success');await loadFiscalExperience();
+  }catch(error){setModalError(error.message||'Não foi possível registrar o documento fiscal.');}
+ },'Registrar para emissão');
+ applyInputMasks($('#modalRoot'));
+}
 function bindFiscalDashboard(){
- $('#fiscalEditConfig').onclick=()=>{fiscalExperienceState.step=1;fiscalExperienceState.config={...fiscalExperienceState.config,active:false};renderFiscalExperience();};
+ $('#fiscalEditConfig').onclick=()=>{fiscalExperienceState.step=1;renderFiscalExperience();};
  $('#fiscalRefresh').onclick=loadFiscalExperience;
- $('#fiscalNewDocument').onclick=()=>modal('Emitir NFS-e',`<div class="fiscal-coming"><span>🧾</span><h3>Emissão preparada</h3><p>A tela e o banco estão prontos. A transmissão real será conectada à API compatível com o município cadastrado.</p><div class="notice">Enquanto a integração externa não estiver habilitada, nenhuma nota será enviada à prefeitura.</div></div>`,close=>close(),'Entendi');
+ $('#fiscalNewDocument').onclick=()=>openFiscalDocumentModal();
  $('#fiscalHistorySearch')?.addEventListener('input',e=>{
   const q=normalize(e.target.value);
   const docs=fiscalExperienceState.documents.filter(d=>normalize([d.nfseNumber,d.rpsNumber,d.tutorName,d.serviceDescription,d.status].join(' ')).includes(q));
@@ -785,7 +805,7 @@ function initSystemFooter(){
  setInterval(()=>{const sync=$('#lastSyncTime');if(sync&&navigator.onLine)sync.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});},60000);
 }
 function openForgeLabsInfo(){
- modal('Sobre o ForgePets',`<div class="forge-labs-modal"><div class="forge-labs-mark"><div class="forge-labs-symbol">F</div><div><h3>Forge Labs</h3><p>Tecnologia criada para transformar negócios.</p></div></div><div class="system-info-grid"><div><small>Produto</small><strong>ForgePets</strong></div><div><small>Versão</small><strong>v7.9</strong></div><div><small>Build</small><strong>2026.07.28</strong></div><div><small>Ambiente</small><strong>Produção</strong></div><div><small>Licença</small><strong>Profissional</strong></div><div><small>Status</small><strong>${navigator.onLine?'Online':'Offline · Modo local'}</strong></div></div><div class="notice">Desenvolvido por <strong>Forge Labs</strong>. Todos os direitos reservados.</div></div>`,close=>close(),'Fechar');
+ modal('Sobre o ForgePets',`<div class="forge-labs-modal"><div class="forge-labs-mark"><div class="forge-labs-symbol">F</div><div><h3>Forge Labs</h3><p>Tecnologia criada para transformar negócios.</p></div></div><div class="system-info-grid"><div><small>Produto</small><strong>ForgePets</strong></div><div><small>Versão</small><strong>v9.6.0</strong></div><div><small>Build</small><strong>2026.07.31</strong></div><div><small>Ambiente</small><strong>Produção</strong></div><div><small>Licença</small><strong>Profissional</strong></div><div><small>Status</small><strong>${navigator.onLine?'Online':'Offline · Modo local'}</strong></div></div><div class="notice">Desenvolvido por <strong>Forge Labs</strong>. Todos os direitos reservados.</div></div>`,close=>close(),'Fechar');
 }
 function openLegalInfo(title,text){
  modal(title,`<div class="legal-copy"><p>${text}</p><h4>Uso responsável</h4><p>O usuário deve manter suas credenciais seguras, realizar backups periódicos e utilizar o sistema somente para atividades legítimas do estabelecimento.</p><h4>Suporte</h4><p>Em caso de dúvidas, utilize o Forge Connect dentro do sistema.</p></div>`,close=>close(),'Entendi');
@@ -799,7 +819,7 @@ function openSaleModal(){
  <div class="pdv-grid"><section class="pdv-main"><div class="pdv-customer-bar"><div class="field"><label>Tutor / cliente</label><select id="saleClient"><option value="">Consumidor não identificado</option>${sortAlpha(db.data.clientes,'nome').map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="pdv-clock"><small>Data e hora</small><strong>${new Date().toLocaleDateString('pt-BR')} · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</strong></div></div>
  <div class="pdv-product-search"><div class="field"><label>Pesquisar produto ou serviço</label><div class="sale-search"><span>⌕</span><input id="saleSearch" type="search" placeholder="Digite o nome ou código..." autocomplete="off"></div></div><div class="field"><label>Item encontrado</label><select id="saleItem"></select><small class="sale-search-result" id="saleSearchResult"></small></div><button class="btn primary pdv-add" id="saleAdd">＋ Adicionar</button></div>
  <div id="saleBenefits"></div><div id="saleCart"></div></section>
- <aside class="pdv-summary"><div class="pdv-summary-title"><span>Resumo da venda</span><small>Atualizado em tempo real</small></div><div id="saleTotals"></div><div class="pdv-payment"><label>Forma de pagamento</label><div class="pdv-payment-options" id="salePaymentOptions">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito'].map((x,i)=>`<button type="button" class="pdv-payment-btn ${i===0?'active':''}" data-payment="${x}">${x==='PIX'?'▣':x==='Dinheiro'?'R$':x.includes('débito')?'D':x.includes('crédito')?'C':'••'}<span>${x}</span></button>`).join('')}</div><input type="hidden" id="salePayment" value="PIX"><div id="saleCashPanel"></div></div><div class="pdv-safe-note">🔒 Confira os valores antes de finalizar a venda.</div></aside></div></div>
+ <aside class="pdv-summary"><div class="pdv-summary-title"><span>Resumo da venda</span><small>Atualizado em tempo real</small></div><div id="saleTotals"></div><div class="pdv-payment"><label>Forma de pagamento</label><div class="pdv-payment-options" id="salePaymentOptions">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito'].map((x,i)=>`<button type="button" class="pdv-payment-btn ${i===0?'active':''}" data-payment="${x}">${x==='PIX'?'▣':x==='Dinheiro'?'R$':x.includes('débito')?'D':x.includes('crédito')?'C':'••'}<span>${x}</span></button>`).join('')}</div><input type="hidden" id="salePayment" value="PIX"><div id="saleCashPanel"></div></div><label class="pdv-fiscal-option"><input id="saleEmitFiscal" type="checkbox"><span><b>Registrar NFS-e desta venda</b><small>Cria uma solicitação fiscal com os serviços da venda.</small></span></label><div class="pdv-safe-note">🔒 Confira os valores antes de finalizar a venda.</div></aside></div></div>
  <div class="modal-footer sale-footer pdv-footer"><button class="btn ghost" data-close>Cancelar</button><div><button class="btn" id="saleFinish">Finalizar venda</button><button class="btn primary" id="saleFinishPrint">Finalizar e imprimir</button></div></div></div></div>`;
  root.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>root.innerHTML='');
  renderSaleItemOptions();
@@ -883,7 +903,7 @@ function renderSaleSummary(){
  if($('#salePayment')?.value==='Dinheiro')renderSaleCashPanel();
 }
 function changeSaleQty(i,delta){const item=saleCart[i];if(!item)return;const src=item.tipo==='produto'?db.data.estoque.find(x=>x.id===item.id):null;const next=item.qtd+delta;if(next<1){saleCart.splice(i,1);return renderSaleCart();}if(src&&next>Number(src.qtd))return toast('Quantidade maior que o estoque disponível.');item.qtd=next;renderSaleCart();}
-function finishSale(printAfter){
+async function finishSale(printAfter){
  if(!saleCart.length)return toast('Adicione ao menos um item.');
  for(const item of saleCart){if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(!p||Number(p.qtd)<item.qtd)return toast(`Estoque insuficiente para ${item.nome}.`);}}
  const {bruto,cliente,cashUse,coupon,discount,total}=getSaleTotals(),clienteId=$('#saleClient').value,forma=$('#salePayment').value;
@@ -898,8 +918,15 @@ function finishSale(printAfter){
  venda.itens.forEach(item=>{if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);p.qtd=Number(p.qtd)-item.qtd;}});
  db.data.vendas.push(venda);db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto,forma,valorRecebido,troco,vendaId:venda.id});
  if(cliente){if(cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}if(coupon){coupon.status='usado';coupon.usedAt=new Date().toISOString();addLoyaltyHistory(cliente.id,'cupom_usado',`Cupom ${coupon.codigo} utilizado`,-discount,{cupomId:coupon.id,vendaId:venda.id});}if(hasFeature('fidelidade')){const pts=Math.floor(total*Number(db.data.config.pontosPorReal||1));cliente.pontos=Number(cliente.pontos||0)+pts;addLoyaltyHistory(cliente.id,'pontos_ganhos','Pontos da venda',pts,{vendaId:venda.id});if(hasFeature('cashback')){const cb=total*Number(db.data.config.percentualCashback||0)/100;cliente.cashback=Number(cliente.cashback||0)+cb;addLoyaltyHistory(cliente.id,'cashback_gerado','Cashback da venda',cb,{vendaId:venda.id});}}}
+ const emitFiscal=Boolean($('#saleEmitFiscal')?.checked),serviceItems=venda.itens.filter(x=>x.tipo==='servico');
  runPremiumAutomations();localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));$('#modalRoot').innerHTML='';render();
  toast(forma==='Dinheiro'?`Venda finalizada. Troco: ${money(troco)}.`:`Venda finalizada: ${money(total)}.`);
+ if(emitFiscal&&serviceItems.length){
+  try{
+   await cloud.request('/api/forge/fiscal/documents',{method:'POST',body:JSON.stringify({saleReference:`Venda #${venda.numero}`,tutorName:cliente?.nome||'',tutorDocument:cliente?.cpf||'',serviceDescription:serviceItems.map(x=>`${x.qtd}x ${x.nome}`).join(' | '),serviceAmount:serviceItems.reduce((sum,x)=>sum+Number(x.preco)*Number(x.qtd),0)})});
+   toast('Solicitação de NFS-e registrada no Módulo Fiscal.','success');
+  }catch(error){toast(`Venda concluída, mas a NFS-e não foi registrada: ${error.message||'erro fiscal'}.`,'error');}
+ }else if(emitFiscal&&!serviceItems.length){toast('Venda concluída. A NFS-e não foi criada porque não há serviços na venda.','error');}
  if(printAfter)printReceipt(venda);
 }
 function printReceipt(venda){
