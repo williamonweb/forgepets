@@ -151,6 +151,7 @@ model Company {
   pets                Pet[]
   services            Service[]
   appointments        Appointment[]
+  appointmentItems     AppointmentServiceItem[]
   receivables         Receivable[]
   payments            Payment[]
   products            Product[]
@@ -254,6 +255,7 @@ model Service {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   appointments    Appointment[]
+  appointmentItems AppointmentServiceItem[]
   @@index([companyId, name])
 }
 
@@ -275,8 +277,27 @@ model Appointment {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   receivable  Receivable?
+  items       AppointmentServiceItem[]
   @@index([companyId, startsAt])
   @@index([petId])
+}
+
+model AppointmentServiceItem {
+  id            String      @id @default(cuid())
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  quantity      Int         @default(1)
+  unitPrice     Decimal     @db.Decimal(10, 2)
+  total         Decimal     @db.Decimal(10, 2)
+  category      String?
+  createdAt     DateTime    @default(now())
+
+  @@index([companyId, appointmentId])
+  @@index([serviceId])
 }
 
 model Receivable {

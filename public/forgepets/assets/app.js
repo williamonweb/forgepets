@@ -63,7 +63,7 @@ const cloud={
  tutor(x){return{id:x.id,nome:x.name,telefone:x.phone||'',cpf:x.document||'',email:x.email||'',obs:x.notes||'',endereco:x.address||'',numero:x.number||'',complemento:x.complement||'',bairro:x.neighborhood||'',cidade:x.city||'',estado:x.state||'',cep:x.zipCode||'',createdAt:x.createdAt,pontos:0,cashback:0}},
  pet(x){const cp=x.carePreferences||{};return{id:x.id,createdAt:x.createdAt,clienteId:x.tutorId,nome:x.name,especie:x.species,raca:x.breed||'',cor:x.color||'',sexo:x.sex||'',porte:x.size||'',castrado:x.neutered?'Sim':'Não',nascimento:x.birthDate?String(x.birthDate).slice(0,10):'',temperamento:x.temperament||'',peso:x.weight?Number(x.weight):'',foto:x.photoUrl||'',naoAceitaSecador:!!cp.naoAceitaSecador,naoAceitaMaquina:!!cp.naoAceitaMaquina,semPerfume:!!cp.semPerfume,semLaco:!!cp.semLaco,servicosPreferidos:cp.servicosPreferidos||[],obs:x.careNotes||''}},
  service(x){return{id:x.id,nome:x.name,valor:Number(x.price||0),duracao:Number(x.durationMinutes||60),categoria:x.category||''}},
- appointment(x){const start=new Date(x.startsAt),parts=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(start).reduce((a,p)=>(a[p.type]=p.value,a),{});const statusMap={SCHEDULED:'Agendado',CONFIRMED:'Confirmado',IN_SERVICE:'Em atendimento',COMPLETED:'Concluído',CANCELED:'Cancelado',NO_SHOW:'Não compareceu'};return{id:x.id,tutorId:x.tutorId,petId:x.petId,servicoId:x.serviceId,data:`${parts.year}-${parts.month}-${parts.day}`,hora:`${parts.hour}:${parts.minute}`,obs:x.notes||'',status:statusMap[x.status]||'Agendado',startsAt:x.startsAt,endsAt:x.endsAt}},
+ appointment(x){const start=new Date(x.startsAt),parts=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(start).reduce((a,p)=>(a[p.type]=p.value,a),{});const statusMap={SCHEDULED:'Agendado',CONFIRMED:'Confirmado',IN_SERVICE:'Em atendimento',COMPLETED:'Concluído',CANCELED:'Cancelado',NO_SHOW:'Não compareceu'};return{id:x.id,tutorId:x.tutorId,petId:x.petId,servicoId:x.serviceId,itens:(Array.isArray(x.items)&&x.items.length?x.items:[{serviceId:x.serviceId,service:x.service,quantity:1,unitPrice:x.service?.price,total:x.service?.price,category:x.service?.category}]).map(item=>({id:item.id||'',servicoId:item.serviceId,nome:item.service?.name||'',categoria:item.category||item.service?.category||'',qtd:Number(item.quantity||1),valor:Number(item.unitPrice??item.service?.price??0),total:Number(item.total??Number(item.unitPrice??item.service?.price??0)*Number(item.quantity||1))})),data:`${parts.year}-${parts.month}-${parts.day}`,hora:`${parts.hour}:${parts.minute}`,obs:x.notes||'',status:statusMap[x.status]||'Agendado',startsAt:x.startsAt,endsAt:x.endsAt}},
  async sync({notify=false}={}){
   const results=await Promise.allSettled([
    this.request('/api/forge/tutores'),
@@ -560,7 +560,38 @@ function reportView(){
 
 function tableSimple(rows,heads,map,type){if(!rows.length)return '<div class="empty">Nenhum registro.</div>';return `<div class="table-wrap"><table class="table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map(x=>`<tr>${map(x).map(v=>`<td>${v}</td>`).join('')}<td><button class="btn danger" data-action="delete-row" data-type="${type}" data-id="${x.id}">Excluir</button></td></tr>`).join('')}</tbody></table></div>`}
 function formatAgendaDate(value){const [year,month,day]=String(value||'').split('-').map(Number);if(!year||!month||!day)return {weekday:'',dayMonth:value||'',time:''};const date=new Date(year,month-1,day);const weekdays=['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];const months=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];return {weekday:weekdays[date.getDay()],dayMonth:`${String(day).padStart(2,'0')} ${months[month-1]}`}}
-function agendaList(rows){if(!rows.length)return '<div class="empty">Nenhum agendamento.</div>';return `<div class="calendar-list">${rows.map(a=>{const p=db.data.pets.find(x=>x.id===a.petId),s=db.data.servicos.find(x=>x.id===a.servicoId),c=p&&db.data.clientes.find(x=>x.id===p.clienteId),dateLabel=formatAgendaDate(a.data);return `<div class="appointment"><div class="appointment-date"><span class="appointment-weekday">${dateLabel.weekday}</span><strong class="appointment-day-month">${dateLabel.dayMonth}</strong><span class="appointment-hour">${a.hora}</span></div><div><strong>${p?.nome||'Pet'}</strong><div style="color:var(--muted);margin-top:4px">${s?.nome||'Serviço'} · ${c?.nome||'Tutor'}</div></div><div><span class="badge ${a.status==='Concluído'?'green':a.status==='Cancelado'?'red':'yellow'}">${a.status||'Agendado'}</span> ${!['Concluído','Cancelado'].includes(a.status)?`<button class="btn ghost" data-action="finish-appointment" data-id="${a.id}">Concluir</button> <button class="btn ghost" data-action="cancel-appointment" data-id="${a.id}">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
+
+function appointmentItems(appointment){
+ if(Array.isArray(appointment?.itens)&&appointment.itens.length)return appointment.itens;
+ const service=db.data.servicos.find(s=>s.id===appointment?.servicoId);
+ return service?[{servicoId:service.id,nome:service.nome,categoria:service.categoria||'',qtd:1,valor:Number(service.valor||0),total:Number(service.valor||0)}]:[];
+}
+function appointmentServiceNames(appointment){
+ return appointmentItems(appointment).map(item=>`${item.nome}${Number(item.qtd||1)>1?` ×${item.qtd}`:''}`).join(' + ')||'Serviço';
+}
+function appointmentTotal(appointment){
+ return appointmentItems(appointment).reduce((sum,item)=>sum+Number(item.total??Number(item.valor||0)*Number(item.qtd||1)),0);
+}
+function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60){
+ const cfg=db.data.config||{},start=cfg.inicioAgenda||'08:00',end=cfg.fimAgenda||'18:00',step=Math.max(5,Number(cfg.intervaloAgenda||30)),duration=Math.max(15,Number(requestedDuration||60));
+ const toMin=x=>{const [h,m]=String(x||'00:00').split(':').map(Number);return h*60+m};
+ const fmt=n=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
+ const busy=db.data.agenda.filter(a=>a.id!==ignoreId&&a.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(a.status)).map(a=>{
+  const appointmentStart=toMin(a.hora);
+  const storedDuration=a.startsAt&&a.endsAt?Math.max(15,Math.round((new Date(a.endsAt)-new Date(a.startsAt))/60000)):appointmentItems(a).reduce((sum,item)=>{
+   const service=db.data.servicos.find(s=>s.id===item.servicoId);
+   return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(item.qtd||1));
+  },0);
+  return [appointmentStart,appointmentStart+Math.max(15,storedDuration||60)];
+ });
+ const out=[],endMin=toMin(end);
+ for(let n=toMin(start);n+duration<=endMin;n+=step){
+  if(!busy.some(([a,b])=>n<b&&n+duration>a))out.push(fmt(n));
+ }
+ return out;
+}
+
+function agendaList(rows){if(!rows.length)return '<div class="empty">Nenhum agendamento.</div>';return `<div class="calendar-list">${rows.map(a=>{const p=db.data.pets.find(x=>x.id===a.petId),c=p&&db.data.clientes.find(x=>x.id===p.clienteId),dateLabel=formatAgendaDate(a.data);return `<div class="appointment"><div class="appointment-date"><span class="appointment-weekday">${dateLabel.weekday}</span><strong class="appointment-day-month">${dateLabel.dayMonth}</strong><span class="appointment-hour">${a.hora}</span></div><div><strong>${p?.nome||'Pet'}</strong><div style="color:var(--muted);margin-top:4px">${escapeHtml(appointmentServiceNames(a))} · ${c?.nome||'Tutor'} · <b>${money(appointmentTotal(a))}</b></div></div><div><span class="badge ${a.status==='Concluído'?'green':a.status==='Cancelado'?'red':'yellow'}">${a.status||'Agendado'}</span> ${!['Concluído','Cancelado'].includes(a.status)?`<button class="btn ghost" data-action="finish-appointment" data-id="${a.id}">Concluir</button> <button class="btn ghost" data-action="cancel-appointment" data-id="${a.id}">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
 function openContractAcceptance(onAccepted){const root=document.createElement('div');root.className='contract-overlay';root.innerHTML=`<div class="contract-modal"><header><div><small>ACEITE ELETRÔNICO</small><strong>Contrato Forge Pets</strong></div><button type="button" class="icon-btn" data-contract-close>×</button></header><div class="contract-scroll" id="contractScroll">${FORGEPETS_CONTRACT_HTML}</div><div class="contract-progress"><span id="contractProgressBar"></span></div><label class="contract-accept-row disabled"><input id="contractAgree" type="checkbox" disabled><span>Li integralmente e concordo com o contrato, a cobrança recorrente e os termos apresentados.</span></label><footer><button type="button" class="btn ghost" data-contract-close>Voltar</button><button type="button" class="btn primary" id="confirmContract" disabled>Concordar e continuar</button></footer></div>`;document.body.appendChild(root);const scroll=root.querySelector('#contractScroll'),agree=root.querySelector('#contractAgree'),confirm=root.querySelector('#confirmContract'),row=root.querySelector('.contract-accept-row'),bar=root.querySelector('#contractProgressBar');const update=()=>{const max=Math.max(1,scroll.scrollHeight-scroll.clientHeight),pct=Math.min(100,Math.round(scroll.scrollTop/max*100));bar.style.width=pct+'%';if(scroll.scrollTop+scroll.clientHeight>=scroll.scrollHeight-12){agree.disabled=false;row.classList.remove('disabled');}};scroll.addEventListener('scroll',update);agree.addEventListener('change',()=>confirm.disabled=!agree.checked);root.querySelectorAll('[data-contract-close]').forEach(x=>x.onclick=()=>root.remove());confirm.onclick=()=>{document.querySelector('#contractAccepted').value='1';root.remove();toast('Contrato aceito. Agora confirme a assinatura.','success');onAccepted?.();};setTimeout(update,50);}
 function modal(title,body,onSave,saveText='Salvar'){window.closeForgeConnect?.();const root=$('#modalRoot');root.innerHTML=`<div class="modal-overlay"><div class="modal"><div class="modal-header"><strong>${title}</strong><button type="button" class="icon-btn" data-close>&times;</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn ghost" data-close>Cancelar</button><button type="button" class="btn primary" id="modalSave">${saveText}</button></div></div></div>`;root.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>root.innerHTML='');applyInputMasks(root);bindCepLookup(root);const save=$('#modalSave');save.onclick=async()=>{if(save.disabled)return;clearModalError();const original=save.textContent;save.disabled=true;save.textContent='Salvando...';try{await onSave(()=>root.innerHTML='');}finally{if(document.body.contains(save)){save.disabled=false;save.textContent=original;}}};}
 function toast(message,type='auto',options={}){
@@ -991,13 +1022,192 @@ const actions={
  'new-client':()=>modal('Novo tutor',`<div class="form-grid"><div class="field"><label>Nome completo *</label><input id="fNome" data-trim autocomplete="name"></div><div class="field"><label>WhatsApp</label><input id="fTel" data-mask="phone" inputmode="tel"></div><div class="field"><label>CPF/CNPJ</label><input id="fCpf" data-mask="cpfcnpj" inputmode="numeric"></div><div class="field"><label>E-mail</label><input id="fEmail" type="email"></div><div class="field"><label>CEP</label><input id="fCep" data-mask="cep" data-cep-lookup data-status-target="cepLookupStatus" inputmode="numeric" maxlength="9" placeholder="00000-000"><small id="cepLookupStatus" class="cep-lookup-status"></small></div><div class="field"><label>Endereço</label><input id="fEndereco"></div><div class="field"><label>Número</label><input id="fNumero"></div><div class="field"><label>Complemento</label><input id="fComplemento"></div><div class="field"><label>Bairro</label><input id="fBairro"></div><div class="field"><label>Cidade</label><input id="fCidade"></div><div class="field"><label>Estado</label><input id="fEstado" maxlength="2" value="RS"></div><div class="field full"><label>Observações</label><textarea id="fObs"></textarea></div></div>`,async close=>{try{const name=$('#fNome').value.trim();if(!name){setModalError('Informe o nome completo do tutor.');return;}const email=$('#fEmail').value.trim();if(email&&!isValidEmail(email)){setModalError('Informe um e-mail válido ou deixe o campo vazio.');return;}const {tutor}=await cloud.request('/api/forge/tutores',{method:'POST',body:JSON.stringify({name,phone:$('#fTel').value,document:$('#fCpf').value,email,zipCode:$('#fCep').value,address:$('#fEndereco').value,number:$('#fNumero').value,complement:$('#fComplemento').value,neighborhood:$('#fBairro').value,city:$('#fCidade').value,state:$('#fEstado').value,notes:$('#fObs').value})});db.data.clientes.push(cloud.tutor(tutor));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Tutor cadastrado no Neon.');}catch(e){setModalError(e.message||'Não foi possível salvar o tutor.');}}),
  'edit-client':b=>{const c=db.data.clientes.find(x=>x.id===b.dataset.id);if(!c)return;modal('Editar tutor',`<div class="form-grid"><div class="field"><label>Nome completo *</label><input id="fNome" value="${escapeAttr(c.nome)}"></div><div class="field"><label>WhatsApp</label><input id="fTel" data-mask="phone" value="${escapeAttr(c.telefone)}"></div><div class="field"><label>CPF/CNPJ</label><input id="fCpf" data-mask="cpfcnpj" value="${escapeAttr(c.cpf)}"></div><div class="field"><label>E-mail</label><input id="fEmail" type="email" value="${escapeAttr(c.email)}"></div><div class="field"><label>CEP</label><input id="fCep" data-mask="cep" data-cep-lookup data-status-target="cepLookupStatus" inputmode="numeric" maxlength="9" value="${escapeAttr(c.cep)}"><small id="cepLookupStatus" class="cep-lookup-status"></small></div><div class="field"><label>Endereço</label><input id="fEndereco" value="${escapeAttr(c.endereco)}"></div><div class="field"><label>Número</label><input id="fNumero" value="${escapeAttr(c.numero)}"></div><div class="field"><label>Complemento</label><input id="fComplemento" value="${escapeAttr(c.complemento)}"></div><div class="field"><label>Bairro</label><input id="fBairro" value="${escapeAttr(c.bairro)}"></div><div class="field"><label>Cidade</label><input id="fCidade" value="${escapeAttr(c.cidade)}"></div><div class="field"><label>Estado</label><input id="fEstado" maxlength="2" value="${escapeAttr(c.estado||'RS')}"></div><div class="field full"><label>Observações</label><textarea id="fObs">${escapeHtml(c.obs||'')}</textarea></div></div>`,async close=>{try{const name=$('#fNome').value.trim();if(!name){setModalError('Informe o nome completo do tutor.');return;}const email=$('#fEmail').value.trim();if(email&&!isValidEmail(email)){setModalError('Informe um e-mail válido ou deixe o campo vazio.');return;}const {tutor}=await cloud.request(`/api/forge/tutores/${c.id}`,{method:'PUT',body:JSON.stringify({name,phone:$('#fTel').value,document:$('#fCpf').value,email,zipCode:$('#fCep').value,address:$('#fEndereco').value,number:$('#fNumero').value,complement:$('#fComplemento').value,neighborhood:$('#fBairro').value,city:$('#fCidade').value,state:$('#fEstado').value,notes:$('#fObs').value})});Object.assign(c,cloud.tutor(tutor));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Tutor atualizado.');}catch(e){setModalError(e.message||'Não foi possível atualizar o tutor.');}});},
  'new-pet':b=>modal('Adicionar pet',`<div class="form-grid"><div class="field"><label>Nome do pet *</label><input id="pNome"></div><div class="field"><label>Espécie</label><select id="pEspecie"><option>Canino</option><option>Felino</option><option>Outro</option></select></div><div class="field"><label>Raça</label><input id="pRaca"></div><div class="field"><label>Cor</label><input id="pCor"></div><div class="field"><label>Sexo</label><select id="pSexo"><option>Macho</option><option>Fêmea</option><option>Não informado</option></select></div><div class="field"><label>Porte</label><select id="pPorte"><option value="">Não informado</option><option>Pequeno</option><option>Médio</option><option>Grande</option></select></div><div class="field"><label>Peso (kg)</label><input id="pPeso" type="text" data-mask="decimal" data-decimals="3" inputmode="decimal" placeholder="0,000"></div><div class="field"><label>Castrado</label><select id="pCastrado"><option value="">Não informado</option><option>Sim</option><option>Não</option></select></div><div class="field"><label>Nascimento</label><input id="pNasc" type="date"></div><div class="field"><label>Temperamento</label><select id="pTemperamento"><option value="">Não informado</option><option>Calmo</option><option>Agitado</option><option>Medroso</option><option>Agressivo</option></select></div><div class="field full"><label>Preferências e cuidados</label><div class="pet-care-grid"><label><input type="checkbox" id="pSecador"> Não aceita secador</label><label><input type="checkbox" id="pMaquina"> Não aceita máquina</label><label><input type="checkbox" id="pSemPerfume"> Não usar perfume</label><label><input type="checkbox" id="pSemLaco"> Não usar laço/gravatinha</label></div></div><div class="field full"><label>Observações</label><textarea id="pObs"></textarea></div></div>`,async close=>{try{const name=$('#pNome').value.trim();if(!name)return toast('Informe o nome do pet.');const carePreferences={naoAceitaSecador:$('#pSecador').checked,naoAceitaMaquina:$('#pMaquina').checked,semPerfume:$('#pSemPerfume').checked,semLaco:$('#pSemLaco').checked,servicosPreferidos:[]};const {pet}=await cloud.request('/api/forge/pets',{method:'POST',body:JSON.stringify({tutorId:b.dataset.id,name,species:$('#pEspecie').value,breed:$('#pRaca').value,color:$('#pCor').value,sex:$('#pSexo').value,size:$('#pPorte').value,weight:parseLocaleNumber($('#pPeso').value),neutered:$('#pCastrado').value==='Sim',birthDate:$('#pNasc').value,temperament:$('#pTemperamento').value,careNotes:$('#pObs').value,carePreferences})});db.data.pets.push(cloud.pet(pet));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Pet cadastrado no Neon.');}catch(e){toast(e.message);}}),
- 'quick-appointment':()=>{if(!db.data.pets.length)return toast('Cadastre um cliente e um pet primeiro.');modal('Novo agendamento',`<div class="form-grid"><div class="field full"><label>Localizar tutor por nome completo ou CPF</label><div class="appointment-client-search"><span>⌕</span><input id="aTutorBusca" autocomplete="off" placeholder="Digite o nome completo ou CPF do tutor"></div><div id="aTutorResultados" class="appointment-search-results"><small>Digite para localizar o tutor.</small></div><input id="aTutorId" type="hidden"></div><div class="field full"><label>Pet do tutor</label><select id="aPet" disabled><option value="">Selecione primeiro o tutor</option></select></div><div class="field"><label>Serviço</label><select id="aServico">${db.data.servicos.map(s=>`<option value="${s.id}">${s.nome} - ${money(s.valor)}</option>`).join('')}</select></div><div class="field"><label>Data</label><input id="aData" type="date" value="${today()}"></div><div class="field"><label>Horário disponível</label><select id="aHora"></select><small id="aHoraStatus" class="field-help"></small></div><div class="field full"><label>Observações</label><textarea id="aObs"></textarea></div></div>`,async close=>{try{const tutorId=$('#aTutorId').value,petId=$('#aPet').value,serviceId=$('#aServico').value;if(!tutorId)return setModalError('Selecione o tutor.');if(!petId)return setModalError('Selecione o pet.');const date=$('#aData').value,time=$('#aHora').value;if(!date||!time)return setModalError('Selecione uma data e um horário disponível.');const {appointment}=await cloud.request('/api/forge/agenda',{method:'POST',body:JSON.stringify({tutorId,petId,serviceId,date,time,notes:$('#aObs').value})});db.data.agenda.push(cloud.appointment(appointment));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Agendamento salvo no Neon.');}catch(e){setModalError(e.message||'Não foi possível criar o agendamento.');}});const input=$('#aTutorBusca'),results=$('#aTutorResultados'),petSelect=$('#aPet'),tutorId=$('#aTutorId'),dateInput=$('#aData'),timeSelect=$('#aHora'),timeStatus=$('#aHoraStatus');const renderTimes=()=>{const times=availableAgendaTimes(dateInput.value,'',$('#aServico').value);timeSelect.innerHTML=times.length?times.map(t=>`<option value="${t}">${t}</option>`).join(''):'<option value="">Nenhum horário disponível</option>';timeSelect.disabled=!times.length;timeStatus.textContent=times.length?`${times.length} horário(s) livre(s). Horários ocupados não aparecem.`:'Todos os horários desta data já estão ocupados.';};dateInput.addEventListener('change',renderTimes);$('#aServico').addEventListener('change',renderTimes);renderTimes();const renderTutorResults=()=>{const term=normalize(input.value),digits=String(input.value||'').replace(/\D/g,'');if(term.length<2&&digits.length<3){results.innerHTML='<small>Digite pelo menos 2 letras do nome ou 3 números do CPF.</small>';return;}const matches=sortAlpha(db.data.clientes,'nome').filter(c=>normalize(c.nome).includes(term)||(digits&&String(c.cpf||'').replace(/\D/g,'').includes(digits))).slice(0,8);results.innerHTML=matches.length?matches.map(c=>`<button type="button" class="appointment-client-option" data-tutor-id="${c.id}"><strong>${c.nome}</strong><small>CPF: ${c.cpf||'Não informado'} · ${c.telefone||'Sem telefone'}</small></button>`).join(''):'<div class="appointment-no-result">Nenhum tutor encontrado.</div>';};input.addEventListener('input',()=>{tutorId.value='';petSelect.disabled=true;petSelect.innerHTML='<option value="">Selecione primeiro o tutor</option>';renderTutorResults();});results.addEventListener('click',e=>{const btn=e.target.closest('[data-tutor-id]');if(!btn)return;const c=db.data.clientes.find(x=>x.id===btn.dataset.tutorId);if(!c)return;tutorId.value=c.id;input.value=`${c.nome}${c.cpf?` · ${c.cpf}`:''}`;const pets=sortAlpha(db.data.pets.filter(p=>p.clienteId===c.id),'nome');petSelect.innerHTML=pets.map(p=>`<option value="${p.id}">${p.nome}${p.raca?` · ${p.raca}`:''}</option>`).join('');petSelect.disabled=!pets.length;results.innerHTML=`<div class="appointment-selected-client"><span>✓ Tutor selecionado</span><strong>${c.nome}</strong>${pets.length?'':`<small>Este tutor não possui pet cadastrado.</small>`}</div>`;});},
+ 'quick-appointment':()=>{
+  if(!db.data.pets.length)return toast('Cadastre um cliente e um pet primeiro.');
+  const firstService=db.data.servicos[0];
+  if(!firstService)return toast('Cadastre pelo menos um serviço primeiro.');
+
+  let selectedItems=[{
+   id:uid(),
+   serviceId:firstService.id,
+   quantity:1,
+   unitPrice:Number(firstService.valor||0)
+  }];
+
+  modal('Novo agendamento',`<div class="form-grid">
+   <div class="field full">
+    <label>Localizar tutor por nome completo ou CPF</label>
+    <div class="appointment-client-search"><span>⌕</span><input id="aTutorBusca" autocomplete="off" placeholder="Digite o nome completo ou CPF do tutor"></div>
+    <div id="aTutorResultados" class="appointment-search-results"><small>Digite para localizar o tutor.</small></div>
+    <input id="aTutorId" type="hidden">
+   </div>
+   <div class="field full"><label>Pet do tutor</label><select id="aPet" disabled><option value="">Selecione primeiro o tutor</option></select></div>
+   <div class="field full">
+    <div class="appointment-services-head"><div><label>Serviços do atendimento</label><small>Adicione banho, tosa, subpelo e outros serviços no mesmo lançamento.</small></div><button type="button" class="btn ghost" id="addAppointmentService">＋ Adicionar serviço</button></div>
+    <div id="appointmentServiceItems" class="appointment-service-items"></div>
+    <div class="appointment-services-total"><span>Total do atendimento</span><strong id="appointmentServicesTotal">${money(firstService.valor||0)}</strong></div>
+   </div>
+   <div class="field"><label>Data</label><input id="aData" type="date" value="${today()}"></div>
+   <div class="field"><label>Horário disponível</label><select id="aHora"></select><small id="aHoraStatus" class="field-help"></small></div>
+   <div class="field full"><label>Observações</label><textarea id="aObs"></textarea></div>
+  </div>`,async close=>{
+   try{
+    const tutorId=$('#aTutorId').value,petId=$('#aPet').value;
+    if(!tutorId)return setModalError('Selecione o tutor.');
+    if(!petId)return setModalError('Selecione o pet.');
+    if(!selectedItems.length)return setModalError('Adicione pelo menos um serviço.');
+    const date=$('#aData').value,time=$('#aHora').value;
+    if(!date||!time)return setModalError('Selecione uma data e um horário disponível.');
+
+    const items=selectedItems.map(item=>({
+     serviceId:item.serviceId,
+     quantity:Number(item.quantity||1),
+     unitPrice:Number(item.unitPrice||0)
+    }));
+
+    const {appointment}=await cloud.request('/api/forge/agenda',{
+     method:'POST',
+     body:JSON.stringify({
+      tutorId,
+      petId,
+      serviceId:items[0].serviceId,
+      items,
+      date,
+      time,
+      notes:$('#aObs').value
+     })
+    });
+
+    db.data.agenda.push(cloud.appointment(appointment));
+    localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));
+    close();render();toast('Agendamento com múltiplos serviços salvo no Neon.');
+   }catch(e){
+    setModalError(e.message||'Não foi possível criar o agendamento.');
+   }
+  });
+
+  const input=$('#aTutorBusca'),results=$('#aTutorResultados'),petSelect=$('#aPet'),tutorId=$('#aTutorId'),dateInput=$('#aData'),timeSelect=$('#aHora'),timeStatus=$('#aHoraStatus');
+  const serviceBox=$('#appointmentServiceItems'),totalLabel=$('#appointmentServicesTotal');
+
+  const selectedDuration=()=>selectedItems.reduce((sum,item)=>{
+   const service=db.data.servicos.find(s=>s.id===item.serviceId);
+   return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(item.quantity||1));
+  },0);
+
+  const renderTimes=()=>{
+   const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration());
+   timeSelect.innerHTML=times.length?times.map(t=>`<option value="${t}">${t}</option>`).join(''):'<option value="">Nenhum horário disponível</option>';
+   timeSelect.disabled=!times.length;
+   timeStatus.textContent=times.length?`${times.length} horário(s) livre(s). Duração total: ${selectedDuration()} min.`:'Todos os horários desta data já estão ocupados.';
+  };
+
+  const renderServiceItems=()=>{
+   serviceBox.innerHTML=selectedItems.map((item,index)=>{
+    const service=db.data.servicos.find(s=>s.id===item.serviceId)||db.data.servicos[0];
+    return `<div class="appointment-service-row" data-item-id="${item.id}">
+     <div class="field"><label>Serviço ${index+1}</label><select data-service-id>${db.data.servicos.map(s=>`<option value="${s.id}" ${s.id===item.serviceId?'selected':''}>${escapeHtml(s.nome)}</option>`).join('')}</select><small>${escapeHtml(service?.categoria||'Sem categoria')} · ${Number(service?.duracao||60)} min</small></div>
+     <div class="field compact"><label>Qtd.</label><input data-service-qty type="number" min="1" max="99" value="${Number(item.quantity||1)}"></div>
+     <div class="field"><label>Valor unitário</label><input data-service-price data-mask="money" inputmode="numeric" value="${money(item.unitPrice||0)}"></div>
+     <button type="button" class="icon-btn appointment-remove-service" data-remove-service ${selectedItems.length===1?'disabled':''}>×</button>
+    </div>`;
+   }).join('');
+
+   applyInputMasks(serviceBox);
+
+   serviceBox.querySelectorAll('.appointment-service-row').forEach(row=>{
+    const item=selectedItems.find(x=>x.id===row.dataset.itemId);
+    row.querySelector('[data-service-id]').addEventListener('change',e=>{
+     item.serviceId=e.target.value;
+     const service=db.data.servicos.find(s=>s.id===item.serviceId);
+     item.unitPrice=Number(service?.valor||0);
+     renderServiceItems();renderTimes();
+    });
+    row.querySelector('[data-service-qty]').addEventListener('input',e=>{
+     item.quantity=Math.max(1,Number(e.target.value||1));
+     updateTotal();renderTimes();
+    });
+    row.querySelector('[data-service-price]').addEventListener('input',e=>{
+     item.unitPrice=parseLocaleNumber(e.target.value);
+     updateTotal();
+    });
+    row.querySelector('[data-remove-service]')?.addEventListener('click',()=>{
+     if(selectedItems.length===1)return;
+     selectedItems=selectedItems.filter(x=>x.id!==item.id);
+     renderServiceItems();renderTimes();
+    });
+   });
+   updateTotal();
+  };
+
+  const updateTotal=()=>{
+   const total=selectedItems.reduce((sum,item)=>sum+Number(item.unitPrice||0)*Number(item.quantity||1),0);
+   totalLabel.textContent=money(total);
+  };
+
+  $('#addAppointmentService').addEventListener('click',()=>{
+   const available=db.data.servicos.find(service=>!selectedItems.some(item=>item.serviceId===service.id))||db.data.servicos[0];
+   selectedItems.push({id:uid(),serviceId:available.id,quantity:1,unitPrice:Number(available.valor||0)});
+   renderServiceItems();renderTimes();
+  });
+
+  dateInput.addEventListener('change',renderTimes);
+  renderServiceItems();renderTimes();
+
+  const renderTutorResults=()=>{
+   const term=normalize(input.value),digits=String(input.value||'').replace(/\D/g,'');
+   if(term.length<2&&digits.length<3){
+    results.innerHTML='<small>Digite pelo menos 2 letras do nome ou 3 números do CPF.</small>';return;
+   }
+   const matches=sortAlpha(db.data.clientes,'nome').filter(c=>normalize(c.nome).includes(term)||(digits&&String(c.cpf||'').replace(/\D/g,'').includes(digits))).slice(0,8);
+   results.innerHTML=matches.length?matches.map(c=>`<button type="button" class="appointment-client-option" data-tutor-id="${c.id}"><strong>${c.nome}</strong><small>CPF: ${c.cpf||'Não informado'} · ${c.telefone||'Sem telefone'}</small></button>`).join(''):'<div class="appointment-no-result">Nenhum tutor encontrado.</div>';
+  };
+
+  input.addEventListener('input',()=>{
+   tutorId.value='';petSelect.disabled=true;petSelect.innerHTML='<option value="">Selecione primeiro o tutor</option>';renderTutorResults();
+  });
+
+  results.addEventListener('click',e=>{
+   const btn=e.target.closest('[data-tutor-id]');if(!btn)return;
+   const c=db.data.clientes.find(x=>x.id===btn.dataset.tutorId);if(!c)return;
+   tutorId.value=c.id;input.value=`${c.nome}${c.cpf?` · ${c.cpf}`:''}`;
+   const pets=sortAlpha(db.data.pets.filter(p=>p.clienteId===c.id),'nome');
+   petSelect.innerHTML=pets.map(p=>`<option value="${p.id}">${p.nome}${p.raca?` · ${p.raca}`:''}</option>`).join('');
+   petSelect.disabled=!pets.length;
+   results.innerHTML=`<div class="appointment-selected-client"><span>✓ Tutor selecionado</span><strong>${c.nome}</strong>${pets.length?'':`<small>Este tutor não possui pet cadastrado.</small>`}</div>`;
+  });
+ },
  'new-service':()=>modal('Novo serviço',`<div class="form-grid"><div class="field"><label>Nome</label><input id="sNome"></div><div class="field"><label>Valor</label><input id="sValor" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field"><label>Duração na agenda</label><select id="sDuracao"><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60" selected>1 hora</option><option value="90">1h30</option><option value="120">2 horas</option></select></div></div>`,async close=>{try{const name=$('#sNome').value.trim();if(!name)return setModalError('Informe o serviço.');const {service}=await cloud.request('/api/forge/servicos',{method:'POST',body:JSON.stringify({name,price:parseLocaleNumber($('#sValor').value),durationMinutes:Number($('#sDuracao').value||60)})});db.data.servicos.push(cloud.service(service));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Serviço cadastrado no Neon.');}catch(e){setModalError(e.message||'Não foi possível salvar o serviço.');}}),
  'edit-service':b=>{const s=db.data.servicos.find(x=>x.id===b.dataset.id);if(!s)return toast('Serviço não encontrado.');modal('Editar serviço',`<div class="form-grid"><div class="field full"><label>Nome</label><input id="editSNome" value="${escapeAttr(s.nome)}"></div><div class="field"><label>Valor</label><input id="editSValor" type="text" data-mask="money" inputmode="numeric" value="${money(s.valor||0)}"></div><div class="field"><label>Duração na agenda</label><select id="editSDuracao">${[15,30,45,60,90,120,180].map(v=>`<option value="${v}" ${Number(s.duracao||60)===v?'selected':''}>${v<60?`${v} minutos`:v===60?'1 hora':`${Math.floor(v/60)}h${v%60?String(v%60).padStart(2,'0'):''}`}</option>`).join('')}</select></div></div>`,async close=>{try{const name=$('#editSNome').value.trim(),price=parseLocaleNumber($('#editSValor').value),durationMinutes=Number($('#editSDuracao').value||60);if(!name)return setModalError('Informe o nome do serviço.');if(!Number.isFinite(price)||price<0)return setModalError('Informe um valor válido.');const {service}=await cloud.request(`/api/forge/servicos/${s.id}`,{method:'PUT',body:JSON.stringify({name,price,durationMinutes})});Object.assign(s,cloud.service(service));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Serviço atualizado.');}catch(e){setModalError(e.message||'Não foi possível atualizar o serviço.');}},'Salvar alterações');},
 
  'quick-movement':b=>modal('Nova movimentação',`<div class="form-grid"><div class="field"><label>Tipo</label><select id="cTipo"><option value="entrada" ${b?.dataset?.preset==='entrada'?'selected':''}>Entrada</option><option value="saida" ${b?.dataset?.preset==='saida'?'selected':''}>Saída</option></select></div><div class="field"><label>Data</label><input id="cData" type="date" value="${today()}"></div><div class="field full"><label>Descrição</label><input id="cDesc"></div><div class="field"><label>Valor</label><input id="cValor" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field"><label>Forma de pagamento</label><select id="cForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option></select></div></div>`,close=>{if(!$('#cDesc').value||!$('#cValor').value)return toast('Preencha descrição e valor.');db.data.caixa.push({id:uid(),tipo:$('#cTipo').value,data:$('#cData').value,descricao:$('#cDesc').value,valor:parseLocaleNumber($('#cValor').value),forma:$('#cForma').value});db.save();close();toast('Movimentação salva.');}),
  'new-stock':()=>modal('Novo produto',`<div class="form-grid"><div class="field full"><label>Nome do produto *</label><input id="eNome" data-trim autocomplete="off" placeholder="Ex.: Shampoo neutro 500 ml"></div><div class="field"><label>EAN / Código de barras</label><input id="eEan" data-mask="ean" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="8, 12, 13 ou 14 dígitos"></div><div class="field"><label>Marca</label><input id="eMarca" data-trim placeholder="Ex.: Pet Society"></div><div class="field"><label>Categoria</label><input id="eCategoria" data-trim placeholder="Ex.: Higiene"></div><div class="field"><label>Unidade</label><select id="eUnidade"><option>unidade</option><option>kg</option><option>litro</option><option>caixa</option><option>pacote</option></select></div><div class="field"><label>Quantidade</label><input id="eQtd" type="number" min="0" step="1" inputmode="numeric" value="0"></div><div class="field"><label>Estoque mínimo</label><input id="eMin" type="number" min="0" step="1" inputmode="numeric" value="${Number(db.data.config.estoqueMinimoPadrao??3)}"></div><div class="field"><label>Custo unitário</label><input id="eCusto" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field full"><label>Preço de venda</label><input id="eVenda" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div></div>`,close=>{const nome=$('#eNome').value.trim(),ean=onlyDigits($('#eEan').value);if(!nome)return toast('Informe o produto.');if(!validEan(ean))return toast('O EAN deve possuir 8, 12, 13 ou 14 dígitos.');if(ean&&db.data.estoque.some(p=>onlyDigits(p.ean)===ean))return toast('Já existe um produto cadastrado com este EAN.');db.data.estoque.push({id:uid(),nome,ean,marca:$('#eMarca').value.trim(),categoria:$('#eCategoria').value.trim(),unidade:$('#eUnidade').value,qtd:Number($('#eQtd').value||0),min:Number($('#eMin').value||0),custo:parseLocaleNumber($('#eCusto').value),valorVenda:parseLocaleNumber($('#eVenda').value)});db.save();close();toast('Produto cadastrado.');}),
- 'finish-appointment':async b=>{const a=db.data.agenda.find(x=>x.id===b.dataset.id);if(!a)return;if(a.status==='Concluído')return toast('Este atendimento já foi finalizado.');try{const {appointment}=await cloud.request(`/api/forge/agenda/${a.id}`,{method:'PUT',body:JSON.stringify({status:'Concluído'})});Object.assign(a,cloud.appointment(appointment));const serv=db.data.servicos.find(x=>x.id===a.servicoId),pet=db.data.pets.find(p=>p.id===a.petId),cliente=db.data.clientes.find(c=>c.id===pet?.clienteId),valor=Number(serv?.valor||0);if(!db.data.pendencias.some(x=>x.agendaId===a.id))db.data.pendencias.push({id:uid(),agendaId:a.id,data:today(),pet:pet?.nome||'Pet',tutor:cliente?.nome||'Tutor',clienteId:cliente?.id||'',servico:serv?.nome||'Serviço',valor,status:'aberto'});db.save();render();toast('Atendimento concluído. O valor ficou em aberto no Caixa.');}catch(e){toast(e.message||'Não foi possível concluir o atendimento.');}},
+ 'finish-appointment':async b=>{
+  const a=db.data.agenda.find(x=>x.id===b.dataset.id);
+  if(!a)return;
+  if(a.status==='Concluído')return toast('Este atendimento já foi finalizado.');
+  try{
+   const {appointment}=await cloud.request(`/api/forge/agenda/${a.id}`,{method:'PUT',body:JSON.stringify({status:'Concluído'})});
+   Object.assign(a,cloud.appointment(appointment));
+   const pet=db.data.pets.find(p=>p.id===a.petId),cliente=db.data.clientes.find(c=>c.id===pet?.clienteId);
+   const itens=appointmentItems(a);
+   const valor=appointmentTotal(a);
+   if(!db.data.pendencias.some(x=>x.agendaId===a.id)){
+    db.data.pendencias.push({
+     id:uid(),
+     agendaId:a.id,
+     data:today(),
+     pet:pet?.nome||'Pet',
+     tutor:cliente?.nome||'Tutor',
+     clienteId:cliente?.id||'',
+     servico:appointmentServiceNames(a),
+     itens:itens.map(item=>({...item})),
+     valor,
+     status:'aberto'
+    });
+   }
+   db.save();render();toast(`Atendimento concluído. ${itens.length} serviço(s), total ${money(valor)}, ficaram em aberto no Caixa.`);
+  }catch(e){toast(e.message||'Não foi possível concluir o atendimento.');}
+ },
  'cancel-appointment':async b=>{const a=db.data.agenda.find(x=>x.id===b.dataset.id);if(!a)return;modal('Cancelar agendamento',`<p>Deseja cancelar este agendamento?</p><div class="notice">O horário será liberado para um novo atendimento.</div>`,async close=>{try{const {appointment}=await cloud.request(`/api/forge/agenda/${a.id}`,{method:'DELETE'});Object.assign(a,cloud.appointment(appointment));db.save();close();render();toast('Agendamento cancelado e horário liberado.');}catch(e){setModalError(e.message||'Não foi possível cancelar.');}},'Cancelar');},
  'delete-client':b=>{const c=db.data.clientes.find(x=>x.id===b.dataset.id);if(!c)return;modal('Excluir tutor',`<p>Deseja realmente excluir <b>${escapeHtml(c.nome)}</b> e todos os pets vinculados?</p><div class="notice">Esta ação não poderá ser desfeita.</div>`,async close=>{try{await cloud.request(`/api/forge/tutores/${c.id}`,{method:'DELETE'});db.data.clientes=db.data.clientes.filter(x=>x.id!==c.id);db.data.pets=db.data.pets.filter(x=>x.clienteId!==c.id);localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Tutor excluído.');}catch(e){toast(e.message);}},'Excluir');},
  'delete-row':b=>{const map={service:'servicos',cash:'caixa',stock:'estoque'};db.data[map[b.dataset.type]]=db.data[map[b.dataset.type]].filter(x=>x.id!==b.dataset.id);db.save();toast('Registro excluído.');},
