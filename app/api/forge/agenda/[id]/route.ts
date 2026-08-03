@@ -80,7 +80,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ message: 'Pet ou serviço inválido.' }, { status: 400 });
     }
 
-    const serviceMap = new Map(services.map(service => [service.id, service]));
+    const serviceMap = new Map(services.map((service: (typeof services)[number]) => [service.id, service]));
     const normalizedItems: NormalizedAppointmentItem[] | undefined = requestedItems?.map((item: AppointmentItemInput): NormalizedAppointmentItem => {
       const service = serviceMap.get(item.serviceId)!;
       const customPrice = Number(item.unitPrice);

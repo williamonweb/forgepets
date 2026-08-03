@@ -1,6 +1,6 @@
 {
   "name": "forgepets",
-  "version": "9.7.3",
+  "version": "9.8.1",
   "private": true,
   "scripts": {
     "dev": "next dev",

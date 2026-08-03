@@ -14,20 +14,6 @@ type RequestedItem = {
   unitPrice?: number;
 };
 
-type ValidatedItem = {
-  service: {
-    id: string;
-    price: Prisma.Decimal;
-    category: string | null;
-    durationMinutes: number;
-  };
-  serviceId: string;
-  quantity: number;
-  unitPrice: Prisma.Decimal;
-  total: Prisma.Decimal;
-  category: string | null;
-};
-
 function parseLocalDateTime(date: unknown, time: unknown) {
   const day = String(date ?? '').trim();
   const hour = String(time ?? '').trim();
@@ -48,7 +34,7 @@ function normalizeItems(body: any): RequestedItem[] {
       quantity: Math.max(1, Math.min(99, Number(item?.quantity || 1))),
       unitPrice: item?.unitPrice === undefined ? undefined : Number(item.unitPrice)
     }))
-    .filter((item: RequestedItem) => Boolean(item.serviceId));
+    .filter((item: RequestedItem) => item.serviceId);
 }
 
 async function validateRelations(
@@ -68,8 +54,8 @@ async function validateRelations(
   if (!pet) throw new Error('PET_NOT_FOUND');
   if (services.length !== serviceIds.length) throw new Error('SERVICE_NOT_FOUND');
 
-  const serviceMap = new Map(services.map(service => [service.id, service] as const));
-  return requestedItems.map((item: RequestedItem): ValidatedItem => {
+  const serviceMap = new Map(services.map((service: (typeof services)[number]) => [service.id, service]));
+  return requestedItems.map((item: RequestedItem) => {
     const service = serviceMap.get(item.serviceId)!;
     const customPrice = Number(item.unitPrice);
     const unitPrice = Number.isFinite(customPrice) && customPrice >= 0
@@ -129,7 +115,7 @@ async function createWithConflictProtection(
             endsAt: data.endsAt,
             notes: data.notes,
             items: {
-              create: data.items.map((item: { serviceId: string; quantity: number; unitPrice: Prisma.Decimal; total: Prisma.Decimal; category: string | null }) => ({
+              create: data.items.map((item: (typeof data.items)[number]) => ({
                 companyId,
                 serviceId: item.serviceId,
                 quantity: item.quantity,
@@ -216,7 +202,7 @@ export async function POST(request: Request) {
     );
 
     const durationMinutes = validatedItems.reduce(
-      (sum: number, item: ValidatedItem) => sum + item.service.durationMinutes * item.quantity,
+      (sum: number, item: (typeof validatedItems)[number]) => sum + item.service.durationMinutes * item.quantity,
       0
     );
     const endsAt = new Date(startsAt.getTime() + Math.max(15, durationMinutes) * 60_000);
@@ -228,7 +214,7 @@ export async function POST(request: Request) {
       startsAt,
       endsAt,
       notes: String(body.notes ?? '').trim() || null,
-      items: validatedItems.map((item: ValidatedItem) => ({
+      items: validatedItems.map((item: (typeof validatedItems)[number]) => ({
         serviceId: item.serviceId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,

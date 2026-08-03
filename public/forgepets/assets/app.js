@@ -120,10 +120,106 @@ const cloud={
   return {ok:failed===0,failed};
  }
 };
+
+const financeCloud={
+ ready:false,
+ saving:false,
+ saveTimer:null,
+ snapshot(){
+  ensureData();
+  return {
+   categories:db.data.config.financeCategories||{},
+   payables:db.data.boletos||[],
+   expenses:(db.data.despesas||[]).map(item=>({
+    ...item,
+    empresa:item.empresa||item.descricao||'Despesa',
+    descricao:item.descricao||'',
+    parcela:item.parcela||1,
+    quantidade:item.quantidade||1,
+    status:item.status==='pago'?'pago':'aberto',
+    pagoEm:item.paidAt||item.pagoEm||null,
+    forma:item.forma||''
+   })),
+   revenues:db.data.receitasPrevistas||[],
+   transactions:db.data.caixa||[]
+  };
+ },
+ localBackup(){
+  const snapshot=this.snapshot();
+  try{localStorage.setItem('forgepets_finance_recovery_backup',JSON.stringify({createdAt:new Date().toISOString(),...snapshot}));}catch{}
+  return snapshot;
+ },
+ mergeById(server=[],local=[]){
+  const map=new Map();
+  local.forEach(item=>item?.id&&map.set(String(item.id),item));
+  server.forEach(item=>item?.id&&map.set(String(item.id),item));
+  return [...map.values()];
+ },
+ categoryMerge(serverCategories=[],localCategories={}){
+  const result={receita:[...(localCategories.receita||[])],despesa:[...(localCategories.despesa||[])],boleto:[...(localCategories.boleto||[])]};
+  serverCategories.forEach(item=>{if(result[item.type]&&!result[item.type].some(name=>normalize(name)===normalize(item.name)))result[item.type].push(item.name);});
+  Object.keys(result).forEach(key=>result[key]=[...new Set(result[key].map(x=>String(x).trim()).filter(Boolean))]);
+  return result;
+ },
+ apply(data){
+  if(!data)return;
+  db.data.boletos=Array.isArray(data.payables)?data.payables:db.data.boletos;
+  db.data.despesas=(Array.isArray(data.expenses)?data.expenses:db.data.despesas).map(item=>({
+   ...item,
+   descricao:item.descricao||item.empresa||'Despesa',
+   vencimento:item.vencimento,
+   paidAt:item.pagoEm||item.paidAt||null,
+   caixaMovementId:(db.data.caixa||[]).find(x=>String(x.sourceId||x.expenseId||'')===String(item.id))?.id||null
+  }));
+  db.data.receitasPrevistas=Array.isArray(data.revenues)?data.revenues:db.data.receitasPrevistas;
+  db.data.caixa=Array.isArray(data.transactions)?data.transactions:db.data.caixa;
+  if(Array.isArray(data.categories))db.data.config.financeCategories=this.categoryMerge(data.categories,{});
+  localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));
+ },
+ async sync(){
+  const local=this.localBackup();
+  try{
+   const server=await cloud.request('/api/forge/finance');
+   const merged={
+    categories:this.categoryMerge(server.categories||[],local.categories||{}),
+    payables:this.mergeById(server.payables||[],local.payables||[]),
+    expenses:this.mergeById(server.expenses||[],local.expenses||[]),
+    revenues:this.mergeById(server.revenues||[],local.revenues||[]),
+    transactions:this.mergeById(server.transactions||[],local.transactions||[])
+   };
+   await cloud.request('/api/forge/finance',{method:'PUT',body:JSON.stringify(merged)});
+   const confirmed=await cloud.request('/api/forge/finance');
+   this.apply(confirmed);
+   this.ready=true;
+   render();
+   return true;
+  }catch(error){
+   console.error('[ForgePets] Falha ao sincronizar o financeiro. Os dados locais foram preservados.',error);
+   this.ready=false;
+   return false;
+  }
+ },
+ queueSave(){
+  if(!this.ready)return;
+  clearTimeout(this.saveTimer);
+  this.saveTimer=setTimeout(()=>this.push(),500);
+ },
+ async push(){
+  if(!this.ready||this.saving)return;
+  this.saving=true;
+  try{
+   await cloud.request('/api/forge/finance',{method:'PUT',body:JSON.stringify(this.snapshot())});
+  }catch(error){
+   console.error('[ForgePets] Não foi possível salvar o financeiro no Neon.',error);
+   toast('A alteração ficou salva neste navegador, mas ainda não sincronizou com o Neon.','warning');
+  }finally{this.saving=false;}
+ }
+};
+
 const today=()=>new Date().toISOString().slice(0,10);
 const db={
  data:JSON.parse(localStorage.getItem('vetcoreShopPro')||'null')||{clientes:[],pets:[],agenda:[],servicos:[{id:uid(),nome:'Banho',valor:60},{id:uid(),nome:'Banho + Tosa',valor:95},{id:uid(),nome:'Hidratação',valor:35}],caixa:[],estoque:[],boletos:[],config:{empresa:'Meu Pet Shop',nomeFantasia:'Meu Pet Shop',razaoSocial:'',cnpjCpf:'',telefone:'',whatsapp:'',email:'',site:'',cep:'',endereco:'',numero:'',complemento:'',bairro:'',cidade:'',estado:'RS',logo:'',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',inicioAgenda:'08:00',fimAgenda:'18:00',intervaloAgenda:30,diasFuncionamento:['1','2','3','4','5','6'],moeda:'BRL',impressora:'80',rodapeCupom:'Obrigado pela preferência!',estoqueMinimoPadrao:3,alertaEstoque:true,alertaAniversario:true,alertaAgenda:true,pontosPorReal:1,usarFidelidade:true,percentualCashback:2,validadePontos:0,niveisVip:[{nome:'Bronze',min:0},{nome:'Prata',min:500},{nome:'Ouro',min:1500},{nome:'Diamante',min:5000}],cuponsAtivos:true,campanhaAniversario:true,tema:'claro',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',perfilUsuario:'Administrador',telefoneUsuario:'',fotoUsuario:''}},
- save(){localStorage.setItem('vetcoreShopPro',JSON.stringify(this.data));render();},
+ save(){localStorage.setItem('vetcoreShopPro',JSON.stringify(this.data));financeCloud.queueSave();render();},
  reset(){localStorage.removeItem('vetcoreShopPro');location.reload();}
 };
 const ROUTE_ALIASES={dashboard:'dashboard',clientes:'clientes',tutores:'clientes',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos','serviços':'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios','relatórios':'relatorios',fidelidade:'fidelidade',fiscal:'fiscal',marketplace:'marketplace',modulos:'marketplace','módulos':'marketplace',config:'config',configuracoes:'config','configurações':'config'};
@@ -203,7 +299,7 @@ async function loadCompanyUsers({rerender=false}={}){
 }
 function showApplication(){
  $('#loginScreen').style.display='none';$('#app').classList.remove('app-hidden');
- if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();go(page,{replace:true});bindGlobal();initSystemFooter();window.forgePetsStarted=true;loadCurrentForgeUser();loadCompanyUsers();cloud.sync();}
+ if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();go(page,{replace:true});bindGlobal();initSystemFooter();window.forgePetsStarted=true;loadCurrentForgeUser();loadCompanyUsers();cloud.sync();financeCloud.sync();}
  enforceSubscriptionAccess();
 }
 
@@ -619,7 +715,7 @@ function toast(message,type='auto',options={}){
  setTimeout(close,Number(options.duration||4200));
 }
 
-function ensureData(){db.data.clientes=db.data.clientes||[];db.data.pets=db.data.pets||[];db.data.agenda=db.data.agenda||[];db.data.servicos=db.data.servicos||[];db.data.caixa=db.data.caixa||[];db.data.despesas=db.data.despesas||[];db.data.receitasPrevistas=db.data.receitasPrevistas||[];db.data.pendencias=db.data.pendencias||[];db.data.estoque=db.data.estoque||[];db.data.boletos=db.data.boletos||[];db.data.vendas=db.data.vendas||[];db.data.cupons=db.data.cupons||[];db.data.campanhas=db.data.campanhas||[];db.data.loyaltyHistory=db.data.loyaltyHistory||[];db.data.recompensas=db.data.recompensas||[{id:'reward-banho',nome:'Banho gratuito',pontos:500,valor:60,ativo:true},{id:'reward-hidratacao',nome:'Hidratação gratuita',pontos:300,valor:35,ativo:true},{id:'reward-vale20',nome:'Vale-compras de R$ 20,00',pontos:200,valor:20,ativo:true}];db.data.config={empresa:'Meu Pet Shop',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',telefoneUsuario:'',fotoUsuario:'',perfilUsuario:'Administrador',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',pontosPorReal:1,percentualCashback:2,cuponsAtivos:true,campanhaAniversario:true,beneficiosVip:{Bronze:0,Prata:3,Ouro:5,Diamante:8},cupomAniversarioPercentual:10,cupomAniversarioValidade:15,financeCategories:{receita:['Serviços','Produtos','Banho e Tosa','Consultas','Vacinas','Exames','Outras receitas'],despesa:['Aluguel','Água','Energia','Internet','Telefone','Marketing','Funcionários','Impostos','Fornecedores','Outras despesas'],boleto:['Aluguel','Energia','Internet','Telefone','Impostos','Fornecedores','Outros boletos']},...db.data.config};}
+function ensureData(){db.data.clientes=db.data.clientes||[];db.data.pets=db.data.pets||[];db.data.agenda=db.data.agenda||[];db.data.servicos=db.data.servicos||[];db.data.caixa=db.data.caixa||[];db.data.despesas=db.data.despesas||[];db.data.receitasPrevistas=db.data.receitasPrevistas||[];db.data.pendencias=db.data.pendencias||[];db.data.estoque=db.data.estoque||[];db.data.boletos=db.data.boletos||[];db.data.vendas=db.data.vendas||[];db.data.cupons=db.data.cupons||[];db.data.campanhas=db.data.campanhas||[];db.data.loyaltyHistory=db.data.loyaltyHistory||[];db.data.recompensas=db.data.recompensas||[{id:'reward-banho',nome:'Banho gratuito',pontos:500,valor:60,ativo:true},{id:'reward-hidratacao',nome:'Hidratação gratuita',pontos:300,valor:35,ativo:true},{id:'reward-vale20',nome:'Vale-compras de R$ 20,00',pontos:200,valor:20,ativo:true}];db.data.config={empresa:'Meu Pet Shop',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',telefoneUsuario:'',fotoUsuario:'',perfilUsuario:'Administrador',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',pontosPorReal:1,percentualCashback:2,cuponsAtivos:true,campanhaAniversario:true,beneficiosVip:{Bronze:0,Prata:3,Ouro:5,Diamante:8},cupomAniversarioPercentual:10,cupomAniversarioValidade:15,financeCategories:{receita:['Serviços','Produtos','Banho e Tosa','Outras receitas'],despesa:['Aluguel','Água','Energia','Internet','Telefone','Marketing','Funcionários','Impostos','Fornecedores','Outras despesas'],boleto:['Aluguel','Energia','Internet','Telefone','Impostos','Fornecedores','Outros boletos']},...db.data.config};}
 
 function vipLevel(cliente){const pts=Number(cliente?.pontos||0),levels=[...(db.data.config.niveisVip||[{nome:'Bronze',min:0},{nome:'Prata',min:500},{nome:'Ouro',min:1500},{nome:'Diamante',min:5000}])].sort((a,b)=>Number(a.min)-Number(b.min));return levels.filter(x=>pts>=Number(x.min||0)).pop()?.nome||'Bronze';}
 function vipDiscount(cliente){return Number((db.data.config.beneficiosVip||{})[vipLevel(cliente)]||0);}
@@ -636,7 +732,7 @@ function financialCategories(type='despesa'){
  ensureData();
  const categories=db.data.config.financeCategories||{};
  const defaults={
-  receita:['Serviços','Produtos','Banho e Tosa','Consultas','Vacinas','Exames','Outras receitas'],
+  receita:['Serviços','Produtos','Banho e Tosa','Outras receitas'],
   despesa:['Aluguel','Água','Energia','Internet','Telefone','Marketing','Funcionários','Impostos','Fornecedores','Outras despesas'],
   boleto:['Aluguel','Energia','Internet','Telefone','Impostos','Fornecedores','Outros boletos']
  };
@@ -1017,7 +1113,7 @@ const actions={
  'pay-subscription-invoice':b=>{const payments=subscriptionPayments(),inv=payments.find(x=>String(x.id)===String(b.dataset.id));if(!inv)return toast('Fatura não encontrada.');modal('Confirmar pagamento',`<p>Deseja simular o pagamento da fatura de <b>${money(inv.amount)}</b> com vencimento em <b>${new Date(`${inv.due}T12:00:00`).toLocaleDateString('pt-BR')}</b>?</p><div class="notice">Na versão online, esta confirmação será recebida automaticamente pelo Asaas.</div>`,close=>{inv.status='paid';inv.paidAt=new Date().toISOString();saveSubscriptionPayments(payments);const sub=activeSubscription();localStorage.setItem('forgepets_active_subscription',JSON.stringify({...sub,status:'active',lastPaymentStatus:'paid'}));close();render();toast('Fatura marcada como paga.');},'Confirmar pagamento');},
  'new-boleto-batch':()=>{modal('Cadastrar boletos',`<div class="form-grid"><div class="field full"><label>Empresa *</label><input id="boletoEmpresa" data-trim placeholder="Nome da empresa"></div><div class="field"><label>Categoria *</label><select id="boletoCategoria">${categoryOptions('boleto')}</select></div><div class="field"><label>Valor de cada boleto *</label><input id="boletoValor" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field"><label>Quantidade de boletos *</label><input id="boletoQtd" type="number" min="1" max="60" value="1"></div><div class="field full"><label>Vencimento de cada boleto</label><div id="boletoDates" class="boleto-date-grid"></div></div></div>`,close=>{const empresa=$('#boletoEmpresa').value.trim(),categoria=$('#boletoCategoria').value,valor=parseLocaleNumber($('#boletoValor').value),qtd=Number($('#boletoQtd').value||0),dates=[...document.querySelectorAll('[data-boleto-date]')].map(x=>x.value);if(!empresa||!categoria||valor<=0||qtd<1)return toast('Preencha empresa, categoria, valor e quantidade.');if(dates.length!==qtd||dates.some(x=>!x))return toast('Informe o vencimento de todos os boletos.');dates.forEach((v,i)=>db.data.boletos.push({id:uid(),loteId:uid(),empresa,categoria,valor,quantidade:qtd,parcela:i+1,vencimento:v,status:'aberto',createdAt:new Date().toISOString()}));db.save();close();toast(`${qtd} boleto(s) cadastrado(s).`);});const q=$('#boletoQtd'),box=$('#boletoDates');const draw=()=>{const count=Math.min(60,Math.max(1,Number(q.value||1))),previous=[...box.querySelectorAll('input')].map(x=>x.value);box.innerHTML=Array.from({length:count},(_,i)=>`<div class="field"><label>Boleto ${i+1}</label><input type="date" data-boleto-date value="${previous[i]||daysFromNow(i*30+1)}"></div>`).join('');};q.addEventListener('input',draw);draw();},
  'edit-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;modal('Editar boleto',`<div class="form-grid"><div class="field full"><label>Empresa</label><input id="editBoletoEmpresa" value="${escapeAttr(x.empresa)}"></div><div class="field"><label>Valor</label><input id="editBoletoValor" type="text" data-mask="money" inputmode="numeric" value="${money(x.valor||0)}"></div><div class="field"><label>Vencimento</label><input id="editBoletoData" type="date" value="${x.vencimento}"></div></div>`,close=>{const empresa=$('#editBoletoEmpresa').value.trim(),valor=parseLocaleNumber($('#editBoletoValor').value),vencimento=$('#editBoletoData').value;if(!empresa||valor<=0||!vencimento)return toast('Preencha todos os campos.');Object.assign(x,{empresa,valor,vencimento});db.save();close();toast('Boleto atualizado.');});},
- 'pay-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;x.status='pago';x.pagoEm=new Date().toISOString();db.save();toast('Boleto marcado como pago.');},
+ 'pay-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;const total=Number(x.valor||0)+Number(x.juros||0)+Number(x.multa||0);x.status='pago';x.pagoEm=new Date().toISOString();x.valorPago=total;if(!db.data.caixa.some(m=>String(m.sourceId||m.expenseId||'')===String(x.id)))db.data.caixa.push({id:uid(),tipo:'saida',data:today(),descricao:`Boleto: ${x.empresa}`,categoria:x.categoria||'',valor:total,forma:x.forma||'Boleto',source:'PAYABLE',sourceId:x.id,createdAt:new Date().toISOString()});db.save();toast('Boleto marcado como pago e lançado no saldo real.');},
  'delete-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;modal('Excluir boleto',`<p>Deseja excluir o boleto de <b>${escapeHtml(x.empresa)}</b> no valor de <b>${money(x.valor)}</b>?</p>`,close=>{db.data.boletos=db.data.boletos.filter(v=>v.id!==x.id);db.save();close();toast('Boleto excluído.');},'Excluir');},
  'new-client':()=>modal('Novo tutor',`<div class="form-grid"><div class="field"><label>Nome completo *</label><input id="fNome" data-trim autocomplete="name"></div><div class="field"><label>WhatsApp</label><input id="fTel" data-mask="phone" inputmode="tel"></div><div class="field"><label>CPF/CNPJ</label><input id="fCpf" data-mask="cpfcnpj" inputmode="numeric"></div><div class="field"><label>E-mail</label><input id="fEmail" type="email"></div><div class="field"><label>CEP</label><input id="fCep" data-mask="cep" data-cep-lookup data-status-target="cepLookupStatus" inputmode="numeric" maxlength="9" placeholder="00000-000"><small id="cepLookupStatus" class="cep-lookup-status"></small></div><div class="field"><label>Endereço</label><input id="fEndereco"></div><div class="field"><label>Número</label><input id="fNumero"></div><div class="field"><label>Complemento</label><input id="fComplemento"></div><div class="field"><label>Bairro</label><input id="fBairro"></div><div class="field"><label>Cidade</label><input id="fCidade"></div><div class="field"><label>Estado</label><input id="fEstado" maxlength="2" value="RS"></div><div class="field full"><label>Observações</label><textarea id="fObs"></textarea></div></div>`,async close=>{try{const name=$('#fNome').value.trim();if(!name){setModalError('Informe o nome completo do tutor.');return;}const email=$('#fEmail').value.trim();if(email&&!isValidEmail(email)){setModalError('Informe um e-mail válido ou deixe o campo vazio.');return;}const {tutor}=await cloud.request('/api/forge/tutores',{method:'POST',body:JSON.stringify({name,phone:$('#fTel').value,document:$('#fCpf').value,email,zipCode:$('#fCep').value,address:$('#fEndereco').value,number:$('#fNumero').value,complement:$('#fComplemento').value,neighborhood:$('#fBairro').value,city:$('#fCidade').value,state:$('#fEstado').value,notes:$('#fObs').value})});db.data.clientes.push(cloud.tutor(tutor));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Tutor cadastrado no Neon.');}catch(e){setModalError(e.message||'Não foi possível salvar o tutor.');}}),
  'edit-client':b=>{const c=db.data.clientes.find(x=>x.id===b.dataset.id);if(!c)return;modal('Editar tutor',`<div class="form-grid"><div class="field"><label>Nome completo *</label><input id="fNome" value="${escapeAttr(c.nome)}"></div><div class="field"><label>WhatsApp</label><input id="fTel" data-mask="phone" value="${escapeAttr(c.telefone)}"></div><div class="field"><label>CPF/CNPJ</label><input id="fCpf" data-mask="cpfcnpj" value="${escapeAttr(c.cpf)}"></div><div class="field"><label>E-mail</label><input id="fEmail" type="email" value="${escapeAttr(c.email)}"></div><div class="field"><label>CEP</label><input id="fCep" data-mask="cep" data-cep-lookup data-status-target="cepLookupStatus" inputmode="numeric" maxlength="9" value="${escapeAttr(c.cep)}"><small id="cepLookupStatus" class="cep-lookup-status"></small></div><div class="field"><label>Endereço</label><input id="fEndereco" value="${escapeAttr(c.endereco)}"></div><div class="field"><label>Número</label><input id="fNumero" value="${escapeAttr(c.numero)}"></div><div class="field"><label>Complemento</label><input id="fComplemento" value="${escapeAttr(c.complemento)}"></div><div class="field"><label>Bairro</label><input id="fBairro" value="${escapeAttr(c.bairro)}"></div><div class="field"><label>Cidade</label><input id="fCidade" value="${escapeAttr(c.cidade)}"></div><div class="field"><label>Estado</label><input id="fEstado" maxlength="2" value="${escapeAttr(c.estado||'RS')}"></div><div class="field full"><label>Observações</label><textarea id="fObs">${escapeHtml(c.obs||'')}</textarea></div></div>`,async close=>{try{const name=$('#fNome').value.trim();if(!name){setModalError('Informe o nome completo do tutor.');return;}const email=$('#fEmail').value.trim();if(email&&!isValidEmail(email)){setModalError('Informe um e-mail válido ou deixe o campo vazio.');return;}const {tutor}=await cloud.request(`/api/forge/tutores/${c.id}`,{method:'PUT',body:JSON.stringify({name,phone:$('#fTel').value,document:$('#fCpf').value,email,zipCode:$('#fCep').value,address:$('#fEndereco').value,number:$('#fNumero').value,complement:$('#fComplemento').value,neighborhood:$('#fBairro').value,city:$('#fCidade').value,state:$('#fEstado').value,notes:$('#fObs').value})});Object.assign(c,cloud.tutor(tutor));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Tutor atualizado.');}catch(e){setModalError(e.message||'Não foi possível atualizar o tutor.');}});},

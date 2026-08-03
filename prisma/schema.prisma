@@ -53,6 +53,30 @@ enum PaymentMethod {
   OTHER
 }
 
+
+enum FinancialCategoryType {
+  INCOME
+  EXPENSE
+  PAYABLE
+}
+
+enum FinancialPayableStatus {
+  OPEN
+  PAID
+  CANCELED
+}
+
+enum PlannedRevenueStatus {
+  EXPECTED
+  RECEIVED
+  CANCELED
+}
+
+enum FinancialTransactionType {
+  ENTRY
+  EXIT
+}
+
 enum StockMovementType {
   ENTRY
   EXIT
@@ -165,6 +189,10 @@ model Company {
   contractAcceptances ContractAcceptance[]
   fiscalConfig        FiscalConfig?
   fiscalDocuments     FiscalDocument[]
+  financialCategories FinancialCategory[]
+  financialPayables   FinancialPayable[]
+  plannedRevenues     PlannedRevenue[]
+  financialTransactions FinancialTransaction[]
 }
 
 model User {
@@ -428,6 +456,94 @@ model AuditLog {
 }
 
 
+
+
+model FinancialCategory {
+  id        String                @id @default(cuid())
+  companyId String
+  company   Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type      FinancialCategoryType
+  name      String
+  active    Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  deletedAt DateTime?
+
+  @@unique([companyId, type, name])
+  @@index([companyId, type, active])
+}
+
+model FinancialPayable {
+  id                String                 @id @default(cuid())
+  companyId         String
+  company           Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  legacyId          String
+  batchId           String?
+  recordType        String                 @default("EXPENSE")
+  supplier          String
+  description       String?
+  category          String?
+  originalAmount    Decimal                @db.Decimal(12, 2)
+  interestAmount    Decimal                @default(0) @db.Decimal(12, 2)
+  penaltyAmount     Decimal                @default(0) @db.Decimal(12, 2)
+  paidAmount        Decimal?               @db.Decimal(12, 2)
+  installmentNumber Int                    @default(1)
+  installmentCount  Int                    @default(1)
+  dueDate           DateTime
+  status            FinancialPayableStatus @default(OPEN)
+  paidAt            DateTime?
+  paymentMethod     String?
+  notes             String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  deletedAt         DateTime?
+
+  @@unique([companyId, legacyId])
+  @@index([companyId, dueDate, status])
+}
+
+model PlannedRevenue {
+  id            String               @id @default(cuid())
+  companyId     String
+  company       Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  legacyId      String
+  description   String
+  category      String?
+  amount        Decimal              @db.Decimal(12, 2)
+  expectedDate  DateTime
+  status        PlannedRevenueStatus @default(EXPECTED)
+  receivedAt    DateTime?
+  paymentMethod String?
+  notes         String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([companyId, legacyId])
+  @@index([companyId, expectedDate, status])
+}
+
+model FinancialTransaction {
+  id            String                   @id @default(cuid())
+  companyId     String
+  company       Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  legacyId      String
+  type          FinancialTransactionType
+  description   String
+  category      String?
+  amount        Decimal                  @db.Decimal(12, 2)
+  transactionDate DateTime
+  paymentMethod String?
+  source        String?
+  sourceId      String?
+  notes         String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([companyId, legacyId])
+  @@index([companyId, transactionDate, type])
+}
 
 model FiscalConfig {
   id                    String                @id @default(cuid())
