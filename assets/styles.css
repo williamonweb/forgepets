@@ -427,3 +427,18 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .finance-trash-intro>span{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:#eee7ff;font-size:22px}
 .finance-trash-intro h3{margin:0 0 5px;font-size:18px}.finance-trash-intro p{margin:0;color:#756d80;line-height:1.5}
 .finance-trash-table{max-height:480px;overflow:auto}
+
+
+/* Forge Pets v9.9.1 — boletos por nota e parcelamento */
+.boleto-note-list{display:grid;gap:14px;margin-top:15px}
+.boleto-note-card{border:1px solid #e8e1f1;border-radius:18px;background:#fff;overflow:hidden}
+.boleto-note-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:18px 20px;background:linear-gradient(145deg,#fff,#faf8ff)}
+.boleto-note-head span{font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--purple)}.boleto-note-head h3{margin:5px 0}.boleto-note-head small{color:var(--muted)}
+.boleto-note-head>div:last-child{text-align:right}.boleto-note-head>div:last-child small{display:block}.boleto-note-head strong{font-size:24px}
+.boleto-note-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 20px;border-top:1px solid #eee8f5;border-bottom:1px solid #eee8f5}
+.boleto-note-summary div{display:grid;gap:3px}.boleto-note-summary small{color:var(--muted);font-size:11px}
+.boleto-tax-options{display:flex;gap:14px;flex-wrap:wrap}.boleto-tax-options label{display:flex;align-items:center;gap:7px;border:1px solid #e4dced;border-radius:12px;padding:11px 13px;cursor:pointer}
+.boleto-installment-preview{border:1px solid #ddd2f3;border-radius:16px;background:#faf8ff;padding:15px}
+.boleto-preview-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}.boleto-preview-summary div{display:grid;gap:3px}.boleto-preview-summary small{color:var(--muted)}.boleto-preview-summary strong{color:var(--purple);font-size:19px}
+.boleto-preview-list{display:flex;gap:8px;flex-wrap:wrap}.boleto-preview-list span{background:#fff;border:1px solid #e5dff0;border-radius:999px;padding:8px 11px;font-size:12px}.boleto-preview-list small{margin-left:5px;color:var(--muted)}
+@media(max-width:760px){.boleto-note-head{flex-direction:column}.boleto-note-head>div:last-child{text-align:left}.boleto-note-summary,.boleto-preview-summary{grid-template-columns:repeat(2,1fr)}}

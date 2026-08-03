@@ -466,79 +466,49 @@ const views={
   return `<section class="marketplace-page"><div class="marketplace-hero"><div><span>FORGE PETS MARKETPLACE</span><h2>Seu sistema cresce junto com o seu negócio.</h2><p>Ative novos recursos quando precisar. A cobrança é adicionada à sua assinatura mensal e o aceite fica registrado eletronicamente.</p></div><div class="marketplace-current"><small>Plano atual</small><strong>${escapeHtml(activePlan())}</strong><span>${money(planPrice())}/mês</span></div></div><div class="marketplace-grid"><article class="marketplace-card featured"><div class="marketplace-card-top"><span class="marketplace-icon">🧾</span><div><small>DISPONÍVEL AGORA</small><h3>Módulo Fiscal</h3></div>${fiscalActive?'<i class="module-status active">ATIVO</i>':fiscalPending?'<i class="module-status pending">PENDENTE</i>':'<i class="module-status available">OPCIONAL</i>'}</div><p>Emita NFS-e dos serviços realizados diretamente pelo Caixa. Consulte o histórico, baixe XML e PDF e envie a nota ao cliente. Disponibilidade conforme a integração do município.</p><ul><li>Emissão de notas pelo Caixa</li><li>Histórico fiscal por venda</li><li>XML e PDF da NFS-e</li><li>Dados separados por empresa</li></ul><div class="marketplace-price"><strong>R$ 49,00</strong><span>por mês</span></div>${fiscalAction}</article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">💬</span><div><small>EM BREVE</small><h3>WhatsApp Oficial</h3></div></div><p>Confirmações, lembretes e mensagens automáticas usando a API oficial.</p><div class="marketplace-price"><strong>R$ 39,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">📅</span><div><small>EM BREVE</small><h3>Agendamento Online</h3></div></div><p>Página pública para o tutor solicitar horários sem ligar para o pet shop.</p><div class="marketplace-price"><strong>R$ 39,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">🤖</span><div><small>EM BREVE</small><h3>IA Forge</h3></div></div><p>Textos, sugestões, análises e automações inteligentes para a rotina da empresa.</p><div class="marketplace-price"><strong>R$ 29,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article></div><div class="marketplace-note">A contratação do Módulo Fiscal abre o checkout, apresenta o valor total mensal e exige o aceite eletrônico antes da cobrança pelo Asaas.</div></section>`;
  },
  estoque(){return `<div class="card"><div class="section-title"><h2>Produtos</h2><button class="btn primary" data-action="new-stock">Novo produto</button></div>${tableSimple(db.data.estoque,['Produto','EAN','Qtd.','Mínimo','Custo','Venda'],x=>[x.nome,x.ean||'-',x.qtd,x.min,money(x.custo),money(x.valorVenda??x.custo)],'stock')}</div>`},
- boletos(){const rows=[...db.data.boletos].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));const abertos=rows.filter(x=>x.status!=='pago'),total=abertos.reduce((s,x)=>s+Number(x.valor||0),0),amanha=daysFromNow(1);return `<div class="grid stats boleto-stats"><div class="card stat"><div class="label">Boletos em aberto</div><div class="value">${abertos.length}</div></div><div class="card stat"><div class="label">Total a vencer</div><div class="value">${money(total)}</div></div><div class="card stat"><div class="label">Vencem amanhã</div><div class="value">${abertos.filter(x=>x.vencimento===amanha).length}</div></div></div><div class="card" style="margin-top:16px"><div class="section-title"><div><h2>Controle de boletos</h2><p>Cadastre empresas, parcelas e vencimentos.</p></div><button class="btn primary" data-action="new-boleto-batch">Novo cadastro</button></div>${rows.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Empresa</th><th>Categoria</th><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td><strong>${escapeHtml(x.empresa)}</strong></td><td>${escapeHtml(x.categoria||'Sem categoria')}</td><td>${x.parcela||1}/${x.quantidade||1}</td><td>${formatDateBR(x.vencimento)}</td><td><strong>${money(x.valor)}</strong></td><td><span class="badge ${x.status==='pago'?'green':x.vencimento<today()?'red':'yellow'}">${x.status==='pago'?'Pago':x.vencimento<today()?'Vencido':'Em aberto'}</span></td><td><button class="btn ghost" data-action="edit-boleto" data-id="${x.id}">Editar</button> ${x.status!=='pago'?`<button class="btn primary" data-action="pay-boleto" data-id="${x.id}">Marcar pago</button>`:''} <button class="btn danger" data-action="delete-boleto" data-id="${x.id}">Excluir</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum boleto cadastrado.</div>'}</div>`},
- relatorios(){return reportView()},
-
- pets(){const rows=sortAlpha(db.data.pets,'nome').filter(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return [p.nome,c?.nome].some(v=>normalize(v).includes(normalize(petSearch)))});return `<div class="card"><div class="section-title"><h2>Pets cadastrados</h2><button class="btn primary" data-action="new-pet-select">Novo pet</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(petSearch)}" placeholder="Buscar pelo nome do pet ou do tutor..." oninput="setPetSearch(this.value)"></div><div class="result-count">${rows.length} pet(s) encontrado(s) · ordem alfabética</div>${rows.length?`<div class="table-wrap"><table class="table pet-list-table"><thead><tr><th>Pet</th><th>Tutor</th><th>Espécie / raça</th><th>Cor</th><th></th></tr></thead><tbody>${rows.map(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return `<tr class="clickable" data-action="view-pet" data-id="${p.id}"><td><span class="pet-list-name"><span class="mini-avatar">${p.especie==='Felino'?'🐱':p.especie==='Canino'?'🐶':'🐾'}</span><strong>${p.nome}</strong></span></td><td>${c?.nome||'-'}</td><td>${p.especie||'-'}${p.raca?` · ${p.raca}`:''}</td><td>${p.cor||'-'}</td><td><button class="btn ghost" data-action="view-pet" data-id="${p.id}">Ver ficha</button> <button class="btn ghost" data-action="edit-pet" data-id="${p.id}">Editar</button> <button class="btn danger" data-action="delete-pet" data-id="${p.id}">Excluir</button></td></tr>`}).join('')}</tbody></table></div>`:`<div class="empty">${petSearch?'Nenhum pet encontrado.':'Nenhum pet cadastrado.'}</div>`}</div>`},
- atendimentos(){const rows=[...db.data.agenda].sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora));return `<div class="card"><div class="section-title"><h2>Fluxo de atendimentos</h2><button class="btn primary" data-action="quick-appointment">Novo atendimento</button></div><div class="status-tabs"><button class="btn ghost" data-action="filter-status" data-status="todos">Todos</button><button class="btn ghost" data-action="filter-status" data-status="Agendado">Aguardando</button><button class="btn ghost" data-action="filter-status" data-status="Concluído">Finalizados</button></div>${agendaList(rows)}</div>`},
- financeiro(){
+ boletos(){
   ensureData();
-  const summary=financialSummary();
-  const filter=window.financeExpenseFilter||'all';
-  const expenses=filteredExpenses(filter);
-  const expenseRows=expenses.length?expenses.map(expense=>{
-    const status=expenseStatus(expense);
-    return `<tr>
-      <td><b>${escapeHtml(expense.descricao||'Despesa')}</b><small class="table-sub">${escapeHtml(expense.categoria||'Geral')}</small></td>
-      <td>${formatDateBR(expense.vencimento)}</td>
-      <td><span class="badge ${expenseStatusClass(status)}">${expenseStatusLabel(status)}</span></td>
-      <td><b>${money(expense.valor)}</b></td>
-      <td>${expense.status==='pago'
-        ? `<span class="muted">${expense.paidAt?formatDateBR(String(expense.paidAt).slice(0,10)):'Pago'}</span>`
-        : `<button class="btn primary small" data-action="pay-expense" data-id="${expense.id}">Marcar paga</button>`}
-        <button class="btn ghost small" data-action="edit-expense" data-id="${expense.id}">Editar</button>
-      </td>
-    </tr>`;
-  }).join(''):'<tr><td colspan="5"><div class="empty">Nenhuma despesa nesta situação.</div></td></tr>';
-
-  return `<section class="finance-workspace">
-    <div class="finance-hero">
-      <div>
-        <span class="finance-eyebrow">VISÃO FINANCEIRA</span>
-        <h2>Saldo real e compromissos separados</h2>
-        <p>Contas pendentes aparecem na previsão, mas só descontam do saldo quando forem pagas.</p>
-      </div>
-      <div class="finance-hero-actions">
-        <button class="btn primary" data-action="new-revenue">＋ Nova receita</button>
-        <button class="btn ghost" data-action="new-expense">＋ Nova despesa</button>
-        <button class="btn ghost" data-action="finance-trash">♻ Lixeira</button>
-      </div>
+  const rows=[...db.data.boletos].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
+  const abertos=rows.filter(x=>x.status!=='pago'&&x.status!=='cancelado');
+  const total=abertos.reduce((s,x)=>s+Number(x.valor||0)+Number(x.juros||0)+Number(x.multa||0),0);
+  const amanha=daysFromNow(1);
+  const groups=[...new Set(rows.map(x=>x.loteId||x.id))].map(id=>rows.filter(x=>(x.loteId||x.id)===id));
+  const groupCards=groups.map(batch=>{
+   const first=batch[0],summary=boletoBatchSummary(batch);
+   const noteLabel=first.numeroNota?`Nota ${escapeHtml(first.numeroNota)}`:'Nota sem número';
+   return `<article class="boleto-note-card">
+    <div class="boleto-note-head">
+     <div><span>${noteLabel}</span><h3>${escapeHtml(first.empresa||'Fornecedor')}</h3><small>${escapeHtml(first.categoria||'Sem categoria')} · ${batch.length} parcela(s)</small></div>
+     <div><small>Total financeiro</small><strong>${money(summary.total)}</strong></div>
     </div>
-
-    <div class="finance-kpis">
-      <article class="finance-kpi real"><span>💰</span><small>Saldo real</small><strong>${money(summary.realBalance)}</strong><em>Receitas recebidas menos despesas pagas</em></article>
-      <article><span>🔵</span><small>Receitas previstas</small><strong>${money(summary.pendingIncome)}</strong><em>Valores ainda não recebidos</em></article>
-      <article class="warning"><span>🟠</span><small>Despesas a vencer</small><strong>${money(summary.upcoming)}</strong><em>Vencimento após hoje</em></article>
-      <article class="today"><span>🟡</span><small>Vencem hoje</small><strong>${money(summary.dueToday)}</strong><em>Compromissos do dia</em></article>
-      <article class="danger"><span>🔴</span><small>Despesas vencidas</small><strong>${money(summary.overdue)}</strong><em>Contas pendentes em atraso</em></article>
-      <article class="forecast"><span>📈</span><small>Saldo previsto</small><strong>${money(summary.forecastBalance)}</strong><em>Saldo real + receitas previstas − despesas pendentes</em></article>
+    <div class="boleto-note-summary">
+     <div><small>Valor da nota</small><b>${money(summary.original)}</b></div>
+     <div><small>Imposto</small><b>${money(summary.tax)}</b></div>
+     <div><small>Pago</small><b>${money(summary.paid)}</b></div>
+     <div><small>Pendente</small><b>${money(summary.pending)}</b></div>
     </div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Juros/Multa</th><th>Status</th><th></th></tr></thead><tbody>
+    ${batch.map(x=>`<tr>
+     <td><b>${x.parcela||1}/${x.quantidade||1}</b></td>
+     <td>${formatDateBR(x.vencimento)}</td>
+     <td><strong>${money(x.valor)}</strong></td>
+     <td>${money(Number(x.juros||0)+Number(x.multa||0))}</td>
+     <td><span class="badge ${x.status==='pago'?'green':x.vencimento<today()?'red':'yellow'}">${x.status==='pago'?'Pago':x.vencimento<today()?'Vencido':'Em aberto'}</span></td>
+     <td><button class="btn ghost small" data-action="edit-boleto" data-id="${x.id}">Editar</button> ${x.status!=='pago'?`<button class="btn primary small" data-action="pay-boleto" data-id="${x.id}">Marcar pago</button>`:''} <button class="btn danger small" data-action="delete-boleto" data-id="${x.id}">Excluir</button></td>
+    </tr>`).join('')}
+    </tbody></table></div>
+   </article>`;
+  }).join('');
 
-    <div class="finance-alert-strip">
-      <div><b>Depois dos compromissos</b><span>Saldo disponível após todas as despesas pendentes: <strong>${money(summary.availableAfterExpenses)}</strong></span></div>
-      <div><b>Projeção completa</b><span>Incluindo receitas futuras: <strong>${money(summary.forecastBalance)}</strong></span></div>
-    </div>
-
-    <div class="card finance-expenses-card">
-      <div class="section-title">
-        <div><h2>Contas a pagar</h2><p>As despesas só entram no saldo real quando forem marcadas como pagas.</p></div>
-        <button class="btn primary" data-action="new-expense">Nova despesa</button>
-      </div>
-      <div class="finance-tabs">
-        ${financeFilterButton('all','Todas',filter,db.data.despesas.length)}
-        ${financeFilterButton('overdue','Vencidas',filter,summary.overdueCount)}
-        ${financeFilterButton('today','Vencem hoje',filter,summary.dueTodayCount)}
-        ${financeFilterButton('upcoming','A vencer',filter,summary.upcomingCount)}
-        ${financeFilterButton('paid','Pagas',filter,summary.paidCount)}
-      </div>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Despesa</th><th>Vencimento</th><th>Situação</th><th>Valor</th><th>Ações</th></tr></thead><tbody>${expenseRows}</tbody></table></div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <div class="section-title"><div><h2>Movimentações realizadas</h2><p>Somente valores que realmente entraram ou saíram.</p></div><button class="btn ghost" data-action="quick-movement">Nova movimentação</button></div>
-      ${tableSimple([...db.data.caixa].reverse().slice(0,15),['data','descricao','tipo','valor'],x=>[formatDateBR(x.data),x.descricao,`<span class="badge ${x.tipo==='entrada'?'green':'red'}">${x.tipo==='entrada'?'Receita':'Despesa paga'}</span>`,money(x.valor)],'cash')}
-    </div>
-  </section>`;
+  return `<div class="grid stats boleto-stats">
+   <div class="card stat"><div class="label">Parcelas em aberto</div><div class="value">${abertos.length}</div></div>
+   <div class="card stat"><div class="label">Total pendente</div><div class="value">${money(total)}</div></div>
+   <div class="card stat"><div class="label">Vencem amanhã</div><div class="value">${abertos.filter(x=>x.vencimento===amanha).length}</div></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+   <div class="section-title"><div><h2>Controle de boletos por nota</h2><p>Cadastre o total da nota e deixe o sistema dividir as parcelas automaticamente.</p></div><button class="btn primary" data-action="new-boleto-batch">Nova nota / boleto</button></div>
+   <div class="boleto-note-list">${groupCards||'<div class="empty">Nenhum boleto cadastrado.</div>'}</div>
+  </div>`;
  },
  fidelidade(){
   const plan=activePlan(),clientes=db.data.clientes||[];
@@ -920,6 +890,33 @@ function openExpenseModal(expense=null){
  applyInputMasks($('.modal'));
 }
 
+
+function addMonthsToDate(dateString,months){
+ const [year,month,day]=String(dateString||today()).split('-').map(Number);
+ const target=new Date(year,month-1+Number(months||0),day,12,0,0);
+ if(target.getDate()!==day)target.setDate(0);
+ return `${target.getFullYear()}-${String(target.getMonth()+1).padStart(2,'0')}-${String(target.getDate()).padStart(2,'0')}`;
+}
+function splitMoneyInInstallments(total,count){
+ const cents=Math.round(Number(total||0)*100);
+ const quantity=Math.max(1,Number(count||1));
+ const base=Math.floor(cents/quantity);
+ const remainder=cents-base*quantity;
+ return Array.from({length:quantity},(_,index)=>(base+(index===quantity-1?remainder:0))/100);
+}
+function boletoFinancialTotal(invoiceTotal,tax,taxIncluded){
+ const note=Math.max(0,Number(invoiceTotal||0));
+ const taxValue=Math.max(0,Number(tax||0));
+ return taxIncluded?note:note+taxValue;
+}
+function boletoBatchSummary(batch){
+ const original=Number(batch[0]?.valorNota??batch.reduce((sum,item)=>sum+Number(item.valor||0),0));
+ const tax=Number(batch[0]?.imposto||0);
+ const total=Number(batch[0]?.totalFinanceiro??batch.reduce((sum,item)=>sum+Number(item.valor||0),0));
+ const paid=batch.filter(item=>item.status==='pago').reduce((sum,item)=>sum+Number(item.valorPago??item.valor??0),0);
+ return {original,tax,total,paid,pending:Math.max(0,total-paid)};
+}
+
 function boletoAlerts(){ensureData();const tomorrow=daysFromNow(1);return db.data.boletos.filter(x=>x.status!=='pago'&&x.vencimento===tomorrow);}
 function updateNotificationBadge(){const badge=document.querySelector('[data-action="notifications"] b');if(!badge)return;const count=boletoAlerts().length;badge.textContent=String(count);badge.style.display=count?'grid':'none';badge.setAttribute('aria-label',`${count} boleto(s) vencendo amanhã`);}
 function availableAgendaTimes(date,ignoreId='',serviceId=''){const cfg=db.data.config||{},start=cfg.inicioAgenda||'08:00',end=cfg.fimAgenda||'18:00',step=Math.max(5,Number(cfg.intervaloAgenda||30)),duration=Math.max(15,Number(db.data.servicos.find(s=>s.id===serviceId)?.duracao||60)),toMin=x=>{const [h,m]=String(x||'00:00').split(':').map(Number);return h*60+m},fmt=n=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`,busy=db.data.agenda.filter(a=>a.id!==ignoreId&&a.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(a.status)).map(a=>{const d=Math.max(15,Number(db.data.servicos.find(s=>s.id===a.servicoId)?.duracao||60));const appointmentStart=toMin(a.hora);return[appointmentStart,appointmentStart+d]}),out=[],endMin=toMin(end);for(let n=toMin(start);n+duration<=endMin;n+=step){if(!busy.some(([a,b])=>n<b&&n+duration>a))out.push(fmt(n))}return out;}
@@ -1161,7 +1158,101 @@ const actions={
 
  'view-subscription-invoice':b=>{const inv=subscriptionPayments().find(x=>String(x.id)===String(b.dataset.id));if(!inv)return toast('Fatura não encontrada.');const paid=inv.status==='paid';modal(`Fatura #${String(inv.id).slice(-8).toUpperCase()}`,`<div class="invoice-detail"><div class="invoice-detail-head"><div><span>FORGEPETS · ASSINATURA</span><h2>${escapeHtml(inv.companyName||activeSubscription().companyName||'Pet shop')}</h2><p>Plano ${escapeHtml(inv.plan||activePlan())}</p></div><i class="invoice-status ${subscriptionStatusClass(inv.status)}">${subscriptionStatusLabel(inv.status)}</i></div><div class="invoice-detail-grid"><div><small>Valor</small><strong>${money(inv.amount)}</strong></div><div><small>Vencimento</small><strong>${inv.due?new Date(`${inv.due}T12:00:00`).toLocaleDateString('pt-BR'):'—'}</strong></div><div><small>Forma de pagamento</small><strong>${escapeHtml(inv.method||'Não informado')}</strong></div><div><small>Pagamento</small><strong>${inv.paidAt?new Date(inv.paidAt).toLocaleString('pt-BR'):'Aguardando'}</strong></div></div><div class="invoice-description"><span>Descrição</span><b>Assinatura mensal ForgePets · Plano ${escapeHtml(inv.plan||activePlan())}</b><small>Competência: ${inv.subscriptionCycle?new Date(`${inv.subscriptionCycle}T12:00:00`).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'—'}</small></div>${paid?'<div class="invoice-paid-note">✓ Pagamento confirmado. Esta fatura está quitada.</div>':'<div class="invoice-pending-note">Aguardando confirmação do pagamento.</div>'}</div>`,close=>close(),'Fechar');},
  'pay-subscription-invoice':b=>{const payments=subscriptionPayments(),inv=payments.find(x=>String(x.id)===String(b.dataset.id));if(!inv)return toast('Fatura não encontrada.');modal('Confirmar pagamento',`<p>Deseja simular o pagamento da fatura de <b>${money(inv.amount)}</b> com vencimento em <b>${new Date(`${inv.due}T12:00:00`).toLocaleDateString('pt-BR')}</b>?</p><div class="notice">Na versão online, esta confirmação será recebida automaticamente pelo Asaas.</div>`,close=>{inv.status='paid';inv.paidAt=new Date().toISOString();saveSubscriptionPayments(payments);const sub=activeSubscription();localStorage.setItem('forgepets_active_subscription',JSON.stringify({...sub,status:'active',lastPaymentStatus:'paid'}));close();render();toast('Fatura marcada como paga.');},'Confirmar pagamento');},
- 'new-boleto-batch':()=>{modal('Cadastrar boletos',`<div class="form-grid"><div class="field full"><label>Empresa *</label><input id="boletoEmpresa" data-trim placeholder="Nome da empresa"></div><div class="field"><label>Categoria *</label><select id="boletoCategoria">${categoryOptions('boleto')}</select></div><div class="field"><label>Valor de cada boleto *</label><input id="boletoValor" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field"><label>Quantidade de boletos *</label><input id="boletoQtd" type="number" min="1" max="60" value="1"></div><div class="field full"><label>Vencimento de cada boleto</label><div id="boletoDates" class="boleto-date-grid"></div></div></div>`,close=>{const empresa=$('#boletoEmpresa').value.trim(),categoria=$('#boletoCategoria').value,valor=parseLocaleNumber($('#boletoValor').value),qtd=Number($('#boletoQtd').value||0),dates=[...document.querySelectorAll('[data-boleto-date]')].map(x=>x.value);if(!empresa||!categoria||valor<=0||qtd<1)return toast('Preencha empresa, categoria, valor e quantidade.');if(dates.length!==qtd||dates.some(x=>!x))return toast('Informe o vencimento de todos os boletos.');dates.forEach((v,i)=>db.data.boletos.push({id:uid(),loteId:uid(),empresa,categoria,valor,quantidade:qtd,parcela:i+1,vencimento:v,status:'aberto',createdAt:new Date().toISOString()}));db.save();close();toast(`${qtd} boleto(s) cadastrado(s).`);});const q=$('#boletoQtd'),box=$('#boletoDates');const draw=()=>{const count=Math.min(60,Math.max(1,Number(q.value||1))),previous=[...box.querySelectorAll('input')].map(x=>x.value);box.innerHTML=Array.from({length:count},(_,i)=>`<div class="field"><label>Boleto ${i+1}</label><input type="date" data-boleto-date value="${previous[i]||daysFromNow(i*30+1)}"></div>`).join('');};q.addEventListener('input',draw);draw();},
+ 'new-boleto-batch':()=>{
+  modal('Cadastrar nota e boletos',`<div class="form-grid">
+   <div class="field full"><label>Fornecedor / empresa *</label><input id="boletoEmpresa" data-trim placeholder="Nome do fornecedor"></div>
+   <div class="field"><label>Número da nota</label><input id="boletoNumeroNota" placeholder="Ex.: 8457" data-trim></div>
+   <div class="field"><label>Categoria *</label><select id="boletoCategoria">${categoryOptions('boleto')}</select></div>
+   <div class="field"><label>Valor total da nota *</label><input id="boletoValorNota" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div>
+   <div class="field"><label>Imposto</label><input id="boletoImposto" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div>
+   <div class="field full"><label>Como considerar o imposto?</label><div class="boleto-tax-options">
+    <label><input type="radio" name="boletoTaxMode" value="additional" checked> Somar o imposto ao valor da nota</label>
+    <label><input type="radio" name="boletoTaxMode" value="included"> O imposto já está incluído no valor total</label>
+   </div></div>
+   <div class="field"><label>Quantidade de parcelas *</label><input id="boletoQtd" type="number" min="1" max="60" value="1"></div>
+   <div class="field"><label>Primeiro vencimento *</label><input id="boletoPrimeiroVencimento" type="date" value="${daysFromNow(1)}"></div>
+   <div class="field"><label>Intervalo</label><select id="boletoIntervalo"><option value="monthly">Mensal</option><option value="30">A cada 30 dias</option><option value="15">A cada 15 dias</option><option value="7">Semanal</option></select></div>
+   <div class="field full"><label>Observações</label><textarea id="boletoObs" rows="3"></textarea></div>
+   <div class="field full"><div id="boletoParcelPreview" class="boleto-installment-preview"></div></div>
+  </div>`,close=>{
+   const empresa=$('#boletoEmpresa').value.trim();
+   const numeroNota=$('#boletoNumeroNota').value.trim();
+   const categoria=$('#boletoCategoria').value;
+   const valorNota=parseLocaleNumber($('#boletoValorNota').value);
+   const imposto=parseLocaleNumber($('#boletoImposto').value);
+   const impostoIncluso=document.querySelector('input[name="boletoTaxMode"]:checked')?.value==='included';
+   const qtd=Math.max(1,Number($('#boletoQtd').value||1));
+   const firstDue=$('#boletoPrimeiroVencimento').value;
+   const interval=$('#boletoIntervalo').value;
+   const observacoes=$('#boletoObs').value.trim();
+   if(!empresa||!categoria||valorNota<=0||!firstDue)return toast('Preencha fornecedor, categoria, valor da nota e primeiro vencimento.');
+
+   const totalFinanceiro=boletoFinancialTotal(valorNota,imposto,impostoIncluso);
+   const values=splitMoneyInInstallments(totalFinanceiro,qtd);
+   const loteId=uid();
+
+   values.forEach((valor,index)=>{
+    let vencimento;
+    if(interval==='monthly')vencimento=addMonthsToDate(firstDue,index);
+    else{
+     const days=Number(interval||30)*index;
+     const base=new Date(`${firstDue}T12:00:00`);
+     base.setDate(base.getDate()+days);
+     vencimento=`${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`;
+    }
+    db.data.boletos.push({
+     id:uid(),
+     loteId,
+     empresa,
+     numeroNota,
+     categoria,
+     valor,
+     valorNota,
+     imposto,
+     impostoIncluso,
+     totalFinanceiro,
+     quantidade:qtd,
+     parcela:index+1,
+     vencimento,
+     status:'aberto',
+     juros:0,
+     multa:0,
+     observacoes,
+     createdAt:new Date().toISOString()
+    });
+   });
+   db.save();close();render();toast(`${qtd} parcela(s) criadas. Total financeiro: ${money(totalFinanceiro)}.`);
+  },'Criar parcelas');
+
+  const fields=['boletoValorNota','boletoImposto','boletoQtd','boletoPrimeiroVencimento','boletoIntervalo'];
+  const preview=$('#boletoParcelPreview');
+  const drawPreview=()=>{
+   const valorNota=parseLocaleNumber($('#boletoValorNota').value);
+   const imposto=parseLocaleNumber($('#boletoImposto').value);
+   const incluso=document.querySelector('input[name="boletoTaxMode"]:checked')?.value==='included';
+   const qtd=Math.max(1,Math.min(60,Number($('#boletoQtd').value||1)));
+   const firstDue=$('#boletoPrimeiroVencimento').value;
+   const interval=$('#boletoIntervalo').value;
+   const total=boletoFinancialTotal(valorNota,imposto,incluso);
+   const values=splitMoneyInInstallments(total,qtd);
+   preview.innerHTML=`<div class="boleto-preview-summary"><div><small>Valor da nota</small><b>${money(valorNota)}</b></div><div><small>Imposto</small><b>${money(imposto)}</b></div><div><small>Total financeiro</small><strong>${money(total)}</strong></div></div>
+   <div class="boleto-preview-list">${values.map((value,index)=>{
+    let due=firstDue;
+    if(firstDue){
+     if(interval==='monthly')due=addMonthsToDate(firstDue,index);
+     else{
+      const base=new Date(`${firstDue}T12:00:00`);base.setDate(base.getDate()+Number(interval||30)*index);
+      due=`${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`;
+     }
+    }
+    return `<span><b>${index+1}/${qtd}</b> ${money(value)} <small>${due?formatDateBR(due):'—'}</small></span>`;
+   }).join('')}</div>`;
+  };
+  fields.forEach(id=>$('#'+id)?.addEventListener('input',drawPreview));
+  document.querySelectorAll('input[name="boletoTaxMode"]').forEach(input=>input.addEventListener('change',drawPreview));
+  applyInputMasks($('.modal'));
+  drawPreview();
+ },
  'edit-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;modal('Editar boleto',`<div class="form-grid"><div class="field full"><label>Empresa</label><input id="editBoletoEmpresa" value="${escapeAttr(x.empresa)}"></div><div class="field"><label>Valor</label><input id="editBoletoValor" type="text" data-mask="money" inputmode="numeric" value="${money(x.valor||0)}"></div><div class="field"><label>Vencimento</label><input id="editBoletoData" type="date" value="${x.vencimento}"></div></div>`,close=>{const empresa=$('#editBoletoEmpresa').value.trim(),valor=parseLocaleNumber($('#editBoletoValor').value),vencimento=$('#editBoletoData').value;if(!empresa||valor<=0||!vencimento)return toast('Preencha todos os campos.');Object.assign(x,{empresa,valor,vencimento});db.save();close();toast('Boleto atualizado.');});},
  'pay-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;const total=Number(x.valor||0)+Number(x.juros||0)+Number(x.multa||0);x.status='pago';x.pagoEm=new Date().toISOString();x.valorPago=total;if(!db.data.caixa.some(m=>String(m.sourceId||m.expenseId||'')===String(x.id)))db.data.caixa.push({id:uid(),tipo:'saida',data:today(),descricao:`Boleto: ${x.empresa}`,categoria:x.categoria||'',valor:total,forma:x.forma||'Boleto',source:'PAYABLE',sourceId:x.id,createdAt:new Date().toISOString()});db.save();toast('Boleto marcado como pago e lançado no saldo real.');},
  'delete-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;modal('Excluir boleto',`<p>Deseja excluir o boleto de <b>${escapeHtml(x.empresa)}</b> no valor de <b>${money(x.valor)}</b>?</p>`,close=>{db.data.boletos=db.data.boletos.filter(v=>v.id!==x.id);db.save();close();toast('Boleto excluído.');},'Excluir');},
