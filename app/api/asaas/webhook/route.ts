@@ -69,10 +69,6 @@ export async function POST(request: NextRequest) {
     where: { eventId: payload.id }
   });
 
-  if (alreadyProcessed?.companyId) {
-    return NextResponse.json({ ok: true, duplicate: true });
-  }
-
   await prisma.$transaction(async tx => {
     if (alreadyProcessed) {
       await tx.asaasWebhookEvent.update({
@@ -95,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     if (!company) return;
 
-    const paidEvents = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
+    const paidEvents = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_RECEIVED_IN_CASH'];
     const overdueEvents = ['PAYMENT_OVERDUE', 'PAYMENT_CREDIT_CARD_CAPTURE_REFUSED'];
     const canceledEvents = [
       'PAYMENT_DELETED',
@@ -116,6 +112,7 @@ export async function POST(request: NextRequest) {
         where: { id: company.id },
         data: {
           subscriptionStatus: status,
+          trialEndsAt: status === SubscriptionStatus.ACTIVE ? null : undefined,
           plan: activatePendingPlan ? company.pendingPlan! : undefined,
           pendingPlan: activatePendingPlan ? null : undefined,
           pendingPlanRequestedAt: activatePendingPlan ? null : undefined,
