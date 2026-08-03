@@ -1523,6 +1523,8 @@ function renderSaleSummary(){
 }
 function changeSaleQty(i,delta){const item=saleCart[i];if(!item)return;const src=item.tipo==='produto'?db.data.estoque.find(x=>x.id===item.id):null;const next=item.qtd+delta;if(next<1){saleCart.splice(i,1);return renderSaleCart();}if(src&&next>Number(src.qtd))return toast('Quantidade maior que o estoque disponível.');item.qtd=next;renderSaleCart();}
 async function finishSale(printAfter){
+ const finishButton=$('#saleFinish'),printButton=$('#saleFinishPrint');
+ if(finishButton?.disabled||printButton?.disabled)return;
  if(!saleCart.length)return toast('Adicione ao menos um item.');
  for(const item of saleCart){if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(!p||Number(p.qtd)<item.qtd)return toast(`Estoque insuficiente para ${item.nome}.`);}}
  const {bruto,cliente,cashUse,coupon,discount,total}=getSaleTotals(),clienteId=$('#saleClient').value,forma=$('#salePayment').value;
@@ -1533,25 +1535,51 @@ async function finishSale(printAfter){
   troco=Math.max(0,valorRecebido-total);
  }
  clearModalError();
- const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:today(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,cupomId:coupon?.id||'',valorRecebido,troco,itens:saleCart.map(x=>({...x}))};
- venda.itens.forEach(item=>{if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);p.qtd=Number(p.qtd)-item.qtd;}});
- db.data.vendas.push(venda);db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto,forma,valorRecebido,troco,vendaId:venda.id});
- if(cliente){if(cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}if(coupon){coupon.status='usado';coupon.usedAt=new Date().toISOString();addLoyaltyHistory(cliente.id,'cupom_usado',`Cupom ${coupon.codigo} utilizado`,-discount,{cupomId:coupon.id,vendaId:venda.id});}if(hasFeature('fidelidade')){const pts=Math.floor(total*Number(db.data.config.pontosPorReal||1));cliente.pontos=Number(cliente.pontos||0)+pts;addLoyaltyHistory(cliente.id,'pontos_ganhos','Pontos da venda',pts,{vendaId:venda.id});if(hasFeature('cashback')){const cb=total*Number(db.data.config.percentualCashback||0)/100;cliente.cashback=Number(cliente.cashback||0)+cb;addLoyaltyHistory(cliente.id,'cashback_gerado','Cashback da venda',cb,{vendaId:venda.id});}}}
- const emitFiscal=Boolean($('#saleEmitFiscal')?.checked),serviceItems=venda.itens.filter(x=>x.tipo==='servico');
- runPremiumAutomations();localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));$('#modalRoot').innerHTML='';render();
- toast(forma==='Dinheiro'?`Venda finalizada. Troco: ${money(troco)}.`:`Venda finalizada: ${money(total)}.`);
- if(emitFiscal&&serviceItems.length){
-  try{
-   await cloud.request('/api/forge/fiscal/documents',{method:'POST',body:JSON.stringify({saleReference:`Venda #${venda.numero}`,tutorName:cliente?.nome||'',tutorDocument:cliente?.cpf||'',serviceDescription:serviceItems.map(x=>`${x.qtd}x ${x.nome}`).join(' | '),serviceAmount:serviceItems.reduce((sum,x)=>sum+Number(x.preco)*Number(x.qtd),0)})});
-   toast('Solicitação de NFS-e registrada no Módulo Fiscal.','success');
-  }catch(error){toast(`Venda concluída, mas a NFS-e não foi registrada: ${error.message||'erro fiscal'}.`,'error');}
- }else if(emitFiscal&&!serviceItems.length){toast('Venda concluída. A NFS-e não foi criada porque não há serviços na venda.','error');}
- if(printAfter)printReceipt(venda);
+ let printWindow=null;
+ if(printAfter){
+  printWindow=window.open('','_blank','width=420,height=700');
+  if(!printWindow)return toast('Permita pop-ups para imprimir o cupom.');
+  printWindow.document.write('<!doctype html><html><body style="font-family:Arial;padding:24px">Preparando cupom...</body></html>');
+  printWindow.document.close();
+ }
+ const originalFinishText=finishButton?.textContent,originalPrintText=printButton?.textContent;
+ if(finishButton){finishButton.disabled=true;finishButton.textContent='Finalizando...';}
+ if(printButton){printButton.disabled=true;printButton.textContent=printAfter?'Preparando impressão...':'Finalizando...';}
+ try{
+  const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:today(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,cupomId:coupon?.id||'',valorRecebido,troco,itens:saleCart.map(x=>({...x}))};
+  venda.itens.forEach(item=>{if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(p)p.qtd=Number(p.qtd)-item.qtd;}});
+  db.data.vendas.push(venda);
+  db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,forma,valorRecebido,troco,vendaId:venda.id});
+  if(cliente){
+   if(cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}
+   if(coupon){coupon.status='usado';coupon.usedAt=new Date().toISOString();addLoyaltyHistory(cliente.id,'cupom_usado',`Cupom ${coupon.codigo} utilizado`,-discount,{cupomId:coupon.id,vendaId:venda.id});}
+   if(hasFeature('fidelidade')){const pts=Math.floor(total*Number(db.data.config.pontosPorReal||1));cliente.pontos=Number(cliente.pontos||0)+pts;addLoyaltyHistory(cliente.id,'pontos_ganhos','Pontos da venda',pts,{vendaId:venda.id});if(hasFeature('cashback')){const cb=total*Number(db.data.config.percentualCashback||0)/100;cliente.cashback=Number(cliente.cashback||0)+cb;addLoyaltyHistory(cliente.id,'cashback_gerado','Cashback da venda',cb,{vendaId:venda.id});}}
+  }
+  const emitFiscal=Boolean($('#saleEmitFiscal')?.checked),serviceItems=venda.itens.filter(x=>x.tipo==='servico');
+  runPremiumAutomations();
+  db.save();
+  $('#modalRoot').innerHTML='';
+  toast(forma==='Dinheiro'?`Venda finalizada. Troco: ${money(troco)}.`:`Venda finalizada: ${money(total)}.`);
+  if(printAfter)printReceipt(venda,printWindow);
+  if(emitFiscal&&serviceItems.length){
+   try{
+    await cloud.request('/api/forge/fiscal/documents',{method:'POST',body:JSON.stringify({saleReference:`Venda #${venda.numero}`,tutorName:cliente?.nome||'',tutorDocument:cliente?.cpf||'',serviceDescription:serviceItems.map(x=>`${x.qtd}x ${x.nome}`).join(' | '),serviceAmount:serviceItems.reduce((sum,x)=>sum+Number(x.preco)*Number(x.qtd),0)})});
+    toast('Solicitação de NFS-e registrada no Módulo Fiscal.','success');
+   }catch(error){toast(`Venda concluída, mas a NFS-e não foi registrada: ${error.message||'erro fiscal'}.`,'error');}
+  }else if(emitFiscal&&!serviceItems.length){toast('Venda concluída. A NFS-e não foi criada porque não há serviços na venda.','error');}
+ }catch(error){
+  if(printWindow&&!printWindow.closed)printWindow.close();
+  console.error('[ForgePets] Erro ao finalizar venda.',error);
+  setModalError(error?.message||'Não foi possível finalizar a venda.');
+ }finally{
+  if(finishButton){finishButton.disabled=false;finishButton.textContent=originalFinishText||'Finalizar venda';}
+  if(printButton){printButton.disabled=false;printButton.textContent=originalPrintText||'Finalizar e imprimir';}
+ }
 }
-function printReceipt(venda){
+function printReceipt(venda,existingWindow=null){
  const cliente=db.data.clientes.find(c=>c.id===venda.clienteId);const empresa=db.data.config.empresa||'Meu Pet Shop';
  const receiptWidth=String(db.data.config.impressora||'80'),bodyWidth=receiptWidth==='58'?'52':'72'; const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cupom ${venda.numero}</title><style>@page{size:${receiptWidth}mm auto;margin:3mm}*{box-sizing:border-box}body{width:${bodyWidth}mm;margin:0 auto;font-family:Arial,sans-serif;font-size:12px;color:#000}.center{text-align:center}.line{border-top:1px dashed #000;margin:8px 0}.item{display:grid;grid-template-columns:1fr auto;gap:6px;margin:5px 0}.muted{font-size:10px}h2{font-size:16px;margin:0 0 4px}strong.total{font-size:16px} </style></head><body><div class="center"><h2>${empresa}</h2><div>${db.data.config.telefone||''}</div><div>${db.data.config.cidade||''}</div><div class="line"></div><strong>CUPOM NÃO FISCAL</strong><div class="muted">Venda #${venda.numero} · ${formatDateBR(venda.data)} ${venda.hora}</div></div><div class="line"></div>${cliente?`<div>Cliente: ${cliente.nome}</div><div class="line"></div>`:''}${venda.itens.map(x=>`<div class="item"><div>${x.qtd}x ${x.nome}<div class="muted">${money(x.preco)} cada</div></div><strong>${money(x.preco*x.qtd)}</strong></div>`).join('')}<div class="line"></div><div class="item"><strong class="total">TOTAL</strong><strong class="total">${money(venda.total)}</strong></div><div>Pagamento: ${venda.forma}</div>${venda.forma==='Dinheiro'?`<div>Recebido: ${money(venda.valorRecebido||0)}</div><div>Troco: ${money(venda.troco||0)}</div>`:''}<div class="line"></div><div class="center">${escapeHtml(db.data.config.rodapeCupom||'Obrigado pela preferência!')}<br><span class="muted">Documento sem valor fiscal</span></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),600)}<\/script></body></html>`;
- const w=window.open('','_blank','width=420,height=700');if(!w)return toast('Permita pop-ups para imprimir o cupom.');w.document.open();w.document.write(html);w.document.close();
+ const w=existingWindow||window.open('','_blank','width=420,height=700');if(!w)return toast('Permita pop-ups para imprimir o cupom.');w.document.open();w.document.write(html);w.document.close();
 }
 
 
