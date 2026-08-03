@@ -420,3 +420,10 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .appointment-services-total{display:flex;justify-content:flex-end;align-items:center;gap:15px;margin-top:12px;padding:13px 15px;border-radius:13px;background:#f2edff}
 .appointment-services-total span{font-weight:700;color:#665d73}.appointment-services-total strong{font-size:23px;color:var(--purple)}
 @media(max-width:760px){.appointment-service-row{grid-template-columns:1fr 80px}.appointment-service-row .field:nth-child(3){grid-column:1/-1}.appointment-remove-service{grid-column:2;grid-row:1}}
+
+
+/* Forge Pets v9.9.0 — auditoria e lixeira financeira */
+.finance-trash-intro{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;margin-bottom:15px;border:1px solid #e5dcf7;border-radius:15px;background:#faf8ff}
+.finance-trash-intro>span{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:#eee7ff;font-size:22px}
+.finance-trash-intro h3{margin:0 0 5px;font-size:18px}.finance-trash-intro p{margin:0;color:#756d80;line-height:1.5}
+.finance-trash-table{max-height:480px;overflow:auto}

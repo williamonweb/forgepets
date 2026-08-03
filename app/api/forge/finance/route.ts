@@ -152,6 +152,8 @@ export async function PUT(request: Request) {
   const revenueIds = uniqueIds(revenues.map((item: any) => item?.id));
   const transactionIds = uniqueIds(transactions.map((item: any) => item?.id));
 
+  const deletedCounts = { payables: 0, revenues: 0, transactions: 0 };
+
   await prisma.$transaction(async tx => {
     for (const [localType, prismaType] of Object.entries(CATEGORY_TYPES)) {
       const names = uniqueIds(Array.isArray(categories[localType]) ? categories[localType] : []);
@@ -293,17 +295,36 @@ export async function PUT(request: Request) {
       });
     }
 
-    await tx.financialPayable.updateMany({
+    const deletedPayables = await tx.financialPayable.updateMany({
       where: { companyId, deletedAt: null, ...(payableIds.length ? { legacyId: { notIn: payableIds } } : {}) },
       data: { deletedAt: new Date() }
     });
-    await tx.plannedRevenue.updateMany({
+    const deletedRevenues = await tx.plannedRevenue.updateMany({
       where: { companyId, deletedAt: null, ...(revenueIds.length ? { legacyId: { notIn: revenueIds } } : {}) },
       data: { deletedAt: new Date() }
     });
-    await tx.financialTransaction.updateMany({
+    const deletedTransactions = await tx.financialTransaction.updateMany({
       where: { companyId, deletedAt: null, ...(transactionIds.length ? { legacyId: { notIn: transactionIds } } : {}) },
       data: { deletedAt: new Date() }
+    });
+
+    deletedCounts.payables = deletedPayables.count;
+    deletedCounts.revenues = deletedRevenues.count;
+    deletedCounts.transactions = deletedTransactions.count;
+
+    await tx.auditLog.create({
+      data: {
+        companyId,
+        userId: session.userId,
+        action: 'FINANCE_SYNC_COMPLETED',
+        entity: 'Finance',
+        metadata: {
+          payables: payableIds.length,
+          revenues: revenueIds.length,
+          transactions: transactionIds.length,
+          softDeleted: deletedCounts
+        }
+      }
     });
   });
 
@@ -312,7 +333,8 @@ export async function PUT(request: Request) {
     counts: {
       payables: payableIds.length,
       revenues: revenueIds.length,
-      transactions: transactionIds.length
+      transactions: transactionIds.length,
+      softDeleted: deletedCounts
     }
   });
 }

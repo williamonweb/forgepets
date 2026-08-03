@@ -501,6 +501,7 @@ const views={
       <div class="finance-hero-actions">
         <button class="btn primary" data-action="new-revenue">＋ Nova receita</button>
         <button class="btn ghost" data-action="new-expense">＋ Nova despesa</button>
+        <button class="btn ghost" data-action="finance-trash">♻ Lixeira</button>
       </div>
     </div>
 
@@ -767,6 +768,54 @@ function openRevenueModal(){
   db.save();close();render();toast(status==='recebido'?'Receita lançada no saldo real.':'Receita adicionada à previsão.','success');
  },'Salvar receita');
  applyInputMasks($('.modal'));
+}
+
+
+async function openFinanceTrash(){
+ try{
+  const result=await cloud.request('/api/forge/finance/trash');
+  const items=Array.isArray(result.items)?result.items:[];
+  const typeLabel={boleto:'Boleto',despesa:'Despesa',receita:'Receita prevista',entrada:'Entrada',saida:'Saída'};
+  const rows=items.length?items.map(item=>`<tr>
+   <td><span class="badge gray">${typeLabel[item.type]||item.type}</span></td>
+   <td><b>${escapeHtml(item.title||'Registro financeiro')}</b><small class="table-sub">${escapeHtml(item.category||'Sem categoria')}</small></td>
+   <td>${item.date?formatDateBR(String(item.date).slice(0,10)):'—'}</td>
+   <td><b>${money(item.amount||0)}</b></td>
+   <td>${item.deletedAt?new Date(item.deletedAt).toLocaleString('pt-BR'):'—'}</td>
+   <td><button class="btn primary small" data-restore-finance-id="${escapeAttr(item.id)}" data-restore-finance-type="${escapeAttr(item.type)}">Restaurar</button></td>
+  </tr>`).join(''):'<tr><td colspan="6"><div class="empty">A lixeira financeira está vazia.</div></td></tr>';
+
+  modal('Lixeira financeira',`<div class="finance-trash-intro"><span>♻</span><div><h3>Registros excluídos</h3><p>Os itens permanecem no Neon e podem ser restaurados. Nada é apagado definitivamente nesta tela.</p></div></div>
+   <div class="table-wrap finance-trash-table"><table class="table"><thead><tr><th>Tipo</th><th>Registro</th><th>Data original</th><th>Valor</th><th>Excluído em</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+   close=>close(),
+   'Fechar'
+  );
+
+  document.querySelectorAll('[data-restore-finance-id]').forEach(button=>{
+   button.addEventListener('click',async()=>{
+    button.disabled=true;
+    button.textContent='Restaurando...';
+    try{
+     await cloud.request('/api/forge/finance/trash',{
+      method:'PATCH',
+      body:JSON.stringify({
+       id:button.dataset.restoreFinanceId,
+       type:button.dataset.restoreFinanceType
+      })
+     });
+     await financeCloud.sync();
+     document.querySelector('.modal-close')?.click();
+     toast('Registro restaurado no Financeiro.','success');
+    }catch(error){
+     button.disabled=false;
+     button.textContent='Restaurar';
+     toast(error.message||'Não foi possível restaurar o registro.','error');
+    }
+   });
+  });
+ }catch(error){
+  toast(error.message||'Não foi possível carregar a lixeira financeira.','error');
+ }
 }
 
 function dateAtNoon(value){
@@ -1072,6 +1121,7 @@ function bindFiscalDashboard(){
 }
 
 const actions={
+ 'finance-trash':()=>openFinanceTrash(),
  'add-finance-category':b=>{
   const type=b.dataset.categoryType;
   const input=$(`[data-category-input="${type}"]`);
