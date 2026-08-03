@@ -349,7 +349,7 @@ function logout(){
 function go(target,{replace=false,fromHistory=false}={}){const next=ROUTE_ALIASES[String(target||'').toLowerCase()]||'dashboard';page=next;if(!fromHistory){const path=routeForPage(next);if(location.pathname!==path){history[replace?'replaceState':'pushState']({forgePetsPage:next},'',path);}}renderNav();render();window.scrollTo({top:0,behavior:'smooth'});}window.addEventListener('popstate',()=>go(pageFromLocation(),{fromHistory:true}));function renderNav(){const visible=NAV.filter(([id])=>id!=='fidelidade'||hasFeature('fidelidade'));if(page==='fidelidade'&&!hasFeature('fidelidade'))page='dashboard';$('#nav').innerHTML=visible.map(([id,icon,label])=>`<button class="nav-btn ${page===id?'active':''}" data-page="${id}"><i>${icon}</i><span>${label}</span></button>`).join('');document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));updatePlanUI();}
 function updatePlanUI(){const sub=activeSubscription();const plan=activePlan();const license=document.querySelector('.footer-status span:nth-child(2) strong');if(license)license.textContent=plan;const product=document.querySelector('.footer-product small');if(product)product.textContent=`${sub.companyName||'Pet shop'} · Plano ${plan}`;}
 function bindGlobal(){document.body.addEventListener('click',e=>{const a=e.target.closest('[data-action]');if(!a)return;e.preventDefault();actions[a.dataset.action]?.(a);});$('#backupInput').addEventListener('change',importBackup);$('#globalSearch').addEventListener('input',e=>searchAll(e.target.value));$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';render();}});}
-function render(){applyBranding();if(page==='fidelidade'&&!hasFeature('fidelidade')){page='dashboard';toast('O módulo Fidelidade está disponível nos planos Profissional e Premium.');renderNav();}const meta={dashboard:['Dashboard','Visão geral do pet shop'],clientes:['Clientes','Cadastro completo e histórico'],pets:['Pets','Cadastro e cuidados dos animais'],agenda:['Agenda','Organize os agendamentos'],atendimentos:['Atendimentos','Acompanhe o fluxo do dia'],servicos:['Serviços','Tabela de serviços e preços'],caixa:['Caixa','Entradas, saídas e fechamento'],estoque:['Estoque','Controle de produtos'],financeiro:['Financeiro','Resumo e análise financeira'],boletos:['Controle de boletos','Vencimentos e pagamentos das empresas'],relatorios:['Relatórios','Indicadores do negócio'],fidelidade:['Fidelidade','Pontos e recompensas dos clientes'],fiscal:['Módulo Fiscal','NFS-e, configurações e histórico fiscal'],marketplace:['Marketplace','Expanda o Forge Pets com módulos adicionais'],config:['Configurações','Dados gerais do sistema']}[page]||['ForgePets',''];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];$('#content').innerHTML=(views[page]||views.dashboard)();if(page==='config')bindSettingsUI();applyInputMasks($('#content'));updateNotificationBadge();}
+function render(){applyBranding();if(page==='fidelidade'&&!hasFeature('fidelidade')){page='dashboard';toast('O módulo Fidelidade está disponível nos planos Profissional e Premium.');renderNav();}const meta={dashboard:['Dashboard','Visão geral do pet shop'],clientes:['Clientes','Cadastro completo e histórico'],pets:['Pets','Cadastro e cuidados dos animais'],agenda:['Agenda','Organize os agendamentos'],atendimentos:['Atendimentos','Acompanhe o fluxo do dia'],servicos:['Serviços','Tabela de serviços e preços'],caixa:['Caixa','Entradas, saídas e fechamento'],estoque:['Estoque','Controle de produtos'],financeiro:['Financeiro','Resumo e análise financeira'],boletos:['Controle de boletos','Vencimentos e pagamentos das empresas'],relatorios:['Relatórios','Indicadores do negócio'],fidelidade:['Fidelidade','Pontos e recompensas dos clientes'],fiscal:['Módulo Fiscal','NFS-e, configurações e histórico fiscal'],marketplace:['Marketplace','Expanda o Forge Pets com módulos adicionais'],config:['Configurações','Dados gerais do sistema']}[page]||['ForgePets',''];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];const activeView=views[page];$('#content').innerHTML=activeView?activeView():`<div class="card route-error"><div class="empty"><h2>Página indisponível</h2><p>A rota <b>${escapeHtml(page)}</b> não possui uma tela registrada nesta versão.</p><button class="btn primary" data-action="go-dashboard">Voltar ao Dashboard</button></div></div>`;if(page==='config')bindSettingsUI();applyInputMasks($('#content'));updateNotificationBadge();}
 const views={
  dashboard(){
   const d=today();
@@ -466,6 +466,59 @@ const views={
   return `<section class="marketplace-page"><div class="marketplace-hero"><div><span>FORGE PETS MARKETPLACE</span><h2>Seu sistema cresce junto com o seu negócio.</h2><p>Ative novos recursos quando precisar. A cobrança é adicionada à sua assinatura mensal e o aceite fica registrado eletronicamente.</p></div><div class="marketplace-current"><small>Plano atual</small><strong>${escapeHtml(activePlan())}</strong><span>${money(planPrice())}/mês</span></div></div><div class="marketplace-grid"><article class="marketplace-card featured"><div class="marketplace-card-top"><span class="marketplace-icon">🧾</span><div><small>DISPONÍVEL AGORA</small><h3>Módulo Fiscal</h3></div>${fiscalActive?'<i class="module-status active">ATIVO</i>':fiscalPending?'<i class="module-status pending">PENDENTE</i>':'<i class="module-status available">OPCIONAL</i>'}</div><p>Emita NFS-e dos serviços realizados diretamente pelo Caixa. Consulte o histórico, baixe XML e PDF e envie a nota ao cliente. Disponibilidade conforme a integração do município.</p><ul><li>Emissão de notas pelo Caixa</li><li>Histórico fiscal por venda</li><li>XML e PDF da NFS-e</li><li>Dados separados por empresa</li></ul><div class="marketplace-price"><strong>R$ 49,00</strong><span>por mês</span></div>${fiscalAction}</article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">💬</span><div><small>EM BREVE</small><h3>WhatsApp Oficial</h3></div></div><p>Confirmações, lembretes e mensagens automáticas usando a API oficial.</p><div class="marketplace-price"><strong>R$ 39,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">📅</span><div><small>EM BREVE</small><h3>Agendamento Online</h3></div></div><p>Página pública para o tutor solicitar horários sem ligar para o pet shop.</p><div class="marketplace-price"><strong>R$ 39,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">🤖</span><div><small>EM BREVE</small><h3>IA Forge</h3></div></div><p>Textos, sugestões, análises e automações inteligentes para a rotina da empresa.</p><div class="marketplace-price"><strong>R$ 29,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article></div><div class="marketplace-note">A contratação do Módulo Fiscal abre o checkout, apresenta o valor total mensal e exige o aceite eletrônico antes da cobrança pelo Asaas.</div></section>`;
  },
  estoque(){return `<div class="card"><div class="section-title"><h2>Produtos</h2><button class="btn primary" data-action="new-stock">Novo produto</button></div>${tableSimple(db.data.estoque,['Produto','EAN','Qtd.','Mínimo','Custo','Venda'],x=>[x.nome,x.ean||'-',x.qtd,x.min,money(x.custo),money(x.valorVenda??x.custo)],'stock')}</div>`},
+ financeiro(){
+  ensureData();
+  const summary=financePeriodSummary();
+  const filter=window.financeExpenseFilter||'all';
+  const expenses=filter==='all'?summary.payables:summary.payables.filter(item=>expenseStatus(item)===filter);
+  const expenseRows=expenses.length?expenses.map(expense=>{
+   const status=expenseStatus(expense);
+   return `<tr>
+    <td><b>${escapeHtml(expense.descricao||'Despesa')}</b><small class="table-sub">${escapeHtml(expense.categoria||'Geral')}</small></td>
+    <td>${formatDateBR(expense.vencimento)}</td>
+    <td><span class="badge ${expenseStatusClass(status)}">${expenseStatusLabel(status)}</span></td>
+    <td><b>${money(Number(expense.valor||0)+Number(expense.juros||0)+Number(expense.multa||0))}</b></td>
+    <td>${expense.status==='pago'?'<span class="badge green">Paga</span>':`<button class="btn primary small" data-action="pay-expense" data-id="${expense.id}">Marcar paga</button>`} <button class="btn ghost small" data-action="edit-expense" data-id="${expense.id}">Editar</button></td>
+   </tr>`;
+  }).join(''):'<tr><td colspan="5"><div class="empty">Nenhuma despesa neste período.</div></td></tr>';
+
+  const movementRows=summary.transactions.length?summary.transactions.slice().reverse().map(item=>`<tr>
+   <td>${formatDateBR(item.data)}</td><td><b>${escapeHtml(item.descricao||'Movimentação')}</b></td>
+   <td><span class="badge ${item.tipo==='entrada'?'green':'red'}">${item.tipo==='entrada'?'Entrada':'Saída'}</span></td>
+   <td><b>${money(item.valor)}</b></td>
+  </tr>`).join(''):'<tr><td colspan="4"><div class="empty">Nenhuma movimentação neste período.</div></td></tr>';
+
+  return `<section class="finance-workspace">
+   ${financePeriodControls()}
+   <div class="finance-hero">
+    <div><span class="finance-eyebrow">VISÃO FINANCEIRA DO PERÍODO</span><h2>Realizado e previsto, sem misturar</h2><p>Todos os números abaixo respeitam o filtro selecionado.</p></div>
+    <div class="finance-hero-actions"><button class="btn primary" data-action="new-revenue">＋ Nova receita</button><button class="btn ghost" data-action="new-expense">＋ Nova despesa</button><button class="btn ghost" data-action="finance-trash">♻ Lixeira</button></div>
+   </div>
+   <div class="finance-kpis">
+    <article class="finance-kpi real"><span>💰</span><small>Saldo realizado</small><strong>${money(summary.realBalance)}</strong><em>Entradas menos saídas pagas</em></article>
+    <article><span>🟢</span><small>Entradas realizadas</small><strong>${money(summary.incomeReal)}</strong><em>Recebidas no período</em></article>
+    <article><span>🔻</span><small>Saídas realizadas</small><strong>${money(summary.expenseReal)}</strong><em>Pagas no período</em></article>
+    <article><span>🔵</span><small>Receitas previstas</small><strong>${money(summary.pendingIncome)}</strong><em>A receber no período</em></article>
+    <article class="warning"><span>🟠</span><small>Despesas a vencer</small><strong>${money(summary.upcoming)}</strong><em>Vencimento futuro no filtro</em></article>
+    <article class="today"><span>🟡</span><small>Vencem hoje</small><strong>${money(summary.dueToday)}</strong><em>Compromissos de hoje</em></article>
+    <article class="danger"><span>🔴</span><small>Despesas vencidas</small><strong>${money(summary.overdue)}</strong><em>Vencidas dentro do filtro</em></article>
+    <article class="forecast"><span>📈</span><small>Saldo previsto</small><strong>${money(summary.forecastBalance)}</strong><em>Real + previstas − pendentes</em></article>
+   </div>
+   <div class="finance-alert-strip">
+    <div><b>Após compromissos</b><span>${money(summary.availableAfterExpenses)}</span></div>
+    <div><b>Projeção completa</b><span>${money(summary.forecastBalance)}</span></div>
+   </div>
+   <div class="card">
+    <div class="section-title"><div><h2>Contas a pagar</h2><p>Filtradas pela data de vencimento.</p></div><button class="btn primary" data-action="new-expense">Nova despesa</button></div>
+    <div class="finance-tabs">${financeFilterButton('all','Todas',filter,summary.payables.length)}${financeFilterButton('overdue','Vencidas',filter,summary.overdueCount)}${financeFilterButton('today','Vencem hoje',filter,summary.dueTodayCount)}${financeFilterButton('upcoming','A vencer',filter,summary.upcomingCount)}${financeFilterButton('paid','Pagas',filter,summary.paidCount)}</div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Despesa</th><th>Vencimento</th><th>Situação</th><th>Valor atualizado</th><th>Ações</th></tr></thead><tbody>${expenseRows}</tbody></table></div>
+   </div>
+   <div class="card">
+    <div class="section-title"><div><h2>Movimentações realizadas</h2><p>Entradas e saídas efetivas do período.</p></div><button class="btn ghost" data-action="quick-movement">Nova movimentação</button></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead><tbody>${movementRows}</tbody></table></div>
+   </div>
+  </section>`;
+ },
  boletos(){
   ensureData();
   const rows=[...db.data.boletos].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
@@ -510,6 +563,7 @@ const views={
    <div class="boleto-note-list">${groupCards||'<div class="empty">Nenhum boleto cadastrado.</div>'}</div>
   </div>`;
  },
+ relatorios(){return reportView()},
  fidelidade(){
   const plan=activePlan(),clientes=db.data.clientes||[];
   if(!hasFeature('fidelidade'))return `<div class="card locked-module"><div class="locked-icon">🔒</div><h2>Programa de fidelidade</h2><p>Disponível a partir do Plano Profissional.</p><button class="btn primary" data-action="show-plans">Conhecer planos</button></div>`;
@@ -904,6 +958,23 @@ function splitMoneyInInstallments(total,count){
  const remainder=cents-base*quantity;
  return Array.from({length:quantity},(_,index)=>(base+(index===quantity-1?remainder:0))/100);
 }
+
+function fixedDayDate(baseDate,index,fixedDay){
+ const [year,month]=String(baseDate||today()).split('-').map(Number);
+ const target=new Date(year,month-1+index,1,12,0,0);
+ const lastDay=new Date(target.getFullYear(),target.getMonth()+1,0).getDate();
+ target.setDate(Math.min(Math.max(1,Number(fixedDay||1)),lastDay));
+ return `${target.getFullYear()}-${String(target.getMonth()+1).padStart(2,'0')}-${String(target.getDate()).padStart(2,'0')}`;
+}
+function boletoDueDate(firstDue,index,mode,intervalDays,fixedDay){
+ if(index===0)return firstDue;
+ if(mode==='monthly')return addMonthsToDate(firstDue,index);
+ if(mode==='fixed-day')return fixedDayDate(firstDue,index,Number(fixedDay||1));
+ const base=new Date(`${firstDue}T12:00:00`);
+ base.setDate(base.getDate()+Math.max(1,Number(intervalDays||1))*index);
+ return `${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`;
+}
+
 function boletoFinancialTotal(invoiceTotal,tax,taxIncluded){
  const note=Math.max(0,Number(invoiceTotal||0));
  const taxValue=Math.max(0,Number(tax||0));
@@ -915,6 +986,89 @@ function boletoBatchSummary(batch){
  const total=Number(batch[0]?.totalFinanceiro??batch.reduce((sum,item)=>sum+Number(item.valor||0),0));
  const paid=batch.filter(item=>item.status==='pago').reduce((sum,item)=>sum+Number(item.valorPago??item.valor??0),0);
  return {original,tax,total,paid,pending:Math.max(0,total-paid)};
+}
+
+
+function financePeriodState(){
+ const now=new Date();
+ const currentMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+ const lastDay=String(new Date(now.getFullYear(),now.getMonth()+1,0).getDate()).padStart(2,'0');
+ const saved=window.financePeriodFilter||{};
+ return {
+  mode:saved.mode||'month',
+  month:saved.month||currentMonth,
+  from:saved.from||`${currentMonth}-01`,
+  to:saved.to||`${currentMonth}-${lastDay}`
+ };
+}
+function monthRange(monthValue){
+ const [year,month]=String(monthValue||'').split('-').map(Number);
+ if(!year||!month)return {from:'',to:''};
+ const last=new Date(year,month,0).getDate();
+ return {from:`${year}-${String(month).padStart(2,'0')}-01`,to:`${year}-${String(month).padStart(2,'0')}-${String(last).padStart(2,'0')}`};
+}
+function activeFinanceRange(){
+ const state=financePeriodState();
+ if(state.mode==='all')return {from:'',to:'',label:'Todo o período'};
+ if(state.mode==='custom'){
+  return {from:state.from||'',to:state.to||'',label:state.from&&state.to?`${formatDateBR(state.from)} até ${formatDateBR(state.to)}`:'Período personalizado'};
+ }
+ const range=monthRange(state.month);
+ const [year,month]=String(state.month||'').split('-').map(Number);
+ const raw=year&&month?new Date(year,month-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'Mês atual';
+ return {...range,label:raw.charAt(0).toUpperCase()+raw.slice(1)};
+}
+function dateInFinanceRange(value){
+ const date=String(value||'').slice(0,10),range=activeFinanceRange();
+ if(!date)return false;
+ if(range.from&&date<range.from)return false;
+ if(range.to&&date>range.to)return false;
+ return true;
+}
+function financePeriodSummary(){
+ ensureData();
+ const payables=(db.data.despesas||[]).filter(item=>dateInFinanceRange(item.vencimento));
+ const revenues=(db.data.receitasPrevistas||[]).filter(item=>dateInFinanceRange(item.data||item.expectedDate));
+ const transactions=(db.data.caixa||[]).filter(item=>dateInFinanceRange(item.data));
+
+ const incomeReal=transactions.filter(item=>item.tipo==='entrada').reduce((sum,item)=>sum+Number(item.valor||0),0);
+ const expenseReal=transactions.filter(item=>item.tipo==='saida').reduce((sum,item)=>sum+Number(item.valor||0),0);
+ const realBalance=incomeReal-expenseReal;
+ const pending=payables.filter(item=>item.status!=='pago');
+ const updatedValue=item=>Number(item.valor||0)+Number(item.juros||0)+Number(item.multa||0);
+ const upcoming=pending.filter(item=>expenseStatus(item)==='upcoming').reduce((sum,item)=>sum+updatedValue(item),0);
+ const dueToday=pending.filter(item=>expenseStatus(item)==='today').reduce((sum,item)=>sum+updatedValue(item),0);
+ const overdue=pending.filter(item=>expenseStatus(item)==='overdue').reduce((sum,item)=>sum+updatedValue(item),0);
+ const pendingIncome=revenues.filter(item=>item.status!=='recebido').reduce((sum,item)=>sum+Number(item.valor||0),0);
+ const pendingTotal=upcoming+dueToday+overdue;
+
+ return {
+  payables,revenues,transactions,incomeReal,expenseReal,realBalance,pendingIncome,upcoming,dueToday,overdue,
+  availableAfterExpenses:realBalance-pendingTotal,
+  forecastBalance:realBalance+pendingIncome-pendingTotal,
+  upcomingCount:pending.filter(item=>expenseStatus(item)==='upcoming').length,
+  dueTodayCount:pending.filter(item=>expenseStatus(item)==='today').length,
+  overdueCount:pending.filter(item=>expenseStatus(item)==='overdue').length,
+  paidCount:payables.filter(item=>item.status==='pago').length
+ };
+}
+function financePeriodControls(){
+ const state=financePeriodState(),range=activeFinanceRange();
+ return `<div class="finance-period-panel">
+  <div class="finance-period-head"><div><span>PERÍODO FINANCEIRO</span><h3>${escapeHtml(range.label)}</h3></div>
+   <div class="finance-period-actions">
+    <button class="${state.mode==='month'?'active':''}" data-action="set-finance-period-mode" data-mode="month">Mês específico</button>
+    <button class="${state.mode==='custom'?'active':''}" data-action="set-finance-period-mode" data-mode="custom">Período personalizado</button>
+    <button class="${state.mode==='all'?'active':''}" data-action="set-finance-period-mode" data-mode="all">Tudo</button>
+   </div>
+  </div>
+  <div class="finance-period-fields">
+   <div class="field" style="${state.mode==='month'?'':'display:none'}"><label>Mês</label><input id="financePeriodMonth" type="month" value="${escapeAttr(state.month)}"></div>
+   <div class="field" style="${state.mode==='custom'?'':'display:none'}"><label>De</label><input id="financePeriodFrom" type="date" value="${escapeAttr(state.from)}"></div>
+   <div class="field" style="${state.mode==='custom'?'':'display:none'}"><label>Até</label><input id="financePeriodTo" type="date" value="${escapeAttr(state.to)}"></div>
+   <button class="btn primary" data-action="apply-finance-period">Aplicar filtro</button>
+  </div>
+ </div>`;
 }
 
 function boletoAlerts(){ensureData();const tomorrow=daysFromNow(1);return db.data.boletos.filter(x=>x.status!=='pago'&&x.vencimento===tomorrow);}
@@ -1118,6 +1272,17 @@ function bindFiscalDashboard(){
 }
 
 const actions={
+ 'set-finance-period-mode':button=>{
+  window.financePeriodFilter={...financePeriodState(),mode:button.dataset.mode||'month'};
+  render();
+ },
+ 'apply-finance-period':()=>{
+  const state=financePeriodState();
+  const next={...state,month:$('#financePeriodMonth')?.value||state.month,from:$('#financePeriodFrom')?.value||state.from,to:$('#financePeriodTo')?.value||state.to};
+  if(next.mode==='custom'&&next.from&&next.to&&next.from>next.to)return toast('A data inicial não pode ser maior que a final.','error');
+  window.financePeriodFilter=next;render();toast('Filtro financeiro aplicado.','success');
+ },
+
  'finance-trash':()=>openFinanceTrash(),
  'add-finance-category':b=>{
   const type=b.dataset.categoryType;
@@ -1169,9 +1334,16 @@ const actions={
     <label><input type="radio" name="boletoTaxMode" value="additional" checked> Somar o imposto ao valor da nota</label>
     <label><input type="radio" name="boletoTaxMode" value="included"> O imposto já está incluído no valor total</label>
    </div></div>
+   <div class="field"><label>Entrada paga agora</label><input id="boletoEntrada" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div>
    <div class="field"><label>Quantidade de parcelas *</label><input id="boletoQtd" type="number" min="1" max="60" value="1"></div>
    <div class="field"><label>Primeiro vencimento *</label><input id="boletoPrimeiroVencimento" type="date" value="${daysFromNow(1)}"></div>
-   <div class="field"><label>Intervalo</label><select id="boletoIntervalo"><option value="monthly">Mensal</option><option value="30">A cada 30 dias</option><option value="15">A cada 15 dias</option><option value="7">Semanal</option></select></div>
+   <div class="field"><label>Tipo de vencimento</label><select id="boletoIntervaloModo">
+    <option value="monthly">Mensal</option>
+    <option value="days">A cada X dias</option>
+    <option value="fixed-day">Dia fixo de cada mês</option>
+   </select></div>
+   <div class="field" id="boletoIntervaloDiasField" style="display:none"><label>Intervalo em dias</label><input id="boletoIntervaloDias" type="number" min="1" max="365" value="7"></div>
+   <div class="field" id="boletoDiaFixoField" style="display:none"><label>Dia fixo</label><input id="boletoDiaFixo" type="number" min="1" max="31" value="10"></div>
    <div class="field full"><label>Observações</label><textarea id="boletoObs" rows="3"></textarea></div>
    <div class="field full"><div id="boletoParcelPreview" class="boleto-installment-preview"></div></div>
   </div>`,close=>{
@@ -1181,25 +1353,38 @@ const actions={
    const valorNota=parseLocaleNumber($('#boletoValorNota').value);
    const imposto=parseLocaleNumber($('#boletoImposto').value);
    const impostoIncluso=document.querySelector('input[name="boletoTaxMode"]:checked')?.value==='included';
-   const qtd=Math.max(1,Number($('#boletoQtd').value||1));
+   const entrada=parseLocaleNumber($('#boletoEntrada').value);
+   const qtd=Math.max(1,Math.min(60,Number($('#boletoQtd').value||1)));
    const firstDue=$('#boletoPrimeiroVencimento').value;
-   const interval=$('#boletoIntervalo').value;
+   const mode=$('#boletoIntervaloModo').value;
+   const intervalDays=Math.max(1,Number($('#boletoIntervaloDias').value||1));
+   const fixedDay=Math.min(31,Math.max(1,Number($('#boletoDiaFixo').value||1)));
    const observacoes=$('#boletoObs').value.trim();
+
    if(!empresa||!categoria||valorNota<=0||!firstDue)return toast('Preencha fornecedor, categoria, valor da nota e primeiro vencimento.');
 
    const totalFinanceiro=boletoFinancialTotal(valorNota,imposto,impostoIncluso);
-   const values=splitMoneyInInstallments(totalFinanceiro,qtd);
+   if(entrada<0||entrada>=totalFinanceiro)return toast('A entrada deve ser menor que o total financeiro.');
+   const saldoParcelado=Math.max(0,totalFinanceiro-entrada);
+   const values=splitMoneyInInstallments(saldoParcelado,qtd);
    const loteId=uid();
 
+   if(entrada>0){
+    db.data.caixa.push({
+     id:uid(),
+     tipo:'saida',
+     data:today(),
+     descricao:`Entrada da nota ${numeroNota||empresa}`,
+     valor:entrada,
+     forma:'PIX',
+     categoria,
+     observacoes,
+     loteId,
+     createdAt:new Date().toISOString()
+    });
+   }
+
    values.forEach((valor,index)=>{
-    let vencimento;
-    if(interval==='monthly')vencimento=addMonthsToDate(firstDue,index);
-    else{
-     const days=Number(interval||30)*index;
-     const base=new Date(`${firstDue}T12:00:00`);
-     base.setDate(base.getDate()+days);
-     vencimento=`${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`;
-    }
     db.data.boletos.push({
      id:uid(),
      loteId,
@@ -1210,10 +1395,15 @@ const actions={
      valorNota,
      imposto,
      impostoIncluso,
+     entrada,
      totalFinanceiro,
+     saldoParcelado,
      quantidade:qtd,
      parcela:index+1,
-     vencimento,
+     vencimento:boletoDueDate(firstDue,index,mode,intervalDays,fixedDay),
+     intervaloModo:mode,
+     intervaloDias:intervalDays,
+     diaFixo:fixedDay,
      status:'aberto',
      juros:0,
      multa:0,
@@ -1221,36 +1411,48 @@ const actions={
      createdAt:new Date().toISOString()
     });
    });
-   db.save();close();render();toast(`${qtd} parcela(s) criadas. Total financeiro: ${money(totalFinanceiro)}.`);
+
+   db.save();close();render();toast(`${qtd} parcela(s) criadas. Saldo parcelado: ${money(saldoParcelado)}.`);
   },'Criar parcelas');
 
-  const fields=['boletoValorNota','boletoImposto','boletoQtd','boletoPrimeiroVencimento','boletoIntervalo'];
   const preview=$('#boletoParcelPreview');
+  const modeSelect=$('#boletoIntervaloModo');
+  const toggleModeFields=()=>{
+   $('#boletoIntervaloDiasField').style.display=modeSelect.value==='days'?'block':'none';
+   $('#boletoDiaFixoField').style.display=modeSelect.value==='fixed-day'?'block':'none';
+  };
   const drawPreview=()=>{
    const valorNota=parseLocaleNumber($('#boletoValorNota').value);
    const imposto=parseLocaleNumber($('#boletoImposto').value);
    const incluso=document.querySelector('input[name="boletoTaxMode"]:checked')?.value==='included';
+   const entrada=parseLocaleNumber($('#boletoEntrada').value);
    const qtd=Math.max(1,Math.min(60,Number($('#boletoQtd').value||1)));
    const firstDue=$('#boletoPrimeiroVencimento').value;
-   const interval=$('#boletoIntervalo').value;
+   const mode=modeSelect.value;
+   const intervalDays=Math.max(1,Number($('#boletoIntervaloDias').value||1));
+   const fixedDay=Math.min(31,Math.max(1,Number($('#boletoDiaFixo').value||1)));
    const total=boletoFinancialTotal(valorNota,imposto,incluso);
-   const values=splitMoneyInInstallments(total,qtd);
-   preview.innerHTML=`<div class="boleto-preview-summary"><div><small>Valor da nota</small><b>${money(valorNota)}</b></div><div><small>Imposto</small><b>${money(imposto)}</b></div><div><small>Total financeiro</small><strong>${money(total)}</strong></div></div>
+   const saldo=Math.max(0,total-entrada);
+   const values=splitMoneyInInstallments(saldo,qtd);
+
+   preview.innerHTML=`<div class="boleto-preview-summary">
+    <div><small>Valor da nota</small><b>${money(valorNota)}</b></div>
+    <div><small>Imposto</small><b>${money(imposto)}</b></div>
+    <div><small>Entrada</small><b>${money(entrada)}</b></div>
+    <div><small>Total financeiro</small><strong>${money(total)}</strong></div>
+    <div><small>Saldo parcelado</small><strong>${money(saldo)}</strong></div>
+   </div>
    <div class="boleto-preview-list">${values.map((value,index)=>{
-    let due=firstDue;
-    if(firstDue){
-     if(interval==='monthly')due=addMonthsToDate(firstDue,index);
-     else{
-      const base=new Date(`${firstDue}T12:00:00`);base.setDate(base.getDate()+Number(interval||30)*index);
-      due=`${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`;
-     }
-    }
+    const due=firstDue?boletoDueDate(firstDue,index,mode,intervalDays,fixedDay):'';
     return `<span><b>${index+1}/${qtd}</b> ${money(value)} <small>${due?formatDateBR(due):'—'}</small></span>`;
    }).join('')}</div>`;
   };
-  fields.forEach(id=>$('#'+id)?.addEventListener('input',drawPreview));
+
+  ['boletoValorNota','boletoImposto','boletoEntrada','boletoQtd','boletoPrimeiroVencimento','boletoIntervaloDias','boletoDiaFixo'].forEach(id=>$('#'+id)?.addEventListener('input',drawPreview));
+  modeSelect.addEventListener('change',()=>{toggleModeFields();drawPreview();});
   document.querySelectorAll('input[name="boletoTaxMode"]').forEach(input=>input.addEventListener('change',drawPreview));
   applyInputMasks($('.modal'));
+  toggleModeFields();
   drawPreview();
  },
  'edit-boleto':b=>{const x=db.data.boletos.find(v=>v.id===b.dataset.id);if(!x)return;modal('Editar boleto',`<div class="form-grid"><div class="field full"><label>Empresa</label><input id="editBoletoEmpresa" value="${escapeAttr(x.empresa)}"></div><div class="field"><label>Valor</label><input id="editBoletoValor" type="text" data-mask="money" inputmode="numeric" value="${money(x.valor||0)}"></div><div class="field"><label>Vencimento</label><input id="editBoletoData" type="date" value="${x.vencimento}"></div></div>`,close=>{const empresa=$('#editBoletoEmpresa').value.trim(),valor=parseLocaleNumber($('#editBoletoValor').value),vencimento=$('#editBoletoData').value;if(!empresa||valor<=0||!vencimento)return toast('Preencha todos os campos.');Object.assign(x,{empresa,valor,vencimento});db.save();close();toast('Boleto atualizado.');});},
