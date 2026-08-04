@@ -176,16 +176,60 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session?.companyId) {
     return NextResponse.json({ message: 'Sessão inválida. Entre novamente.' }, { status: 401 });
   }
 
   const companyId = session.companyId;
-  const current = await prisma.appointment.findFirst({ where: { id: params.id, companyId } });
+  const current = await prisma.appointment.findFirst({
+    where: { id: params.id, companyId },
+    include: { receivable: { include: { payments: true } } }
+  });
+
   if (!current) {
-    return NextResponse.json({ message: 'Agendamento não encontrado.' }, { status: 404 });
+    return NextResponse.json({ message: 'Atendimento não encontrado.' }, { status: 404 });
+  }
+
+  const permanent = new URL(request.url).searchParams.get('permanent') === '1';
+
+  if (permanent) {
+    await prisma.$transaction(async tx => {
+      if (current.receivable) {
+        await tx.payment.deleteMany({
+          where: { receivableId: current.receivable.id, companyId }
+        });
+        await tx.receivable.delete({
+          where: { id: current.receivable.id }
+        });
+      }
+
+      await tx.appointment.delete({
+        where: { id: current.id }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          companyId,
+          userId: session.userId,
+          action: 'APPOINTMENT_DELETED',
+          entity: 'Appointment',
+          entityId: current.id,
+          metadata: {
+            startsAt: current.startsAt.toISOString(),
+            status: current.status,
+            source: 'USER_DUPLICATE_REMOVAL'
+          }
+        }
+      });
+    });
+
+    return NextResponse.json({
+      ok: true,
+      deleted: true,
+      message: 'Atendimento excluído.'
+    });
   }
 
   const appointment = await prisma.appointment.update({

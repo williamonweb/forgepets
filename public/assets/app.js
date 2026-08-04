@@ -488,7 +488,7 @@ const views={
     <td>${formatDateBR(expense.vencimento)}</td>
     <td><span class="badge ${expenseStatusClass(status)}">${expenseStatusLabel(status)}</span></td>
     <td><b>${money(Number(expense.valor||0)+Number(expense.juros||0)+Number(expense.multa||0))}</b></td>
-    <td>${expense.status==='pago'?'<span class="badge green">Paga</span>':`<button class="btn primary small" data-action="pay-expense" data-id="${expense.id}">Marcar paga</button>`} <button class="btn ghost small" data-action="edit-expense" data-id="${expense.id}">Editar</button></td>
+    <td>${expense.status==='pago'?'<span class="badge green">Paga</span>':`<button class="btn primary small" data-action="pay-expense" data-id="${expense.id}">Marcar paga</button>`} <button class="btn ghost small" data-action="edit-expense" data-id="${expense.id}">Editar</button> <button class="btn danger small" data-action="delete-expense" data-id="${expense.id}">Excluir</button></td>
    </tr>`;
   }).join(''):'<tr><td colspan="5"><div class="empty">Nenhuma despesa neste período.</div></td></tr>';
 
@@ -496,7 +496,8 @@ const views={
    <td>${formatDateBR(item.data)}</td><td><b>${escapeHtml(item.descricao||'Movimentação')}</b></td>
    <td><span class="badge ${item.tipo==='entrada'?'green':'red'}">${item.tipo==='entrada'?'Entrada':'Saída'}</span></td>
    <td><b>${money(item.valor)}</b></td>
-  </tr>`).join(''):'<tr><td colspan="4"><div class="empty">Nenhuma movimentação neste período.</div></td></tr>';
+   <td><button class="btn danger small" data-action="delete-finance-transaction" data-id="${item.id}">Excluir</button></td>
+  </tr>`).join(''):'<tr><td colspan="5"><div class="empty">Nenhuma movimentação neste período.</div></td></tr>';
 
   return `<section class="finance-workspace">
    ${financePeriodControls()}
@@ -525,7 +526,7 @@ const views={
    </div>
    <div class="card">
     <div class="section-title"><div><h2>Movimentações realizadas</h2><p>Entradas e saídas efetivas do período.</p></div><button class="btn ghost" data-action="quick-movement">Nova movimentação</button></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead><tbody>${movementRows}</tbody></table></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th></th></tr></thead><tbody>${movementRows}</tbody></table></div>
    </div>
   </section>`;
  },
@@ -623,7 +624,25 @@ function setClientSearch(v){clientSearch=v;document.querySelector('#content').in
 function setPetSearch(v){petSearch=v;document.querySelector('#content').innerHTML=views.pets()}
 function daysFromNow(n){const d=new Date();d.setDate(d.getDate()+Number(n||0));return d.toISOString().slice(0,10);}
 function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().slice(0,10)}
-function inPeriod(date,start,end){return date&&date>=start&&date<=end}
+
+function reportDateOnly(value){
+ const raw=String(value||'').trim();
+ if(!raw)return '';
+ const direct=raw.match(/^(\d{4}-\d{2}-\d{2})/);
+ if(direct)return direct[1];
+ const parsed=new Date(raw);
+ if(Number.isNaN(parsed.getTime()))return '';
+ return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`;
+}
+function inPeriodInclusive(value,start,end){
+ const date=reportDateOnly(value);
+ return Boolean(date&&(!start||date>=start)&&(!end||date<=end));
+}
+function payableReportDate(item){
+ return reportDateOnly(item.status==='pago'?(item.paidAt||item.pagoEm||item.vencimento):item.vencimento);
+}
+
+function inPeriod(date,start,end){return inPeriodInclusive(date,start,end)}
 function formatDateBR(v){if(!v)return '-';const [y,m,d]=v.split('-');return `${d}/${m}/${y}`}
 function reportServiceName(id){return db.data.servicos.find(s=>String(s.id)===String(id))?.nome||'Serviço não identificado'}
 function reportProfessionalOptions(){return [...new Set(db.data.agenda.map(a=>String(a.profissional||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'))}
@@ -648,7 +667,12 @@ function reportView(){
   if(filters.service!=='all'&&serviceId!==filters.service)return;
   serviceSales.push({sale:v,serviceId,nome:i.nome||reportServiceName(serviceId),qtd:Number(i.qtd||1),total:Number(i.preco||i.valor||0)*Number(i.qtd||1)});
  }));
- const cash=db.data.caixa.filter(x=>inPeriod(x.data,reportStart,reportEnd));
+ const payables=(db.data.despesas||[]).filter(item=>inPeriodInclusive(payableReportDate(item),reportStart,reportEnd));
+ const openPayables=payables.filter(item=>item.status!=='pago');
+ const paidPayables=payables.filter(item=>item.status==='pago');
+ const totalOpenPayables=openPayables.reduce((sum,item)=>sum+Number(item.valor||0)+Number(item.juros||0)+Number(item.multa||0),0);
+ const totalPaidPayables=paidPayables.reduce((sum,item)=>sum+Number(item.valorPago??item.valor??0),0);
+ const cash=(db.data.caixa||[]).filter(x=>inPeriodInclusive(x.data,reportStart,reportEnd));
  const entradas=cash.filter(x=>x.tipo==='entrada'&&(filters.payment==='all'||String(x.forma||'')===filters.payment));
  const saidas=cash.filter(x=>x.tipo==='saida');
  const serviceRevenue=serviceSales.reduce((s,x)=>s+x.total,0);
@@ -682,9 +706,13 @@ function reportView(){
     <button class="btn primary reports-apply" data-action="apply-report-filters">Aplicar filtros</button>
    </div>
   </div>
-  <div class="reports-kpis"><article><small>Faturamento filtrado</small><strong>${money(filters.service==='all'?totalEntradas:serviceRevenue)}</strong><span>${serviceSales.reduce((s,x)=>s+x.qtd,0)} serviço(s) vendido(s)</span></article><article><small>Serviços concluídos</small><strong>${completed.length}</strong><span>de ${agenda.length} atendimento(s)</span></article><article><small>Ticket médio de serviços</small><strong>${money(serviceSales.length?serviceRevenue/serviceSales.reduce((s,x)=>s+x.qtd,0):0)}</strong><span>por serviço vendido</span></article><article><small>Cancelamentos</small><strong>${canceled.length}</strong><span>${noShow.length} não comparecimento(s)</span></article><article><small>Resultado financeiro</small><strong>${money(totalEntradas-totalSaidas)}</strong><span>entradas menos saídas</span></article></div>
+  <div class="reports-kpis"><article><small>Faturamento filtrado</small><strong>${money(filters.service==='all'?totalEntradas:serviceRevenue)}</strong><span>${serviceSales.reduce((s,x)=>s+x.qtd,0)} serviço(s) vendido(s)</span></article><article><small>Serviços concluídos</small><strong>${completed.length}</strong><span>de ${agenda.length} atendimento(s)</span></article><article><small>Ticket médio de serviços</small><strong>${money(serviceSales.length?serviceRevenue/serviceSales.reduce((s,x)=>s+x.qtd,0):0)}</strong><span>por serviço vendido</span></article><article><small>Cancelamentos</small><strong>${canceled.length}</strong><span>${noShow.length} não comparecimento(s)</span></article><article><small>Resultado financeiro</small><strong>${money(totalEntradas-totalSaidas)}</strong><span>entradas menos saídas</span></article><article><small>Contas a pagar</small><strong>${money(totalOpenPayables)}</strong><span>${openPayables.length} pendente(s) no período</span></article><article><small>Despesas pagas</small><strong>${money(totalPaidPayables)}</strong><span>${paidPayables.length} pagamento(s) no período</span></article></div>
   <div class="reports-main-grid"><div class="card reports-service-card"><div class="section-title"><div><h2>Desempenho por serviço</h2><p>Quantidade, conclusão e faturamento.</p></div></div>${serviceRows.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Serviço</th><th>Agendados</th><th>Concluídos</th><th>Receita</th><th>Ticket médio</th></tr></thead><tbody>${serviceRows.map(x=>`<tr><td><b>${escapeHtml(x.nome)}</b><div class="report-bar"><i style="width:${Math.max(3,x.receita/maxRevenue*100)}%"></i></div></td><td>${x.agendados}</td><td>${x.concluidos}</td><td><b>${money(x.receita)}</b></td><td>${money(x.quantidadeVendida?x.receita/x.quantidadeVendida:0)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum serviço no período.</div>'}</div>
   <div class="card reports-ranking"><div class="section-title"><div><h2>Ranking da equipe</h2><p>Atendimentos realizados no período.</p></div></div>${professionals.length?professionals.map((x,i)=>`<div class="report-rank-row"><b>${i+1}º</b><span>${escapeHtml(x.nome)}<small>${x.total} atendimento(s) · ${x.cancelados} cancelado(s)</small></span><strong>${x.concluidos}</strong></div>`).join(''):'<div class="empty">Nenhum funcionário informado nos atendimentos.</div>'}</div></div>
+  <div class="card reports-payables-card"><div class="section-title"><div><h2>Contas a pagar</h2><p>Vencidas, pendentes e pagas dentro do período selecionado.</p></div><span class="badge purple">${payables.length} registro(s)</span></div>
+   <div class="reports-payable-summary"><div><small>Pendente</small><strong>${money(totalOpenPayables)}</strong></div><div><small>Pago</small><strong>${money(totalPaidPayables)}</strong></div></div>
+   <div class="table-wrap"><table class="table"><thead><tr><th>Descrição</th><th>Categoria</th><th>Vencimento</th><th>Pagamento</th><th>Status</th><th>Valor</th></tr></thead><tbody>${payables.length?payables.sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||''))).map(item=>`<tr><td><b>${escapeHtml(item.descricao||item.empresa||'Despesa')}</b></td><td>${escapeHtml(item.categoria||'Geral')}</td><td>${formatDateBR(reportDateOnly(item.vencimento))}</td><td>${item.status==='pago'&&item.paidAt?formatDateBR(reportDateOnly(item.paidAt)):'—'}</td><td><span class="badge ${item.status==='pago'?'green':reportDateOnly(item.vencimento)<today()?'red':'yellow'}">${item.status==='pago'?'Paga':reportDateOnly(item.vencimento)<today()?'Vencida':'A vencer'}</span></td><td><b>${money(item.status==='pago'?Number(item.valorPago??item.valor??0):Number(item.valor||0)+Number(item.juros||0)+Number(item.multa||0))}</b></td></tr>`).join(''):'<tr><td colspan="6"><div class="empty">Nenhuma conta a pagar no período.</div></td></tr>'}</tbody></table></div>
+  </div>
   <div class="card"><div class="section-title"><div><h2>Detalhamento dos atendimentos</h2><p>Resultado completo conforme os filtros aplicados.</p></div><span class="badge purple">${agenda.length} registro(s)</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Serviço</th><th>Pet / Tutor</th><th>Funcionário</th><th>Status</th></tr></thead><tbody>${appointmentRows}</tbody></table></div></div>
  </section>`;
 }
@@ -722,7 +750,7 @@ function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60){
  return out;
 }
 
-function agendaList(rows){if(!rows.length)return '<div class="empty">Nenhum agendamento.</div>';return `<div class="calendar-list">${rows.map(a=>{const p=db.data.pets.find(x=>x.id===a.petId),c=p&&db.data.clientes.find(x=>x.id===p.clienteId),dateLabel=formatAgendaDate(a.data);return `<div class="appointment"><div class="appointment-date"><span class="appointment-weekday">${dateLabel.weekday}</span><strong class="appointment-day-month">${dateLabel.dayMonth}</strong><span class="appointment-hour">${a.hora}</span></div><div><strong>${p?.nome||'Pet'}</strong><div style="color:var(--muted);margin-top:4px">${escapeHtml(appointmentServiceNames(a))} · ${c?.nome||'Tutor'} · <b>${money(appointmentTotal(a))}</b></div></div><div><span class="badge ${a.status==='Concluído'?'green':a.status==='Cancelado'?'red':'yellow'}">${a.status||'Agendado'}</span> ${!['Concluído','Cancelado'].includes(a.status)?`<button class="btn ghost" data-action="finish-appointment" data-id="${a.id}">Concluir</button> <button class="btn ghost" data-action="cancel-appointment" data-id="${a.id}">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
+function agendaList(rows){if(!rows.length)return '<div class="empty">Nenhum agendamento.</div>';return `<div class="calendar-list">${rows.map(a=>{const p=db.data.pets.find(x=>x.id===a.petId),c=p&&db.data.clientes.find(x=>x.id===p.clienteId),dateLabel=formatAgendaDate(a.data);return `<div class="appointment"><div class="appointment-date"><span class="appointment-weekday">${dateLabel.weekday}</span><strong class="appointment-day-month">${dateLabel.dayMonth}</strong><span class="appointment-hour">${a.hora}</span></div><div><strong>${p?.nome||'Pet'}</strong><div style="color:var(--muted);margin-top:4px">${escapeHtml(appointmentServiceNames(a))} · ${c?.nome||'Tutor'} · <b>${money(appointmentTotal(a))}</b></div></div><div><span class="badge ${a.status==='Concluído'?'green':a.status==='Cancelado'?'red':'yellow'}">${a.status||'Agendado'}</span> ${!['Concluído','Cancelado'].includes(a.status)?`<button class="btn ghost" data-action="finish-appointment" data-id="${a.id}">Concluir</button> <button class="btn ghost" data-action="cancel-appointment" data-id="${a.id}">Cancelar</button>`:''} <button class="btn danger" data-action="delete-appointment" data-id="${a.id}">Excluir</button></div></div>`}).join('')}</div>`}
 function openContractAcceptance(onAccepted){const root=document.createElement('div');root.className='contract-overlay';root.innerHTML=`<div class="contract-modal"><header><div><small>ACEITE ELETRÔNICO</small><strong>Contrato Forge Pets</strong></div><button type="button" class="icon-btn" data-contract-close>×</button></header><div class="contract-scroll" id="contractScroll">${FORGEPETS_CONTRACT_HTML}</div><div class="contract-progress"><span id="contractProgressBar"></span></div><label class="contract-accept-row disabled"><input id="contractAgree" type="checkbox" disabled><span>Li integralmente e concordo com o contrato, a cobrança recorrente e os termos apresentados.</span></label><footer><button type="button" class="btn ghost" data-contract-close>Voltar</button><button type="button" class="btn primary" id="confirmContract" disabled>Concordar e continuar</button></footer></div>`;document.body.appendChild(root);const scroll=root.querySelector('#contractScroll'),agree=root.querySelector('#contractAgree'),confirm=root.querySelector('#confirmContract'),row=root.querySelector('.contract-accept-row'),bar=root.querySelector('#contractProgressBar');const update=()=>{const max=Math.max(1,scroll.scrollHeight-scroll.clientHeight),pct=Math.min(100,Math.round(scroll.scrollTop/max*100));bar.style.width=pct+'%';if(scroll.scrollTop+scroll.clientHeight>=scroll.scrollHeight-12){agree.disabled=false;row.classList.remove('disabled');}};scroll.addEventListener('scroll',update);agree.addEventListener('change',()=>confirm.disabled=!agree.checked);root.querySelectorAll('[data-contract-close]').forEach(x=>x.onclick=()=>root.remove());confirm.onclick=()=>{document.querySelector('#contractAccepted').value='1';root.remove();toast('Contrato aceito. Agora confirme a assinatura.','success');onAccepted?.();};setTimeout(update,50);}
 function modal(title,body,onSave,saveText='Salvar'){window.closeForgeConnect?.();const root=$('#modalRoot');root.innerHTML=`<div class="modal-overlay"><div class="modal"><div class="modal-header"><strong>${title}</strong><button type="button" class="icon-btn" data-close>&times;</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn ghost" data-close>Cancelar</button><button type="button" class="btn primary" id="modalSave">${saveText}</button></div></div></div>`;root.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>root.innerHTML='');applyInputMasks(root);bindCepLookup(root);const save=$('#modalSave');save.onclick=async()=>{if(save.disabled)return;clearModalError();const original=save.textContent;save.disabled=true;save.textContent='Salvando...';try{await onSave(()=>root.innerHTML='');}finally{if(document.body.contains(save)){save.disabled=false;save.textContent=original;}}};}
 function toast(message,type='auto',options={}){
@@ -1282,6 +1310,45 @@ function bindFiscalDashboard(){
 }
 
 const actions={
+ 'delete-appointment':button=>{
+  const appointment=db.data.agenda.find(item=>String(item.id)===String(button.dataset.id));
+  if(!appointment)return toast('Atendimento não encontrado.','error');
+  modal('Excluir atendimento',`<p>Excluir definitivamente este atendimento duplicado?</p><div class="notice danger">O atendimento e eventual valor em aberto vinculado serão removidos. Esta ação deve ser usada apenas para lançamentos duplicados.</div>`,async close=>{
+   try{
+    await cloud.request(`/api/forge/agenda/${appointment.id}?permanent=1`,{method:'DELETE'});
+    db.data.agenda=db.data.agenda.filter(item=>String(item.id)!==String(appointment.id));
+    db.data.pendencias=(db.data.pendencias||[]).filter(item=>String(item.agendaId||'')!==String(appointment.id));
+    localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));
+    close();render();toast('Atendimento duplicado excluído.','success');
+   }catch(error){setModalError(error.message||'Não foi possível excluir o atendimento.');}
+  },'Excluir atendimento');
+ },
+ 'delete-expense':button=>{
+  const expense=db.data.despesas.find(item=>String(item.id)===String(button.dataset.id));
+  if(!expense)return toast('Despesa não encontrada.','error');
+  modal('Excluir lançamento',`<p>Enviar <b>${escapeHtml(expense.descricao||'esta despesa')}</b> para a Lixeira?</p><div class="notice">Ela poderá ser restaurada depois em Financeiro → Lixeira.</div>`,close=>{
+   db.data.despesas=db.data.despesas.filter(item=>String(item.id)!==String(expense.id));
+   db.data.caixa=db.data.caixa.filter(item=>String(item.expenseId||item.sourceId||'')!==String(expense.id));
+   db.save();close();render();toast('Lançamento enviado para a Lixeira.','success');
+  },'Excluir lançamento');
+ },
+ 'delete-finance-transaction':button=>{
+  const transaction=db.data.caixa.find(item=>String(item.id)===String(button.dataset.id));
+  if(!transaction)return toast('Movimentação não encontrada.','error');
+  modal('Excluir movimentação',`<p>Enviar <b>${escapeHtml(transaction.descricao||'esta movimentação')}</b> para a Lixeira?</p><div class="notice">Se esta saída veio de uma despesa paga, a despesa voltará para pendente.</div>`,close=>{
+   const linkedExpense=db.data.despesas.find(item=>String(item.id)===String(transaction.expenseId||transaction.sourceId||''));
+   if(linkedExpense){
+    linkedExpense.status='pendente';
+    linkedExpense.paidAt=null;
+    linkedExpense.pagoEm=null;
+    linkedExpense.valorPago=null;
+    linkedExpense.caixaMovementId=null;
+   }
+   db.data.caixa=db.data.caixa.filter(item=>String(item.id)!==String(transaction.id));
+   db.save();close();render();toast('Movimentação enviada para a Lixeira.','success');
+  },'Excluir movimentação');
+ },
+
  'set-finance-period-mode':button=>{
   window.financePeriodFilter={...financePeriodState(),mode:button.dataset.mode||'month'};
   render();
@@ -1321,12 +1388,22 @@ const actions={
   const expense=db.data.despesas.find(x=>String(x.id)===String(b.dataset.id));
   if(!expense)return toast('Despesa não encontrada.','error');
   modal('Confirmar pagamento',`<div class="payment-confirmation"><h3>${escapeHtml(expense.descricao)}</h3><p>Valor: <b>${money(expense.valor)}</b></p><p>Vencimento: <b>${formatDateBR(expense.vencimento)}</b></p><div class="notice">Ao confirmar, o valor será lançado como saída e passará a reduzir o saldo real.</div></div>`,close=>{
+   const paidValue=Number(expense.valor||0)+Number(expense.juros||0)+Number(expense.multa||0);
+   const paidDate=today();
    expense.status='pago';
-   expense.paidAt=new Date().toISOString();
-   const movement={id:uid(),tipo:'saida',data:today(),descricao:expense.descricao,valor:Number(expense.valor),forma:expense.forma||'PIX',expenseId:expense.id};
-   db.data.caixa.push(movement);
-   expense.caixaMovementId=movement.id;
-   db.save();close();render();toast('Despesa marcada como paga.','success');
+   expense.paidAt=new Date(`${paidDate}T12:00:00`).toISOString();
+   expense.pagoEm=expense.paidAt;
+   expense.valorPago=paidValue;
+   const existingMovement=db.data.caixa.find(item=>String(item.expenseId||item.sourceId||'')===String(expense.id));
+   if(existingMovement){
+    Object.assign(existingMovement,{tipo:'saida',data:paidDate,descricao:expense.descricao,valor:paidValue,forma:expense.forma||'PIX',expenseId:expense.id,sourceId:expense.id});
+    expense.caixaMovementId=existingMovement.id;
+   }else{
+    const movement={id:uid(),tipo:'saida',data:paidDate,descricao:expense.descricao,valor:paidValue,forma:expense.forma||'PIX',expenseId:expense.id,sourceId:expense.id,createdAt:new Date().toISOString()};
+    db.data.caixa.push(movement);
+    expense.caixaMovementId=movement.id;
+   }
+   db.save();close();render();toast(`Despesa paga e descontada do saldo: ${money(paidValue)}.`,'success');
   },'Confirmar pagamento');
  },
  'edit-expense':b=>{const expense=db.data.despesas.find(x=>String(x.id)===String(b.dataset.id));if(expense)openExpenseModal(expense);},
