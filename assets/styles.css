@@ -483,3 +483,12 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 
 /* Forge Pets v9.9.7 - exportação PDF */
 .reports-export-actions{display:flex;gap:8px;flex-wrap:wrap}.reports-export-actions .btn{white-space:nowrap}@media(max-width:650px){.reports-export-actions{width:100%}.reports-export-actions .btn{flex:1}}
+
+
+/* Forge Pets v9.9.8 — despesas realizadas */
+.expense-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.expense-choice-card{border:1px solid #e5ddef;background:#fff;border-radius:18px;padding:20px;text-align:left;cursor:pointer;transition:.18s ease}
+.expense-choice-card:hover{transform:translateY(-2px);border-color:#bda7f4;box-shadow:0 14px 30px #35106b14}
+.expense-choice-card.paid{background:linear-gradient(145deg,#fff,#f6fff9);border-color:#bbebcc}
+.expense-choice-card>span{font-size:31px}.expense-choice-card h3{margin:10px 0 6px;font-size:19px}.expense-choice-card p{margin:0;color:var(--muted);line-height:1.5}
+@media(max-width:620px){.expense-choice-grid{grid-template-columns:1fr}}

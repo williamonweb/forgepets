@@ -503,7 +503,7 @@ const views={
    ${financePeriodControls()}
    <div class="finance-hero">
     <div><span class="finance-eyebrow">VISÃO FINANCEIRA DO PERÍODO</span><h2>Realizado e previsto, sem misturar</h2><p>Todos os números abaixo respeitam o filtro selecionado.</p></div>
-    <div class="finance-hero-actions"><button class="btn primary" data-action="new-revenue">＋ Nova receita</button><button class="btn ghost" data-action="new-expense">＋ Nova despesa</button><button class="btn ghost" data-action="finance-trash">♻ Lixeira</button></div>
+    <div class="finance-hero-actions"><button class="btn primary" data-action="new-revenue">＋ Nova receita</button><button class="btn ghost" data-action="new-paid-expense">＋ Registrar saída paga</button><button class="btn ghost" data-action="finance-trash">♻ Lixeira</button></div>
    </div>
    <div class="finance-kpis">
     <article class="finance-kpi real"><span>💰</span><small>Saldo realizado</small><strong>${money(summary.realBalance)}</strong><em>Entradas menos saídas pagas</em></article>
@@ -520,7 +520,7 @@ const views={
     <div><b>Projeção completa</b><span>${money(summary.forecastBalance)}</span></div>
    </div>
    <div class="card">
-    <div class="section-title"><div><h2>Contas a pagar</h2><p>Filtradas pela data de vencimento.</p></div><button class="btn primary" data-action="new-expense">Nova despesa</button></div>
+    <div class="section-title"><div><h2>Contas a pagar</h2><p>Filtradas pela data de vencimento.</p></div><button class="btn primary" data-action="new-pending-expense">Nova conta a pagar</button></div>
     <div class="finance-tabs">${financeFilterButton('all','Todas',filter,summary.payables.length)}${financeFilterButton('overdue','Vencidas',filter,summary.overdueCount)}${financeFilterButton('today','Vencem hoje',filter,summary.dueTodayCount)}${financeFilterButton('upcoming','A vencer',filter,summary.upcomingCount)}${financeFilterButton('paid','Pagas',filter,summary.paidCount)}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Despesa</th><th>Vencimento</th><th>Situação</th><th>Valor atualizado</th><th>Ações</th></tr></thead><tbody>${expenseRows}</tbody></table></div>
    </div>
@@ -955,51 +955,103 @@ function filteredExpenses(filter='all'){
 function financeFilterButton(key,label,current,count){
  return `<button class="${current===key?'active':''}" data-action="filter-expenses" data-filter="${key}">${label}<b>${count}</b></button>`;
 }
-function openExpenseModal(expense=null){
+function openExpenseModal(expense=null,initialStatus='pendente'){
  const editing=Boolean(expense);
- modal(editing?'Editar despesa':'Nova despesa',`<div class="form-grid">
+ const currentStatus=expense?.status==='pago'?'pago':initialStatus;
+ modal(editing?'Editar despesa':currentStatus==='pago'?'Registrar saída paga':'Nova conta a pagar',`<div class="form-grid">
   <div class="field full"><label>Descrição *</label><input id="expenseDescription" value="${escapeAttr(expense?.descricao||'')}" placeholder="Ex.: Aluguel, energia, fornecedor" data-trim></div>
   <div class="field"><label>Categoria</label><select id="expenseCategory">${categoryOptions('despesa',expense?.categoria||'')}</select></div>
   <div class="field"><label>Valor *</label><input id="expenseValue" data-mask="money" inputmode="numeric" value="${expense?money(expense.valor):''}" placeholder="R$ 0,00"></div>
   <div class="field"><label>Vencimento *</label><input id="expenseDueDate" type="date" value="${expense?.vencimento||today()}"></div>
-  <div class="field"><label>Situação</label><select id="expensePaymentStatus"><option value="pendente" ${expense?.status!=='pago'?'selected':''}>Pendente</option><option value="pago" ${expense?.status==='pago'?'selected':''}>Já paga</option></select></div>
-  <div class="field"><label>Forma de pagamento</label><select id="expensePaymentMethod"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Boleto</option><option>Transferência</option></select></div>
+  <div class="field"><label>Situação</label><select id="expensePaymentStatus"><option value="pendente" ${currentStatus!=='pago'?'selected':''}>Conta a pagar — não desconta agora</option><option value="pago" ${currentStatus==='pago'?'selected':''}>Já paga — descontar do saldo</option></select></div>
+  <div class="field"><label>Forma de pagamento</label><select id="expensePaymentMethod">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito','Boleto','Transferência'].map(name=>`<option ${name===(expense?.forma||'PIX')?'selected':''}>${name}</option>`).join('')}</select></div>
+  <div class="field" id="expensePaidDateField" style="${currentStatus==='pago'?'':'display:none'}"><label>Data do pagamento</label><input id="expensePaidDate" type="date" value="${reportDateOnly(expense?.paidAt||expense?.pagoEm)||today()}"></div>
   <div class="field full"><label>Observações</label><textarea id="expenseNotes" rows="3">${escapeHtml(expense?.observacoes||'')}</textarea></div>
- </div><div class="notice">Enquanto estiver pendente, esta despesa aparecerá apenas na previsão e não reduzirá o saldo real.</div>`,close=>{
+ </div><div id="expenseStatusNotice" class="notice">${currentStatus==='pago'?'Esta despesa será lançada imediatamente em Saídas realizadas e reduzirá o saldo.':'Enquanto estiver pendente, aparecerá apenas em Contas a pagar e no saldo previsto.'}</div>`,async close=>{
   const descricao=$('#expenseDescription').value.trim();
   const valor=parseLocaleNumber($('#expenseValue').value);
   const vencimento=$('#expenseDueDate').value;
   const status=$('#expensePaymentStatus').value;
+  const paidDate=$('#expensePaidDate')?.value||today();
   if(!descricao||valor<=0||!vencimento)return toast('Preencha descrição, valor e vencimento.','error');
-  const payload={
-   id:expense?.id||uid(),
+
+  const target=expense||{id:uid(),createdAt:new Date().toISOString()};
+  const previousMovementId=target.caixaMovementId||null;
+  Object.assign(target,{
    descricao,
+   empresa:descricao,
    categoria:$('#expenseCategory').value.trim()||'Geral',
    valor,
    vencimento,
    status,
    forma:$('#expensePaymentMethod').value,
    observacoes:$('#expenseNotes').value.trim(),
-   createdAt:expense?.createdAt||new Date().toISOString(),
    updatedAt:new Date().toISOString()
-  };
-  if(editing)Object.assign(expense,payload);else db.data.despesas.push(payload);
-  if(status==='pago'&&!payload.caixaMovementId){
-   const movement={id:uid(),tipo:'saida',data:today(),descricao:payload.descricao,valor:payload.valor,forma:payload.forma,expenseId:payload.id};
-   db.data.caixa.push(movement);
-   payload.caixaMovementId=movement.id;
-   payload.paidAt=new Date().toISOString();
+  });
+  if(!editing)db.data.despesas.push(target);
+
+  const linkedMovement=db.data.caixa.find(item=>
+   String(item.id||'')===String(previousMovementId||'')||
+   String(item.expenseId||item.sourceId||'')===String(target.id)
+  );
+
+  if(status==='pago'){
+   const paidValue=Number(target.valor||0)+Number(target.juros||0)+Number(target.multa||0);
+   const movement=linkedMovement||{id:uid(),createdAt:new Date().toISOString()};
+   Object.assign(movement,{
+    tipo:'saida',
+    data:paidDate,
+    descricao:target.descricao,
+    categoria:target.categoria,
+    valor:paidValue,
+    forma:target.forma,
+    source:'EXPENSE',
+    sourceId:target.id,
+    expenseId:target.id,
+    observacoes:target.observacoes||''
+   });
+   if(!linkedMovement)db.data.caixa.push(movement);
+   target.caixaMovementId=movement.id;
+   target.paidAt=new Date(`${paidDate}T12:00:00`).toISOString();
+   target.pagoEm=target.paidAt;
+   target.valorPago=paidValue;
+  }else{
+   db.data.caixa=db.data.caixa.filter(item=>
+    String(item.id||'')!==String(previousMovementId||'')&&
+    String(item.expenseId||item.sourceId||'')!==String(target.id)
+   );
+   target.caixaMovementId=null;
+   target.paidAt=null;
+   target.pagoEm=null;
+   target.valorPago=null;
   }
-  if(status!=='pago'&&payload.caixaMovementId){
-   const index=db.data.caixa.findIndex(x=>x.id===payload.caixaMovementId);
-   if(index>=0)db.data.caixa.splice(index,1);
-   payload.caixaMovementId=null;
-   payload.paidAt=null;
+
+  db.save();
+  if(financeCloud.ready){
+   clearTimeout(financeCloud.saveTimer);
+   await financeCloud.push();
   }
-  db.save();close();render();toast(editing?'Despesa atualizada.':'Despesa cadastrada.','success');
- },editing?'Salvar alterações':'Cadastrar despesa');
+  close();render();
+  toast(status==='pago'?`Saída registrada e descontada do saldo: ${money(target.valorPago)}.`:(editing?'Conta a pagar atualizada.':'Conta a pagar cadastrada.'),'success');
+ },editing?'Salvar alterações':currentStatus==='pago'?'Registrar saída':'Cadastrar conta');
  applyInputMasks($('.modal'));
+ const statusSelect=$('#expensePaymentStatus');
+ statusSelect?.addEventListener('change',()=>{
+  const paid=statusSelect.value==='pago';
+  $('#expensePaidDateField').style.display=paid?'block':'none';
+  $('#expenseStatusNotice').textContent=paid?'Esta despesa será lançada imediatamente em Saídas realizadas e reduzirá o saldo.':'Enquanto estiver pendente, aparecerá apenas em Contas a pagar e no saldo previsto.';
+ });
 }
+
+function openExpenseChoice(){
+ modal('Adicionar despesa',`<div class="expense-choice-grid">
+  <button type="button" class="expense-choice-card" id="choosePendingExpense"><span>🗓</span><h3>Conta a pagar</h3><p>Cadastre uma despesa futura. Ela não reduz o saldo real até ser marcada como paga.</p></button>
+  <button type="button" class="expense-choice-card paid" id="choosePaidExpense"><span>💸</span><h3>Saída já paga</h3><p>Registre um gasto que já aconteceu. Ele entra imediatamente em Saídas realizadas.</p></button>
+ </div>`,close=>close(),'Fechar');
+ $('#choosePendingExpense').onclick=()=>{$('.modal-close')?.click();setTimeout(()=>openExpenseModal(null,'pendente'),60)};
+ $('#choosePaidExpense').onclick=()=>{$('.modal-close')?.click();setTimeout(()=>openExpenseModal(null,'pago'),60)};
+}
+
 
 
 function addMonthsToDate(dateString,months){
@@ -1821,7 +1873,9 @@ const actions={
  'new-pet-select':()=>{if(!db.data.clientes.length)return toast('Cadastre um cliente primeiro.');modal('Escolha o tutor',`<div class="field"><label>Tutor</label><select id="petTutor">${db.data.clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>`,close=>{const id=$('#petTutor').value;close();actions['new-pet']({dataset:{id}});},'Continuar');},
  'quick-sale':()=>openSaleModal(),
  'new-entry':()=>openSaleModal(),
- 'new-expense':()=>openExpenseModal(),
+ 'new-expense':()=>openExpenseChoice(),
+ 'new-pending-expense':()=>openExpenseModal(null,'pendente'),
+ 'new-paid-expense':()=>openExpenseModal(null,'pago'),
  'notifications':()=>{const bills=boletoAlerts();modal('Notificações',`<div class="notice-list">${bills.length?bills.map(x=>`<button class="notice notice-button" data-action="go-boletos"><span>🧾</span><div><b>Boleto vence amanhã</b><small>${escapeHtml(x.empresa)} · ${money(x.valor)} · ${formatDateBR(x.vencimento)}</small></div></button>`).join(''):'<div class="notice">✓ Nenhum boleto vence amanhã.</div>'}<div class="notice">⚠ Confira os produtos com estoque baixo.</div><div class="notice">📅 Revise os atendimentos de hoje.</div></div>`,close=>close(),'Fechar')},
  'birthdays-week':()=>openBirthdayWeek(),
  'whatsapp-center':()=>{if(!db.data.clientes.length)return toast('Cadastre clientes com WhatsApp primeiro.');modal('Central de WhatsApp',`<div class="form-grid"><div class="field full"><label>Cliente</label><select id="wCliente">${db.data.clientes.map(c=>`<option value="${c.id}">${c.nome} · ${c.telefone||'sem telefone'}</option>`).join('')}</select></div><div class="field full"><label>Mensagem</label><textarea id="wMsg">Olá! Passando para lembrar do atendimento do seu pet. 🐾</textarea></div></div>`,close=>{const c=db.data.clientes.find(x=>x.id===$('#wCliente').value);if(!c?.telefone)return toast('Este cliente não possui telefone.');const phone=c.telefone.replace(/\D/g,'');window.open(`https://wa.me/55${phone}?text=${encodeURIComponent($('#wMsg').value)}`,'_blank');close();},'Abrir WhatsApp');},
