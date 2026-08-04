@@ -479,3 +479,7 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .reports-payable-summary small{color:var(--muted);font-weight:700}.reports-payable-summary strong{font-size:22px}
 .notice.danger{background:#fff1f2;border-color:#fecdd3;color:#9f1239}
 @media(max-width:620px){.reports-payable-summary{grid-template-columns:1fr}}
+
+
+/* Forge Pets v9.9.7 - exportação PDF */
+.reports-export-actions{display:flex;gap:8px;flex-wrap:wrap}.reports-export-actions .btn{white-space:nowrap}@media(max-width:650px){.reports-export-actions{width:100%}.reports-export-actions .btn{flex:1}}

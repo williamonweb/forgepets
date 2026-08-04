@@ -11,3 +11,7 @@
 .master-module-confirm h3{font-size:22px;margin:0 0 8px}
 .master-module-confirm p{color:#716a7d;line-height:1.6;margin:0 auto 17px;max-width:500px}
 .notice.danger{background:#fff1f2;border-color:#fecdd3;color:#9f1239}
+
+
+/* Forge Pets v9.9.7 - snapshots Neon */
+.neon-backup-panel .panel-actions{display:flex;gap:8px;flex-wrap:wrap}.neon-backup-list{display:grid;gap:9px}.neon-backup-item{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid #e6def0;border-radius:14px;background:#fbfaff}.neon-backup-item .backup-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#eee7ff;color:#6d28d9;font-size:20px}.neon-backup-item div:nth-child(2){display:grid;gap:3px}.neon-backup-item span{color:#766e80;font-size:12px}.backup-security-note,.backup-not-configured,.backup-error{display:grid;gap:5px;margin-top:12px;padding:13px 15px;border-radius:13px;border:1px solid #e5dcf3;background:#faf8ff}.backup-security-note span,.backup-not-configured span,.backup-error span{color:#756d80;line-height:1.5}.backup-error{background:#fff1f2;border-color:#fecdd3}.backup-create-modal{text-align:center}.backup-create-icon{width:68px;height:68px;margin:0 auto 13px;border-radius:20px;display:grid;place-items:center;background:#eee7ff;color:#6d28d9;font-size:30px}.backup-create-modal h3{margin:0 0 7px;font-size:22px}.backup-create-modal p{color:#756d80}.backup-create-modal label{display:grid;text-align:left;gap:6px;margin-top:16px}
