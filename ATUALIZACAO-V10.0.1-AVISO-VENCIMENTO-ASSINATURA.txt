@@ -1,0 +1,10 @@
+FORGE PETS v10.0.1 — AVISO DE VENCIMENTO DA ASSINATURA
+
+- Modal automático três dias antes do vencimento.
+- Também ajusta a mensagem para amanhã e para o próprio dia.
+- Exibição uma vez por dia para cada vencimento.
+- Mostra plano, valor, vencimento e forma de pagamento.
+- Cartão: informa que a cobrança será automática.
+- PIX e boleto: botão para abrir a cobrança do Asaas.
+- Botão "Lembrar amanhã" para fechar o aviso.
+- Pagamento confirmado continua sendo atualizado automaticamente pelo Webhook.

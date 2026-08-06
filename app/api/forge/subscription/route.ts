@@ -34,7 +34,7 @@ const MODULE_CATALOG: Record<ModuleCode, { name: string; price: number }> = {
 
 type CustomerResponse = { id: string };
 type SubscriptionResponse = { id: string; status?: string; nextDueDate?: string };
-type PaymentItem = { id: string; status?: string; dueDate?: string; value?: number; billingType?: string; invoiceUrl?: string; bankSlipUrl?: string; invoiceNumber?: string };
+type PaymentItem = { id: string; status?: string; dueDate?: string; value?: number; billingType?: string; invoiceUrl?: string; bankSlipUrl?: string; invoiceNumber?: string; description?: string };
 type IdentificationFieldResponse = { identificationField?: string; nossoNumero?: string; barCode?: string };
 type PaymentsResponse = { data?: PaymentItem[] };
 type PixQrCodeResponse = { encodedImage: string; payload: string; expirationDate?: string };
@@ -51,6 +51,32 @@ async function getFirstSubscriptionPayment(subscriptionId: string) {
     await sleep(700);
   }
   return null;
+}
+
+async function getUpcomingSubscriptionPayment(subscriptionId: string) {
+  try {
+    const payments = await asaasRequest<PaymentsResponse>(
+      `/subscriptions/${subscriptionId}/payments?limit=100&offset=0`
+    );
+    const openStatuses = new Set(['PENDING', 'OVERDUE', 'AWAITING_RISK_ANALYSIS']);
+    return (payments.data || [])
+      .filter(item => item.id && item.dueDate && openStatuses.has(String(item.status || '').toUpperCase()))
+      .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))[0] || null;
+  } catch (error) {
+    console.warn(
+      '[ForgePets] Não foi possível consultar a próxima cobrança:',
+      error instanceof Error ? error.message : error
+    );
+    return null;
+  }
+}
+
+function daysUntilDate(date: Date | null) {
+  if (!date) return null;
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((targetUtc - todayUtc) / 86400000);
 }
 
 function dateOnly(date: Date) {
@@ -116,6 +142,28 @@ export async function GET(request: NextRequest) {
     const active = effectiveStatus === SubscriptionStatus.ACTIVE;
     const accessAllowed = active || effectiveStatus === SubscriptionStatus.TRIAL;
 
+    const nextBillingDate = company.nextBillingDate;
+    const billingDaysRemaining = daysUntilDate(nextBillingDate);
+    const shouldWarnBilling = active
+      && billingDaysRemaining !== null
+      && billingDaysRemaining >= 0
+      && billingDaysRemaining <= 3;
+
+    const planName = publicPlanName(company.plan);
+    const planValue = PLAN_CONFIG[planName]?.value || 0;
+    const enabledModulesValue = company.modules
+      .filter(item => item.enabled)
+      .reduce(
+        (sum, item) =>
+          sum + (item.price ? Number(item.price) : (MODULE_CATALOG[item.module]?.price || 0)),
+        0
+      );
+    const expectedMonthlyValue = planValue + enabledModulesValue;
+
+    const upcomingPayment = shouldWarnBilling && company.asaasSubscriptionId
+      ? await getUpcomingSubscriptionPayment(company.asaasSubscriptionId)
+      : null;
+
     return NextResponse.json({
       status: effectiveStatus.toLowerCase(),
       active,
@@ -124,9 +172,24 @@ export async function GET(request: NextRequest) {
       trialEndsAt: company.trialEndsAt,
       trialDaysRemaining,
       paymentPending: !!company.asaasSubscriptionId && !active,
-      plan: publicPlanName(company.plan),
+      plan: planName,
       pendingPlan: company.pendingPlan ? publicPlanName(company.pendingPlan) : null,
-      nextBillingDate: company.nextBillingDate,
+      nextBillingDate,
+      billingType: company.billingType,
+      monthlyValue: upcomingPayment?.value || expectedMonthlyValue,
+      billingWarning: shouldWarnBilling
+        ? {
+            dueDate: upcomingPayment?.dueDate
+              || (nextBillingDate ? nextBillingDate.toISOString().slice(0, 10) : null),
+            daysRemaining: billingDaysRemaining,
+            value: upcomingPayment?.value || expectedMonthlyValue,
+            billingType: upcomingPayment?.billingType || company.billingType,
+            paymentId: upcomingPayment?.id || null,
+            paymentStatus: upcomingPayment?.status || 'PENDING',
+            invoiceUrl: upcomingPayment?.invoiceUrl || null,
+            bankSlipUrl: upcomingPayment?.bankSlipUrl || null
+          }
+        : null,
       modules: company.modules.map(item => item.module),
       activeModules: company.modules.filter(item => item.enabled).map(item => item.module)
     });

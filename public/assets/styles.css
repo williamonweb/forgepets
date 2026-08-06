@@ -498,3 +498,19 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .workspace-sync-card{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px;border:1px solid #dcd1ef;border-radius:18px;background:linear-gradient(145deg,#fff,#f8f5ff);margin-bottom:16px}
 .workspace-sync-card>div{display:flex;align-items:center;gap:12px}.workspace-sync-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#ede7ff;font-size:24px}.workspace-sync-card b,.workspace-sync-card small{display:block}.workspace-sync-card small{color:#726a7d;margin-top:4px}.workspace-sync-card small.error{color:#b91c1c}
 @media(max-width:650px){.workspace-sync-card{align-items:stretch;flex-direction:column}.workspace-sync-card .btn{width:100%}}
+
+
+/* Forge Pets v10.0.1 — aviso de vencimento da assinatura */
+.subscription-due-warning{display:grid;gap:16px}
+.subscription-due-hero{display:flex;align-items:flex-start;gap:14px;padding:18px;border:1px solid #e3d8fb;border-radius:18px;background:linear-gradient(145deg,#fbf8ff,#f3edff)}
+.subscription-due-hero>span{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:#fff;box-shadow:0 8px 24px #4c1d9518;font-size:25px}
+.subscription-due-hero small{font-size:10px;font-weight:900;letter-spacing:.14em;color:var(--purple)}
+.subscription-due-hero h3{margin:5px 0 7px;font-size:22px;color:#201334}
+.subscription-due-hero p{margin:0;color:#6e6479;line-height:1.55}
+.subscription-due-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.subscription-due-grid>div{display:grid;gap:5px;padding:14px;border:1px solid #e9e2f1;border-radius:14px;background:#fff}
+.subscription-due-grid small{color:#81788b;font-size:11px;font-weight:700}
+.subscription-due-grid strong{font-size:16px;color:#241634}
+.subscription-due-note{padding:14px 15px;border:1px solid #fed7aa;border-radius:14px;background:#fff7ed;color:#9a4d0a;line-height:1.5}
+.subscription-due-note.automatic{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+@media(max-width:620px){.subscription-due-grid{grid-template-columns:1fr}.subscription-due-hero{align-items:flex-start}}

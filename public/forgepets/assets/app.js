@@ -406,6 +406,7 @@ async function enforceSubscriptionAccess(){
   if(state.accessAllowed){
    if(state.active){sessionStorage.removeItem('forgepets_trial_warning_shown');if(window.forgePaymentRecheckTimer){clearInterval(window.forgePaymentRecheckTimer);window.forgePaymentRecheckTimer=null;}}
    if(state.status==='trial'&&Number(state.trialDaysRemaining)<=1) showTrialWarning(state);
+   if(state.active&&state.billingWarning)setTimeout(()=>showUpcomingBillingWarning(state),250);
    updatePlanUI();
    return;
   }
@@ -414,6 +415,113 @@ async function enforceSubscriptionAccess(){
  }catch(error){
   console.warn('[ForgePets] Não foi possível validar a assinatura.',error);
  }
+}
+
+
+function subscriptionBillingTypeLabel(value){
+ return ({
+  CREDIT_CARD:'Cartão de crédito',
+  PIX:'PIX',
+  BOLETO:'Boleto bancário',
+  UNDEFINED:'Não definida'
+ })[String(value||'').toUpperCase()]||String(value||'Não definida');
+}
+function billingWarningTitle(days){
+ if(days===0)return 'Sua mensalidade vence hoje';
+ if(days===1)return 'Sua mensalidade vence amanhã';
+ return `Sua mensalidade vence em ${days} dias`;
+}
+function billingWarningDescription(days,billingType){
+ const method=String(billingType||'').toUpperCase();
+ if(method==='CREDIT_CARD'){
+  return days===0
+   ?'A cobrança será processada automaticamente hoje no cartão cadastrado.'
+   :`A cobrança será processada automaticamente no cartão cadastrado em ${days} dia${days===1?'':'s'}.`;
+ }
+ return days===0
+  ?'A cobrança vence hoje. Abra os dados de pagamento para evitar atraso.'
+  :`A cobrança vence em ${days} dia${days===1?'':'s'}. Você já pode abrir os dados de pagamento.`;
+}
+async function openUpcomingSubscriptionCharge(state,close){
+ const warning=state?.billingWarning||{};
+ const directUrl=warning.bankSlipUrl||warning.invoiceUrl;
+ if(directUrl){
+  const popup=window.open(directUrl,'_blank','noopener,noreferrer');
+  if(!popup)toast('O navegador bloqueou a nova janela. Permita pop-ups para abrir a cobrança.','warning');
+  close();
+  return;
+ }
+
+ const popup=window.open('about:blank','_blank');
+ try{
+  const result=await cloud.request('/api/forge/subscription?payment=1');
+  const payment=result?.payment||{};
+  const url=payment.bankSlipUrl||payment.invoiceUrl;
+  if(url){
+   if(popup)popup.location.href=url;
+   else window.open(url,'_blank','noopener,noreferrer');
+   close();
+   return;
+  }
+  if(popup)popup.close();
+  setModalError('A cobrança ainda está sendo preparada pelo Asaas. Tente novamente em alguns instantes.');
+ }catch(error){
+  if(popup)popup.close();
+  setModalError(error.message||'Não foi possível abrir a cobrança.');
+ }
+}
+function showUpcomingBillingWarning(state){
+ const warning=state?.billingWarning;
+ if(!state?.active||!warning?.dueDate)return;
+
+ const days=Number(warning.daysRemaining);
+ if(!Number.isFinite(days)||days<0||days>3)return;
+
+ const current=activeSubscription();
+ const companyKey=String(current.companyId||current.companyName||'company').replace(/[^\w-]/g,'_');
+ const shownKey=`forgepets_billing_warning_${companyKey}_${warning.dueDate}`;
+ const todayKey=today();
+ if(localStorage.getItem(shownKey)===todayKey)return;
+ localStorage.setItem(shownKey,todayKey);
+
+ const method=String(warning.billingType||state.billingType||'').toUpperCase();
+ const automatic=method==='CREDIT_CARD';
+ const dueLabel=new Date(`${warning.dueDate}T12:00:00`).toLocaleDateString('pt-BR');
+ const title=billingWarningTitle(days);
+ const description=billingWarningDescription(days,method);
+
+ modal(
+  title,
+  `<div class="subscription-due-warning">
+    <div class="subscription-due-hero">
+      <span>🔔</span>
+      <div>
+        <small>ASSINATURA FORGEPETS</small>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(description)}</p>
+      </div>
+    </div>
+    <div class="subscription-due-grid">
+      <div><small>Plano</small><strong>${escapeHtml(state.plan||activePlan())}</strong></div>
+      <div><small>Vencimento</small><strong>${escapeHtml(dueLabel)}</strong></div>
+      <div><small>Valor previsto</small><strong>${money(warning.value||state.monthlyValue||0)}</strong></div>
+      <div><small>Forma de pagamento</small><strong>${escapeHtml(subscriptionBillingTypeLabel(method))}</strong></div>
+    </div>
+    <div class="subscription-due-note ${automatic?'automatic':''}">
+      ${automatic
+        ?'✓ Não é necessário gerar PIX ou boleto. A tentativa será feita automaticamente no cartão cadastrado.'
+        :'Para evitar interrupção, realize o pagamento até a data de vencimento. Após a confirmação do Asaas, o Forge Pets atualiza a assinatura automaticamente.'}
+    </div>
+  </div>`,
+  async close=>{
+   if(automatic){close();return;}
+   await openUpcomingSubscriptionCharge(state,close);
+  },
+  automatic?'Entendi':'Ver cobrança'
+ );
+
+ const footerCancel=document.querySelector('#modalRoot .modal-footer [data-close]');
+ if(footerCancel)footerCancel.textContent='Lembrar amanhã';
 }
 
 function showTrialWarning(state){
