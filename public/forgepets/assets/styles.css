@@ -492,3 +492,9 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .expense-choice-card.paid{background:linear-gradient(145deg,#fff,#f6fff9);border-color:#bbebcc}
 .expense-choice-card>span{font-size:31px}.expense-choice-card h3{margin:10px 0 6px;font-size:19px}.expense-choice-card p{margin:0;color:var(--muted);line-height:1.5}
 @media(max-width:620px){.expense-choice-grid{grid-template-columns:1fr}}
+
+
+/* Forge Pets v10.0.0 — sincronização completa no Neon */
+.workspace-sync-card{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px;border:1px solid #dcd1ef;border-radius:18px;background:linear-gradient(145deg,#fff,#f8f5ff);margin-bottom:16px}
+.workspace-sync-card>div{display:flex;align-items:center;gap:12px}.workspace-sync-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#ede7ff;font-size:24px}.workspace-sync-card b,.workspace-sync-card small{display:block}.workspace-sync-card small{color:#726a7d;margin-top:4px}.workspace-sync-card small.error{color:#b91c1c}
+@media(max-width:650px){.workspace-sync-card{align-items:stretch;flex-direction:column}.workspace-sync-card .btn{width:100%}}

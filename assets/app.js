@@ -75,14 +75,14 @@ const cloud={
   let changed=false;
   window.forgeCloudStatus={tutores:'ok',pets:'ok',lastSync:new Date().toISOString()};
   if(tutorsResult.status==='fulfilled'){
-   db.data.clientes=(tutorsResult.value.tutors||[]).map(this.tutor);
+   db.data.clientes=workspaceCloud.mergeArray((tutorsResult.value.tutors||[]).map(this.tutor),db.data.clientes,true);
    changed=true;
   }else{
    window.forgeCloudStatus.tutores='error';
    console.error('[ForgePets] Falha ao carregar tutores:',tutorsResult.reason);
   }
   if(petsResult.status==='fulfilled'){
-   db.data.pets=(petsResult.value.pets||[]).map(this.pet);
+   db.data.pets=workspaceCloud.mergeArray((petsResult.value.pets||[]).map(this.pet),db.data.pets,true);
    changed=true;
   }else{
    window.forgeCloudStatus.pets='error';
@@ -94,14 +94,14 @@ const cloud={
     const migrated=await Promise.allSettled(db.data.servicos.map(s=>this.request('/api/forge/servicos',{method:'POST',body:JSON.stringify({name:s.nome,price:Number(s.valor||0),durationMinutes:Number(s.duracao||60)})})));
     remote=migrated.filter(x=>x.status==='fulfilled').map(x=>this.service(x.value.service));
    }
-   if(remote.length)db.data.servicos=remote;
+   db.data.servicos=workspaceCloud.mergeArray(remote,db.data.servicos,true);
    changed=true;
   }else{
    window.forgeCloudStatus.servicos='error';
    console.error('[ForgePets] Falha ao carregar serviços:',servicesResult.reason);
   }
   if(appointmentsResult.status==='fulfilled'){
-   db.data.agenda=(appointmentsResult.value.appointments||[]).map(this.appointment);
+   db.data.agenda=workspaceCloud.mergeArray((appointmentsResult.value.appointments||[]).map(this.appointment),db.data.agenda,true);
    changed=true;
   }else{
    window.forgeCloudStatus.agenda='error';
@@ -109,6 +109,7 @@ const cloud={
   }
   if(changed){
    localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));
+   workspaceCloud.queueSave();
    render();
   }
   const failed=results.filter(x=>x.status==='rejected').length;
@@ -120,6 +121,99 @@ const cloud={
   return {ok:failed===0,failed};
  }
 };
+
+
+const workspaceCloud={
+ ready:false,
+ revision:0,
+ updatedAt:null,
+ saveTimer:null,
+ saving:false,
+ lastError:null,
+ migrationKey(){const sub=activeSubscription();return `forgepets_workspace_migrated_${sub.companyId||'company'}`;},
+ meaningful(data){
+  if(!data||typeof data!=='object')return false;
+  return ['clientes','pets','agenda','estoque','vendas','boletos','despesas','receitasPrevistas','caixa','pendencias','loyaltyHistory'].some(key=>Array.isArray(data[key])&&data[key].length>0);
+ },
+ mergeArray(server=[],local=[],localOnlyMissing=true){
+  const map=new Map();
+  (Array.isArray(server)?server:[]).forEach(item=>item?.id&&map.set(String(item.id),item));
+  if(localOnlyMissing)(Array.isArray(local)?local:[]).forEach(item=>{if(item?.id&&!map.has(String(item.id)))map.set(String(item.id),item)});
+  return [...map.values()];
+ },
+ merge(server={},local={},includeLocalMissing=false){
+  const result={...server};
+  const arrayKeys=['clientes','pets','agenda','servicos','caixa','estoque','boletos','despesas','receitasPrevistas','pendencias','vendas','cupons','campanhas','loyaltyHistory','recompensas'];
+  arrayKeys.forEach(key=>{result[key]=this.mergeArray(server?.[key],local?.[key],includeLocalMissing)});
+  result.config={...(server?.config||{}),...(includeLocalMissing?local?.config||{}:{})};
+  return result;
+ },
+ apply(data){
+  if(!data||typeof data!=='object')return;
+  db.data={...db.data,...data,config:{...(db.data.config||{}),...(data.config||{})}};
+  ensureData();
+  localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));
+ },
+ async requestSave(data,baseRevision,source='AUTO_SYNC'){
+  const response=await fetch('/api/forge/workspace',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({data,baseRevision,source})});
+  const payload=await response.json().catch(()=>({}));
+  if(response.status===409)return {conflict:true,...payload};
+  if(!response.ok)throw new Error(payload.message||'Não foi possível salvar os dados no Neon.');
+  return payload;
+ },
+ async sync(){
+  const local=JSON.parse(JSON.stringify(db.data||{}));
+  try{
+   const remote=await cloud.request('/api/forge/workspace');
+   const firstMigration=!localStorage.getItem(this.migrationKey());
+   if(!remote.exists){
+    if(this.meaningful(local)){
+     const saved=await this.requestSave(local,0,'FIRST_COMPUTER_MIGRATION');
+     this.revision=Number(saved.revision||1);this.updatedAt=saved.updatedAt||new Date().toISOString();
+     localStorage.setItem(this.migrationKey(),'1');this.ready=true;this.lastError=null;
+     return {migrated:true};
+    }
+    this.ready=true;this.revision=0;return {waitingForMainComputer:true};
+   }
+   this.revision=Number(remote.revision||0);this.updatedAt=remote.updatedAt||null;
+   let merged=this.merge(remote.data||{},local,firstMigration&&this.meaningful(local));
+   this.apply(merged);
+   if(firstMigration&&this.meaningful(local)){
+    const saved=await this.requestSave(merged,this.revision,'LOCAL_DATA_RECOVERY');
+    if(saved.conflict){merged=this.merge(saved.data||{},merged,true);this.apply(merged);const retry=await this.requestSave(merged,Number(saved.revision||0),'LOCAL_DATA_RECOVERY_RETRY');this.revision=Number(retry.revision||saved.revision||0);this.updatedAt=retry.updatedAt||saved.updatedAt||null;}
+    else{this.revision=Number(saved.revision||this.revision);this.updatedAt=saved.updatedAt||this.updatedAt;}
+   }
+   localStorage.setItem(this.migrationKey(),'1');this.ready=true;this.lastError=null;
+   return {ok:true};
+  }catch(error){
+   this.ready=false;this.lastError=error;console.error('[ForgePets] Falha ao sincronizar dados da empresa:',error);return {ok:false,error};
+  }
+ },
+ queueSave(){if(!this.ready)return;clearTimeout(this.saveTimer);this.saveTimer=setTimeout(()=>this.push(),650);},
+ async push(){
+  if(!this.ready||this.saving)return;
+  this.saving=true;
+  try{
+   let result=await this.requestSave(db.data,this.revision,'APP_SAVE');
+   if(result.conflict){
+    const merged=this.merge(result.data||{},db.data,true);this.apply(merged);
+    result=await this.requestSave(merged,Number(result.revision||0),'CONFLICT_MERGE');
+   }
+   this.revision=Number(result.revision||this.revision);this.updatedAt=result.updatedAt||new Date().toISOString();this.lastError=null;
+   updateWorkspaceStatusUI();
+  }catch(error){this.lastError=error;console.error('[ForgePets] Alteração ainda não sincronizada com o Neon.',error);toast('Dados salvos neste computador, mas a sincronização com o Neon está pendente.','warning');updateWorkspaceStatusUI();}
+  finally{this.saving=false;}
+ }
+};
+function workspaceStatusText(){if(workspaceCloud.lastError)return 'Sincronização pendente';if(!workspaceCloud.ready)return 'Conectando ao Neon…';return workspaceCloud.updatedAt?`Sincronizado em ${new Date(workspaceCloud.updatedAt).toLocaleString('pt-BR')}`:'Pronto para sincronizar';}
+function updateWorkspaceStatusUI(){document.querySelectorAll('[data-workspace-status]').forEach(el=>{el.textContent=workspaceStatusText();el.classList.toggle('error',!!workspaceCloud.lastError)});}
+async function bootCompanyData(){
+ await workspaceCloud.sync();
+ await cloud.sync();
+ await financeCloud.sync();
+ if(workspaceCloud.ready){workspaceCloud.queueSave();setTimeout(()=>workspaceCloud.push(),900)}
+ updateWorkspaceStatusUI();
+}
 
 const financeCloud={
  ready:false,
@@ -219,7 +313,7 @@ const financeCloud={
 const today=()=>new Date().toISOString().slice(0,10);
 const db={
  data:JSON.parse(localStorage.getItem('vetcoreShopPro')||'null')||{clientes:[],pets:[],agenda:[],servicos:[{id:uid(),nome:'Banho',valor:60},{id:uid(),nome:'Banho + Tosa',valor:95},{id:uid(),nome:'Hidratação',valor:35}],caixa:[],estoque:[],boletos:[],config:{empresa:'Meu Pet Shop',nomeFantasia:'Meu Pet Shop',razaoSocial:'',cnpjCpf:'',telefone:'',whatsapp:'',email:'',site:'',cep:'',endereco:'',numero:'',complemento:'',bairro:'',cidade:'',estado:'RS',logo:'',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',inicioAgenda:'08:00',fimAgenda:'18:00',intervaloAgenda:30,diasFuncionamento:['1','2','3','4','5','6'],moeda:'BRL',impressora:'80',rodapeCupom:'Obrigado pela preferência!',estoqueMinimoPadrao:3,alertaEstoque:true,alertaAniversario:true,alertaAgenda:true,pontosPorReal:1,usarFidelidade:true,percentualCashback:2,validadePontos:0,niveisVip:[{nome:'Bronze',min:0},{nome:'Prata',min:500},{nome:'Ouro',min:1500},{nome:'Diamante',min:5000}],cuponsAtivos:true,campanhaAniversario:true,tema:'claro',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',perfilUsuario:'Administrador',telefoneUsuario:'',fotoUsuario:''}},
- save(){localStorage.setItem('vetcoreShopPro',JSON.stringify(this.data));financeCloud.queueSave();render();},
+ save(){localStorage.setItem('vetcoreShopPro',JSON.stringify(this.data));workspaceCloud.queueSave();financeCloud.queueSave();render();},
  reset(){localStorage.removeItem('vetcoreShopPro');location.reload();}
 };
 const ROUTE_ALIASES={dashboard:'dashboard',clientes:'clientes',tutores:'clientes',pets:'pets',agenda:'agenda',atendimentos:'atendimentos',servicos:'servicos','serviços':'servicos',caixa:'caixa',estoque:'estoque',financeiro:'financeiro',boletos:'boletos',relatorios:'relatorios','relatórios':'relatorios',fidelidade:'fidelidade',fiscal:'fiscal',marketplace:'marketplace',modulos:'marketplace','módulos':'marketplace',config:'config',configuracoes:'config','configurações':'config'};
@@ -299,7 +393,7 @@ async function loadCompanyUsers({rerender=false}={}){
 }
 function showApplication(){
  $('#loginScreen').style.display='none';$('#app').classList.remove('app-hidden');
- if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();go(page,{replace:true});bindGlobal();initSystemFooter();window.forgePetsStarted=true;loadCurrentForgeUser();loadCompanyUsers();cloud.sync();financeCloud.sync();}
+ if(!window.forgePetsStarted){runSubscriptionBilling();runPremiumAutomations();go(page,{replace:true});bindGlobal();initSystemFooter();window.forgePetsStarted=true;loadCurrentForgeUser();loadCompanyUsers();bootCompanyData();}
  enforceSubscriptionAccess();
 }
 
@@ -612,7 +706,7 @@ const views={
    <div class="company-users-list">${companyUsers.length?companyUsers.map(u=>`<article><div class="company-user-avatar">${escapeHtml((u.name||u.email||'U').charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(u.name||'Usuário')}</strong><span>${escapeHtml(u.email)}</span></div><i>${escapeHtml(userRoleLabel(u.role))}</i><b class="${u.active?'active':'inactive'}">${u.active?'Ativo':'Inativo'}</b></article>`).join(''):'<div class="settings-users-empty"><span>👥</span><div><strong>Carregando usuários...</strong><p>Os acessos da empresa aparecerão aqui.</p></div></div>'}</div>
   </section>
   <section class="settings-panel" data-settings-panel="modulos"><div class="settings-heading"><div><h2>Módulos adicionais</h2><p>Contrate somente os recursos extras que sua empresa precisa.</p></div></div><div class="module-market-grid"><article class="module-market-card featured"><span>FISCAL</span><h3>Emissão de notas fiscais</h3><p>Emissão de NFS-e de serviços, histórico, XML, PDF e envio ao cliente. Disponibilidade conforme a integração do município.</p><strong>R$ 49<small>/mês</small></strong><button class="btn primary" data-action="request-module" data-module="FISCAL">Solicitar ativação</button></article><article class="module-market-card"><span>EM BREVE</span><h3>WhatsApp Oficial</h3><p>Confirmações, lembretes e mensagens usando a API oficial.</p><strong>R$ 39<small>/mês</small></strong><button class="btn ghost" disabled>Em breve</button></article><article class="module-market-card"><span>EM BREVE</span><h3>Agendamento Online</h3><p>Página pública para os clientes solicitarem horários.</p><strong>R$ 39<small>/mês</small></strong><button class="btn ghost" disabled>Em breve</button></article></div><div class="notice">A ativação de módulos pagos será confirmada pelo Forge Pets. O Módulo Fiscal exigirá configuração individual dos dados e credenciais fiscais da empresa.</div></section>
-  <section class="settings-panel" data-settings-panel="dados"><div class="settings-heading"><div><h2>Dados e segurança</h2><p>Faça backup antes de trocar de computador ou navegador.</p></div></div><div class="data-actions"><button class="btn primary" data-action="backup">Exportar backup</button><label class="btn ghost file-btn">Importar backup<input type="file" id="settingsBackupInput" accept="application/json" hidden></label><button class="btn danger" data-action="reset-system">Limpar todos os dados</button></div><div class="notice">Os dados desta versão ficam armazenados localmente neste navegador.</div></section>
+  <section class="settings-panel" data-settings-panel="dados"><div class="settings-heading"><div><h2>Dados e segurança</h2><p>Os dados da empresa são sincronizados com o Neon e ficam disponíveis em todos os dispositivos.</p></div></div><div class="workspace-sync-card"><div><span class="workspace-sync-icon">☁</span><div><b>Sincronização da empresa</b><small data-workspace-status>${workspaceStatusText()}</small></div></div><button class="btn primary" data-action="sync-company-data">Sincronizar agora</button></div><div class="data-actions"><button class="btn ghost" data-action="backup">Exportar backup JSON</button><label class="btn ghost file-btn">Importar backup<input type="file" id="settingsBackupInput" accept="application/json" hidden></label><button class="btn danger" data-action="reset-system">Limpar dados deste navegador</button></div><div class="notice"><b>Importante:</b> no primeiro acesso desta atualização, abra primeiro o Forge Pets no computador principal da loja. Ele enviará os cadastros existentes para o Neon; depois celular e outros computadores receberão os mesmos dados.</div></section>
   <section class="settings-panel" data-settings-panel="plano"><div class="settings-heading"><div><h2>Plano e assinatura</h2><p>Consulte seu plano atual, a cobrança recorrente, suas faturas e altere quando precisar.</p></div></div><div class="subscription-card"><div><span>Plano atual</span><strong>${activePlan()}</strong><small>${money(planPrice())} por mês</small></div><div class="subscription-status"><span class="badge green">${activeSubscription().status==='pending'?'Pagamento pendente':'Ativo'}</span><small>Próxima cobrança: ${nextChargeLabel()} · ${paymentMethodLabel(activeSubscription().paymentMethod)}</small></div></div><div class="plan-settings-actions"><button class="btn primary" data-action="show-plans">Ver planos e trocar</button><div class="plan-rule-note">Após um upgrade, a redução para um plano inferior ficará disponível somente após <b>3 meses</b>.</div></div><div class="subscription-billing-section"><div class="section-title"><div><h2>Faturas da assinatura</h2><p>Acompanhe vencimentos, pagamentos e o histórico mensal do ForgePets.</p></div></div>${subscriptionInvoicesHtml()}</div></section>
   <div class="settings-savebar"><span>As alterações são aplicadas ao salvar.</span><button class="btn primary" data-action="save-config">Salvar todas as configurações</button></div>
  </div></div>`}
@@ -1381,6 +1475,7 @@ function bindFiscalDashboard(){
 }
 
 const actions={
+ 'sync-company-data':async()=>{const button=document.querySelector('[data-action="sync-company-data"]');if(button){button.disabled=true;button.textContent='Sincronizando...';}try{await workspaceCloud.push();await cloud.sync();await financeCloud.sync();await workspaceCloud.push();toast('Dados sincronizados com o Neon.','success');}catch(error){toast(error.message||'Não foi possível sincronizar agora.','error');}finally{if(button){button.disabled=false;button.textContent='Sincronizar agora';}updateWorkspaceStatusUI();}},
  'delete-appointment':button=>{
   const appointment=db.data.agenda.find(item=>String(item.id)===String(button.dataset.id));
   if(!appointment)return toast('Atendimento não encontrado.','error');
