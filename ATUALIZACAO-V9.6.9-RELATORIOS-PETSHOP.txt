@@ -1,0 +1,10 @@
+FORGE PETS v9.6.9 — RELATÓRIOS PROFISSIONAIS PARA PET SHOP
+
+- Filtros combinados por período, serviço, funcionário, status e forma de pagamento.
+- Busca por pet, tutor e serviço.
+- KPIs de faturamento, serviços concluídos, ticket médio, cancelamentos e resultado.
+- Desempenho e faturamento por serviço.
+- Ranking da equipe.
+- Detalhamento dos atendimentos.
+- Exportação CSV.
+- Sem módulos clínicos, consultas ou vacinas.

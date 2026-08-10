@@ -1053,7 +1053,7 @@ function attendanceGroups(rows){
  </section>`).join('');
 }
 
-function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60,petId=''){
+function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60){
  const cfg=db.data.config||{};
  const start=cfg.inicioAgenda||'08:00';
  const end=cfg.fimAgenda||'18:00';
@@ -1062,27 +1062,33 @@ function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60,pe
  const toMin=value=>{const [h,m]=String(value||'00:00').split(':').map(Number);return h*60+m};
  const fmt=value=>`${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;
 
- // A loja pode atender animais em paralelo. Somente o mesmo pet bloqueia
- // outro horário sobreposto para evitar duplicidade acidental.
- const busy=petId
-  ? db.data.agenda
-    .filter(item=>item.id!==ignoreId&&item.petId===petId&&item.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(item.status))
-    .map(item=>{
-      const appointmentStart=toMin(item.hora);
-      const storedDuration=item.startsAt&&item.endsAt
-       ? Math.max(15,Math.round((new Date(item.endsAt)-new Date(item.startsAt))/60000))
-       : appointmentItems(item).reduce((sum,appointmentItem)=>{
-          const service=db.data.servicos.find(service=>service.id===appointmentItem.servicoId);
-          return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(appointmentItem.qtd||1));
-         },0);
-      return [appointmentStart,appointmentStart+Math.max(15,Number(storedDuration)||60)];
-    })
-  : [];
+ // Cada novo atendimento precisa caber inteiro entre os atendimentos existentes.
+ // Ex.: serviço de 90 min não pode aparecer às 09:00 se já há atendimento às 10:00.
+ const busy=(db.data.agenda||[])
+  .filter(item=>item.id!==ignoreId&&item.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(item.status))
+  .map(item=>{
+   const appointmentStart=toMin(item.hora);
+   let storedDuration=60;
+   if(item.startsAt&&item.endsAt){
+    storedDuration=Math.max(15,Math.round((new Date(item.endsAt)-new Date(item.startsAt))/60000));
+   }else{
+    const itemList=appointmentItems(item);
+    storedDuration=itemList.length
+     ? itemList.reduce((sum,appointmentItem)=>{
+        const service=db.data.servicos.find(service=>service.id===appointmentItem.servicoId);
+        return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(appointmentItem.qtd||1));
+       },0)
+     : Math.max(15,Number(db.data.servicos.find(service=>service.id===item.servicoId)?.duracao||60));
+   }
+   return [appointmentStart,appointmentStart+storedDuration];
+  });
 
  const slots=[];
  const endMin=toMin(end);
  for(let minute=toMin(start);minute+duration<=endMin;minute+=step){
-  if(!busy.some(([busyStart,busyEnd])=>minute<busyEnd&&minute+duration>busyStart))slots.push(fmt(minute));
+  const requestedEnd=minute+duration;
+  const overlaps=busy.some(([busyStart,busyEnd])=>minute<busyEnd&&requestedEnd>busyStart);
+  if(!overlaps)slots.push(fmt(minute));
  }
  return slots;
 }
@@ -2010,10 +2016,19 @@ const actions={
   },0);
 
   const renderTimes=()=>{
-   const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration(),petSelect.value||'');
+   const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration());
    timeSelect.innerHTML=times.length?times.map(t=>`<option value="${t}">${t}</option>`).join(''):'<option value="">Nenhum horário disponível</option>';
    timeSelect.disabled=!times.length;
-   timeStatus.textContent=times.length?`${times.length} horário(s) disponível(is). Duração prevista: ${selectedDuration()} min.`:'Este pet já possui atendimento cobrindo todos os horários possíveis desta data.';
+   const duration=selectedDuration();
+   if(times.length){
+    const selected=timeSelect.value||times[0];
+    const [h,m]=selected.split(':').map(Number);
+    const finishMinutes=h*60+m+duration;
+    const finish=`${String(Math.floor(finishMinutes/60)).padStart(2,'0')}:${String(finishMinutes%60).padStart(2,'0')}`;
+    timeStatus.innerHTML=`${times.length} horário(s) que comportam <b>${duration} min</b>. Selecionado: <b>${selected} → ${finish}</b>.`;
+   }else{
+    timeStatus.innerHTML=`Nenhum intervalo de <b>${duration} min</b> cabe livre nesta data. Escolha outra data ou ajuste os serviços.`;
+   }
   };
 
   const renderServiceItems=()=>{
@@ -2067,6 +2082,7 @@ const actions={
 
   dateInput.addEventListener('change',renderTimes);
   petSelect.addEventListener('change',renderTimes);
+  timeSelect.addEventListener('change',renderTimes);
   renderServiceItems();renderTimes();
 
   const renderTutorResults=()=>{

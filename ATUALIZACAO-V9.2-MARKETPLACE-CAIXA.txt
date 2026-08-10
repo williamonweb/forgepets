@@ -1,0 +1,11 @@
+FORGE PETS v9.2
+
+- Removida a forma de pagamento genérica “Outro” do PDV.
+- Removida “Outro” das movimentações rápidas.
+- Mantidas PIX, Dinheiro, Cartão de débito e Cartão de crédito.
+- Criado Marketplace no menu lateral.
+- Módulo Fiscal exibido para contratação por R$ 49,00/mês.
+- Botão Contratar agora abre o checkout no plano atual com Fiscal pré-selecionado.
+- Total mensal recalculado e aceite eletrônico obrigatório antes da cobrança.
+- Status visual do módulo: opcional, pagamento pendente ou ativo.
+- Preparada entrada de configuração fiscal para a próxima integração com provedor fiscal.

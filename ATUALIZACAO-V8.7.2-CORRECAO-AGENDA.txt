@@ -1,0 +1,1 @@
+Correção da rota DELETE da agenda: declaração de companyId após validação da sessão.

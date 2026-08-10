@@ -1,0 +1,9 @@
+FORGE PETS v9.9.8 — DESPESAS REALIZADAS
+
+- Nova despesa agora oferece duas opções claras: Conta a pagar ou Saída já paga.
+- Conta pendente não reduz o saldo real.
+- Saída já paga entra imediatamente em Saídas realizadas.
+- Data de pagamento selecionável.
+- Corrigido vínculo entre despesa e movimentação ao editar de pendente para paga.
+- Valor pago inclui juros e multa.
+- Sincronização com Neon é solicitada imediatamente após o lançamento.

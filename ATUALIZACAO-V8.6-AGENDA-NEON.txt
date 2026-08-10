@@ -1,0 +1,21 @@
+FORGEPETS V8.6 - AGENDA NO NEON
+
+- Agenda carregada e salva no PostgreSQL/Neon.
+- Serviços sincronizados com o banco.
+- Migração automática dos serviços locais quando a empresa ainda não possui serviços no banco.
+- Validação de conflito e sobreposição no backend.
+- Transação serializável para reduzir risco de dois dispositivos ocuparem o mesmo horário simultaneamente.
+- Duração do serviço considerada na disponibilidade.
+- Cancelamento libera o horário no banco.
+- Conclusão do atendimento atualiza o Appointment no banco.
+- Todas as consultas são isoladas por companyId.
+
+Não houve alteração no schema.prisma. Portanto, não é necessária uma nova migration para esta versão, desde que o banco já tenha sido sincronizado com o schema atual.
+
+Comandos recomendados:
+npm install
+npx prisma generate
+npm run build
+git add .
+git commit -m "Migra agenda para o Neon e protege conflitos de horario"
+git push origin main

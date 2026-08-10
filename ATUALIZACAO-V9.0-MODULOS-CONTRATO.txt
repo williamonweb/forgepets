@@ -1,0 +1,17 @@
+FORGE PETS V9.0
+
+- Estrutura Prisma para módulos opcionais por empresa.
+- Módulo Fiscal preparado como adicional comercial.
+- Nova área Configurações > Módulos.
+- Solicitação de ativação registrada em auditoria.
+- Aceite eletrônico obrigatório antes da criação da assinatura no Asaas.
+- Contrato apresentado em modal com rolagem obrigatória.
+- Registro no Neon de versão, hash, usuário, empresa, data, IP e navegador.
+
+APÓS ATUALIZAR:
+1. npm install
+2. npx prisma db push
+3. npm run build
+4. git add . && git commit -m "Adiciona modulos e aceite de contrato" && git push origin main
+
+ATENÇÃO: o texto contratual incluído é uma base funcional e deve passar por revisão jurídica antes da comercialização definitiva.

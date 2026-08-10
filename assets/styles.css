@@ -539,3 +539,8 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .attendance-day-group .appointment:last-child{border-bottom:0}
 @media(max-width:1000px){.attendance-filter-grid{grid-template-columns:repeat(2,1fr)}.attendance-search{grid-column:1/-1}}
 @media(max-width:760px){.agenda-date-toolbar{align-items:stretch;flex-direction:column}.agenda-date-controls{align-items:stretch}.agenda-date-controls .field,.agenda-date-controls .btn{width:100%}.agenda-day-stats{grid-template-columns:1fr}.attendance-filter-grid{grid-template-columns:1fr}.attendance-search{grid-column:auto}.attendance-results-head{align-items:flex-start;flex-direction:column;gap:4px}}
+
+
+/* Forge Pets v10.0.3 — horários calculados pelo serviço */
+#aHoraStatus{display:block;margin-top:7px;line-height:1.45;color:#756b81}
+#aHoraStatus b{color:var(--purple)}

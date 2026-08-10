@@ -1,0 +1,15 @@
+FORGE PETS v9.6.4 — FINANCEIRO REAL X PREVISTO
+
+- Saldo real considera apenas receitas recebidas e despesas pagas.
+- Despesas pendentes não reduzem o saldo real.
+- Separação automática:
+  * vencidas;
+  * vencem hoje;
+  * a vencer;
+  * pagas.
+- Saldo disponível após compromissos.
+- Saldo previsto incluindo receitas futuras.
+- Nova área Contas a pagar com filtros.
+- Ao marcar uma despesa como paga, ela é lançada no Caixa.
+- Ao voltar uma despesa paga para pendente, sua saída é retirada do Caixa.
+- Despesas antigas do Caixa continuam como movimentações realizadas.

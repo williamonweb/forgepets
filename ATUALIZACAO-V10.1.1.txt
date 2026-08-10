@@ -1,0 +1,20 @@
+FORGEPETS v10.1.1 — CORREÇÃO DE TUTORES + CEP + FORGE CONNECT
+
+1. Extraia este ZIP por cima da pasta clonada do ForgePets.
+2. Confirme a substituição dos arquivos.
+3. Execute:
+
+git add .
+git commit -m "v10.1.1 corrige tutor cep e forge connect"
+git push origin main
+
+ALTERAÇÕES
+- Rotas exclusivas /api/forge/tutores e /api/forge/pets para evitar conflito com autenticação antiga.
+- Cadastro e edição de tutor corrigidos.
+- CEP preenche rua, bairro, cidade e UF automaticamente.
+- Mensagens completas dentro do próprio modal.
+- Botão Salvar mostra Salvando... e bloqueia duplo clique.
+- Forge Connect menor, lateral e oculto durante modais.
+- Avisos gerais aparecem na parte superior direita.
+
+Não é necessário executar prisma db push nesta correção.

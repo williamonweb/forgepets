@@ -1,0 +1,14 @@
+ForgePets V30.3.1 — Usuários do Painel Master
+
+Alterações:
+- Botão "Adicionar usuário" na área Usuários.
+- Cadastro de usuário Master com nome, e-mail e senha inicial.
+- Edição de nome, e-mail e senha.
+- Ativação e inativação com modal de confirmação.
+- Proteção contra inativar o próprio usuário conectado.
+- Validação de e-mail duplicado e senha mínima de 6 caracteres.
+- Senhas armazenadas com bcrypt.
+- Registro das ações nos logs de auditoria.
+
+Validação local recomendada:
+npm run build
