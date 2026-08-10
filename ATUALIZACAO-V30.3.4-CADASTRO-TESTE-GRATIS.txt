@@ -1,8 +1,0 @@
-FORGEPETS V30.3.4 — CADASTRO COM TESTE GRÁTIS
-
-- Removida a etapa de escolha/pagamento de plano no cadastro.
-- O cliente cria a conta diretamente e entra no teste gratuito.
-- Teste fixado em 2 dias.
-- Nenhum cartão, PIX ou boleto é solicitado no cadastro.
-- Conta inicia no plano Profissional durante o período de avaliação.
-- Ao terminar o teste, o fluxo de assinatura e pagamento é exibido normalmente.

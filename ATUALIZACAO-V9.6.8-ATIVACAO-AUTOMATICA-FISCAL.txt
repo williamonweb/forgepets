@@ -1,9 +1,0 @@
-FORGE PETS v9.6.8 — ATIVAÇÃO AUTOMÁTICA DO MÓDULO FISCAL
-
-- Corrigida comparação de data do pagamento com a data da contratação.
-- Pagamentos confirmados no mesmo dia não são mais descartados.
-- Pagamentos da assinatura atual são aceitos diretamente.
-- Reconciliação alternativa por cliente compara somente a data.
-- Webhooks já gravados podem ser reprocessados de forma idempotente.
-- Aceita RECEIVED, CONFIRMED e RECEIVED_IN_CASH.
-- Ao consultar Marketplace, Fiscal ou status da assinatura, o Neon é atualizado e o módulo é liberado.

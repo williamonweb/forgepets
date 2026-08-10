@@ -1,6 +1,0 @@
-FORGE PETS v9.8.1
-
-- Corrigida a tipagem do filter em app/api/forge/agenda/route.ts.
-- Revisados map e reduce do mesmo arquivo para evitar novos erros no noImplicitAny.
-- Revisado também app/api/forge/agenda/[id]/route.ts.
-- Mantida toda a persistência financeira no Neon da v9.8.0.

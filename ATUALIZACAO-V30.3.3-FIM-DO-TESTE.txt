@@ -1,9 +1,0 @@
-FORGEPETS V30.3.3 — FIM DO PERÍODO DE TESTE
-
-- Valida o período de teste diretamente no Neon ao abrir o sistema.
-- Mostra aviso quando resta 1 dia ou menos.
-- Ao vencer, bloqueia os módulos sem apagar nenhum dado.
-- Exibe botão para escolher plano e pagar.
-- Se já houver pagamento pendente, informa que aguarda confirmação.
-- Botão para verificar novamente o pagamento.
-- Após o webhook do Asaas confirmar, o acesso é liberado automaticamente.

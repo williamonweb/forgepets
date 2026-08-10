@@ -1,7 +1,0 @@
-FORGEPETS V8.8.0 — NOVA TELA DO CAIXA / PDV
-
-- Substitui visualmente o módulo Caixa por um workspace moderno de PDV.
-- Botão principal abre o PDV completo já existente.
-- Exibe resumo de vendas do dia, saldo, entradas, valores a receber e saídas.
-- Mantém recebimentos de atendimentos e movimentações.
-- Cálculo de valor recebido e troco permanece no fluxo de Nova venda em dinheiro.

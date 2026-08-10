@@ -1,8 +1,0 @@
-FORGE PETS v9.6.1 — ATIVAÇÃO DE MÓDULOS
-
-- Webhook do Asaas agora consulta a cobrança pelo ID quando o payload vem incompleto.
-- Eventos antigos sem empresa podem ser reconciliados.
-- Confirmação em dinheiro (PAYMENT_RECEIVED) ativa plano e módulos.
-- Marketplace e Fiscal sincronizam diretamente com o Asaas ao abrir.
-- Painel Master reconcilia empresas com módulo Fiscal pendente.
-- O sistema não depende exclusivamente do webhook para desbloquear o módulo.

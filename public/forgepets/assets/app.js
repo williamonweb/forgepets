@@ -133,7 +133,7 @@ const workspaceCloud={
  migrationKey(){const sub=activeSubscription();return `forgepets_workspace_migrated_${sub.companyId||'company'}`;},
  meaningful(data){
   if(!data||typeof data!=='object')return false;
-  return ['clientes','pets','agenda','estoque','vendas','boletos','despesas','receitasPrevistas','caixa','pendencias','loyaltyHistory'].some(key=>Array.isArray(data[key])&&data[key].length>0);
+  return ['clientes','pets','agenda','estoque','estoqueMovimentos','vendas','boletos','despesas','receitasPrevistas','caixa','pendencias','loyaltyHistory'].some(key=>Array.isArray(data[key])&&data[key].length>0);
  },
  mergeArray(server=[],local=[],localOnlyMissing=true){
   const map=new Map();
@@ -143,7 +143,7 @@ const workspaceCloud={
  },
  merge(server={},local={},includeLocalMissing=false){
   const result={...server};
-  const arrayKeys=['clientes','pets','agenda','servicos','caixa','estoque','boletos','despesas','receitasPrevistas','pendencias','vendas','cupons','campanhas','loyaltyHistory','recompensas'];
+  const arrayKeys=['clientes','pets','agenda','servicos','caixa','estoque','estoqueMovimentos','boletos','despesas','receitasPrevistas','pendencias','vendas','cupons','campanhas','loyaltyHistory','recompensas'];
   arrayKeys.forEach(key=>{result[key]=this.mergeArray(server?.[key],local?.[key],includeLocalMissing)});
   result.config={...(server?.config||{}),...(includeLocalMissing?local?.config||{}:{})};
   return result;
@@ -702,7 +702,20 @@ const views={
     : `<button class="btn primary" data-action="request-plan" data-plan="${escapeAttr(activePlan())}" data-module="FISCAL">Contratar agora</button>`;
   return `<section class="marketplace-page"><div class="marketplace-hero"><div><span>FORGE PETS MARKETPLACE</span><h2>Seu sistema cresce junto com o seu negócio.</h2><p>Ative novos recursos quando precisar. A cobrança é adicionada à sua assinatura mensal e o aceite fica registrado eletronicamente.</p></div><div class="marketplace-current"><small>Plano atual</small><strong>${escapeHtml(activePlan())}</strong><span>${money(planPrice())}/mês</span></div></div><div class="marketplace-grid"><article class="marketplace-card featured"><div class="marketplace-card-top"><span class="marketplace-icon">🧾</span><div><small>DISPONÍVEL AGORA</small><h3>Módulo Fiscal</h3></div>${fiscalActive?'<i class="module-status active">ATIVO</i>':fiscalPending?'<i class="module-status pending">PENDENTE</i>':'<i class="module-status available">OPCIONAL</i>'}</div><p>Emita NFS-e dos serviços realizados diretamente pelo Caixa. Consulte o histórico, baixe XML e PDF e envie a nota ao cliente. Disponibilidade conforme a integração do município.</p><ul><li>Emissão de notas pelo Caixa</li><li>Histórico fiscal por venda</li><li>XML e PDF da NFS-e</li><li>Dados separados por empresa</li></ul><div class="marketplace-price"><strong>R$ 49,00</strong><span>por mês</span></div>${fiscalAction}</article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">💬</span><div><small>EM BREVE</small><h3>WhatsApp Oficial</h3></div></div><p>Confirmações, lembretes e mensagens automáticas usando a API oficial.</p><div class="marketplace-price"><strong>R$ 39,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">📅</span><div><small>EM BREVE</small><h3>Agendamento Online</h3></div></div><p>Página pública para o tutor solicitar horários sem ligar para o pet shop.</p><div class="marketplace-price"><strong>R$ 39,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article><article class="marketplace-card"><div class="marketplace-card-top"><span class="marketplace-icon">🤖</span><div><small>EM BREVE</small><h3>IA Forge</h3></div></div><p>Textos, sugestões, análises e automações inteligentes para a rotina da empresa.</p><div class="marketplace-price"><strong>R$ 29,00</strong><span>por mês</span></div><button class="btn ghost" disabled>Em breve</button></article></div><div class="marketplace-note">A contratação do Módulo Fiscal abre o checkout, apresenta o valor total mensal e exige o aceite eletrônico antes da cobrança pelo Asaas.</div></section>`;
  },
- estoque(){return `<div class="card"><div class="section-title"><h2>Produtos</h2><button class="btn primary" data-action="new-stock">Novo produto</button></div>${tableSimple(db.data.estoque,['Produto','EAN','Qtd.','Mínimo','Custo','Venda'],x=>[x.nome,x.ean||'-',x.qtd,x.min,money(x.custo),money(x.valorVenda??x.custo)],'stock')}</div>`},
+ estoque(){
+ ensureData();
+ const rows=sortAlpha(db.data.estoque,'nome');
+ const low=rows.filter(item=>Number(item.qtd||0)<=Number(item.min||0)).length;
+ const totalUnits=rows.reduce((sum,item)=>sum+Number(item.qtd||0),0);
+ const inventoryCost=rows.reduce((sum,item)=>sum+Number(item.qtd||0)*Number(item.custo||0),0);
+ return `<section class="stock-workspace">
+  <div class="stock-hero"><div><span>ESTOQUE FORGEPETS</span><h2>Reposição sem recadastrar produto.</h2><p>Clique no produto para adicionar nova compra, retirar estoque ou editar.</p></div><button class="btn primary" data-action="new-stock">＋ Novo produto</button></div>
+  <div class="stock-kpis"><article><small>Produtos cadastrados</small><strong>${rows.length}</strong></article><article><small>Unidades em estoque</small><strong>${totalUnits}</strong></article><article class="${low?'warning':''}"><small>Estoque baixo</small><strong>${low}</strong></article><article><small>Custo em estoque</small><strong>${money(inventoryCost)}</strong></article></div>
+  <div class="card"><div class="section-title"><div><h2>Produtos</h2><p>Clique na linha para movimentar ou editar.</p></div></div>
+   ${rows.length?`<div class="table-wrap"><table class="table stock-table"><thead><tr><th>Produto</th><th>EAN</th><th>Qtd.</th><th>Mínimo</th><th>Custo</th><th>Venda</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(item=>{const lowStock=Number(item.qtd||0)<=Number(item.min||0);return `<tr class="clickable stock-product-row" data-action="open-stock-product" data-id="${item.id}"><td><b>${escapeHtml(item.nome)}</b><small class="table-sub">${escapeHtml([item.marca,item.categoria].filter(Boolean).join(' · ')||'Sem categoria')}</small></td><td>${escapeHtml(item.ean||'—')}</td><td><strong>${Number(item.qtd||0)}</strong> ${escapeHtml(item.unidade||'')}</td><td>${Number(item.min||0)}</td><td>${money(item.custo||0)}</td><td>${money(item.valorVenda??item.custo??0)}</td><td><span class="badge ${lowStock?'red':'green'}">${lowStock?'Baixo':'OK'}</span></td><td><button class="btn ghost small" data-action="open-stock-product" data-id="${item.id}">Abrir</button></td></tr>`}).join('')}</tbody></table></div>`:'<div class="empty">Nenhum produto cadastrado.</div>'}
+  </div>
+ </section>`;
+},
  pets(){const rows=sortAlpha(db.data.pets,'nome').filter(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return [p.nome,c?.nome].some(v=>normalize(v).includes(normalize(petSearch)))});return `<div class="card"><div class="section-title"><h2>Pets cadastrados</h2><button class="btn primary" data-action="new-pet-select">Novo pet</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(petSearch)}" placeholder="Buscar pelo nome do pet ou do tutor..." oninput="setPetSearch(this.value)"></div><div class="result-count">${rows.length} pet(s) encontrado(s) · ordem alfabética</div>${rows.length?`<div class="table-wrap"><table class="table pet-list-table"><thead><tr><th>Pet</th><th>Tutor</th><th>Espécie / raça</th><th>Cor</th><th></th></tr></thead><tbody>${rows.map(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return `<tr class="clickable" data-action="view-pet" data-id="${p.id}"><td><span class="pet-list-name"><span class="mini-avatar">${p.especie==='Felino'?'🐱':p.especie==='Canino'?'🐶':'🐾'}</span><strong>${p.nome}</strong></span></td><td>${c?.nome||'-'}</td><td>${p.especie||'-'}${p.raca?` · ${p.raca}`:''}</td><td>${p.cor||'-'}</td><td><button class="btn ghost" data-action="view-pet" data-id="${p.id}">Ver ficha</button> <button class="btn ghost" data-action="edit-pet" data-id="${p.id}">Editar</button> <button class="btn danger" data-action="delete-pet" data-id="${p.id}">Excluir</button></td></tr>`}).join('')}</tbody></table></div>`:`<div class="empty">${petSearch?'Nenhum pet encontrado.':'Nenhum pet cadastrado.'}</div>`}</div>`},
  atendimentos(){
   const filters=attendanceFilterState();
@@ -988,6 +1001,92 @@ function reportView(){
  </section>`;
 }
 
+
+function stockMovementsFor(productId){
+ ensureData();
+ return (db.data.estoqueMovimentos||[])
+  .filter(item=>String(item.produtoId)===String(productId))
+  .sort((a,b)=>String(b.createdAt||b.data||'').localeCompare(String(a.createdAt||a.data||'')));
+}
+function stockMovementLabel(type){return ({entrada:'Entrada',saida:'Saída',ajuste:'Ajuste'})[type]||'Movimentação';}
+function stockMovementClass(type){return type==='entrada'?'green':type==='saida'?'red':'yellow';}
+function saveStockMovement(product,type,quantity,meta={}){
+ ensureData();
+ const movement={id:uid(),produtoId:product.id,produtoNome:product.nome,tipo:type,quantidade:Number(quantity||0),saldo:Number(product.qtd||0),data:meta.data||today(),custoUnitario:Number(meta.custoUnitario??product.custo??0),fornecedor:String(meta.fornecedor||'').trim(),motivo:String(meta.motivo||'').trim(),observacoes:String(meta.observacoes||'').trim(),createdAt:new Date().toISOString()};
+ db.data.estoqueMovimentos.unshift(movement);
+ return movement;
+}
+function openStockMovementModal(productId,type='entrada'){
+ const product=db.data.estoque.find(item=>String(item.id)===String(productId));
+ if(!product)return toast('Produto não encontrado.','error');
+ const isEntry=type==='entrada';
+ modal(isEntry?'Adicionar estoque':'Retirar estoque',`<div class="stock-movement-product"><div><small>PRODUTO</small><h3>${escapeHtml(product.nome)}</h3><span>Estoque atual: <b>${Number(product.qtd||0)} ${escapeHtml(product.unidade||'unidade')}</b></span></div></div>
+ <div class="form-grid">
+  <div class="field"><label>Quantidade *</label><input id="stockMoveQty" type="number" min="1" step="1" value="1"></div>
+  <div class="field"><label>Data</label><input id="stockMoveDate" type="date" value="${today()}"></div>
+  ${isEntry?`<div class="field"><label>Custo unitário da compra</label><input id="stockMoveCost" data-mask="money" inputmode="numeric" value="${money(product.custo||0)}"></div><div class="field"><label>Fornecedor</label><input id="stockMoveSupplier" placeholder="Opcional"></div>`:`<div class="field full"><label>Motivo</label><select id="stockMoveReason"><option value="Uso interno">Uso interno</option><option value="Perda / avaria">Perda / avaria</option><option value="Ajuste de inventário">Ajuste de inventário</option><option value="Outro">Outro</option></select></div>`}
+  <div class="field full"><label>Observação</label><textarea id="stockMoveObs" rows="3" placeholder="Opcional"></textarea></div>
+ </div>
+ ${isEntry?'<div class="notice">Se informar novo custo, o custo atual do produto será atualizado.</div>':''}`,
+ close=>{
+  const quantity=Math.max(0,Number($('#stockMoveQty').value||0));
+  if(!quantity)return setModalError('Informe a quantidade.');
+  if(!isEntry&&quantity>Number(product.qtd||0))return setModalError(`Estoque insuficiente. Disponível: ${Number(product.qtd||0)}.`);
+  const before=Number(product.qtd||0);
+  product.qtd=isEntry?before+quantity:before-quantity;
+  const cost=isEntry?parseLocaleNumber($('#stockMoveCost')?.value||0):Number(product.custo||0);
+  if(isEntry&&cost>=0)product.custo=cost;
+  saveStockMovement(product,isEntry?'entrada':'saida',quantity,{data:$('#stockMoveDate').value||today(),custoUnitario:cost,fornecedor:$('#stockMoveSupplier')?.value||'',motivo:$('#stockMoveReason')?.value||'',observacoes:$('#stockMoveObs').value||''});
+  db.save();close();toast(isEntry?`Estoque atualizado: ${before} → ${product.qtd}.`:`Saída registrada: ${before} → ${product.qtd}.`,'success');
+ },isEntry?'Adicionar ao estoque':'Confirmar saída');
+ applyInputMasks($('.modal'));
+}
+function openStockEditModal(productId){
+ const product=db.data.estoque.find(item=>String(item.id)===String(productId));
+ if(!product)return toast('Produto não encontrado.','error');
+ modal('Editar produto',`<div class="form-grid">
+  <div class="field full"><label>Nome do produto *</label><input id="editStockName" value="${escapeAttr(product.nome||'')}"></div>
+  <div class="field"><label>EAN / Código de barras</label><input id="editStockEan" data-mask="ean" inputmode="numeric" maxlength="14" value="${escapeAttr(product.ean||'')}"></div>
+  <div class="field"><label>Marca</label><input id="editStockBrand" value="${escapeAttr(product.marca||'')}"></div>
+  <div class="field"><label>Categoria</label><input id="editStockCategory" value="${escapeAttr(product.categoria||'')}"></div>
+  <div class="field"><label>Unidade</label><select id="editStockUnit">${['unidade','kg','litro','caixa','pacote'].map(unit=>`<option ${String(product.unidade||'unidade')===unit?'selected':''}>${unit}</option>`).join('')}</select></div>
+  <div class="field"><label>Estoque mínimo</label><input id="editStockMin" type="number" min="0" value="${Number(product.min||0)}"></div>
+  <div class="field"><label>Custo unitário</label><input id="editStockCost" data-mask="money" inputmode="numeric" value="${money(product.custo||0)}"></div>
+  <div class="field"><label>Preço de venda</label><input id="editStockSale" data-mask="money" inputmode="numeric" value="${money(product.valorVenda??product.custo??0)}"></div>
+ </div><div class="notice">A quantidade é alterada pelos botões Adicionar estoque e Retirar estoque, mantendo histórico.</div>`,
+ close=>{
+  const name=$('#editStockName').value.trim();
+  const ean=onlyDigits($('#editStockEan').value);
+  if(!name)return setModalError('Informe o nome do produto.');
+  if(!validEan(ean))return setModalError('O EAN deve possuir 8, 12, 13 ou 14 dígitos.');
+  if(ean&&db.data.estoque.some(item=>item.id!==product.id&&onlyDigits(item.ean)===ean))return setModalError('Já existe outro produto com este EAN.');
+  Object.assign(product,{nome:name,ean,marca:$('#editStockBrand').value.trim(),categoria:$('#editStockCategory').value.trim(),unidade:$('#editStockUnit').value,min:Math.max(0,Number($('#editStockMin').value||0)),custo:parseLocaleNumber($('#editStockCost').value),valorVenda:parseLocaleNumber($('#editStockSale').value),updatedAt:new Date().toISOString()});
+  db.save();close();toast('Produto atualizado.','success');
+ },'Salvar alterações');
+ applyInputMasks($('.modal'));
+}
+function openStockProductModal(productId){
+ const product=db.data.estoque.find(item=>String(item.id)===String(productId));
+ if(!product)return toast('Produto não encontrado.','error');
+ const movements=stockMovementsFor(product.id).slice(0,10);
+ const low=Number(product.qtd||0)<=Number(product.min||0);
+ modal('Produto no estoque',`<div class="stock-product-modal">
+  <div class="stock-product-hero"><div><small>${escapeHtml(product.categoria||'PRODUTO')}</small><h2>${escapeHtml(product.nome)}</h2><p>${product.marca?escapeHtml(product.marca)+' · ':''}${product.ean?`EAN ${escapeHtml(product.ean)}`:'Sem EAN cadastrado'}</p></div><span class="badge ${low?'red':'green'}">${low?'Estoque baixo':'Estoque OK'}</span></div>
+  <div class="stock-product-kpis"><div><small>Quantidade</small><strong>${Number(product.qtd||0)}</strong><span>${escapeHtml(product.unidade||'unidade')}</span></div><div><small>Estoque mínimo</small><strong>${Number(product.min||0)}</strong></div><div><small>Custo</small><strong>${money(product.custo||0)}</strong></div><div><small>Venda</small><strong>${money(product.valorVenda??product.custo??0)}</strong></div></div>
+  <div class="stock-product-actions">
+   <button class="stock-action-card entry" type="button" id="stockAddButton"><span>＋</span><div><b>Adicionar estoque</b><small>Nova compra / reposição</small></div></button>
+   <button class="stock-action-card exit" type="button" id="stockRemoveButton"><span>−</span><div><b>Retirar estoque</b><small>Uso, perda ou ajuste</small></div></button>
+   <button class="stock-action-card edit" type="button" id="stockEditButton"><span>✎</span><div><b>Editar produto</b><small>Preço, EAN, mínimo...</small></div></button>
+  </div>
+  <div class="stock-history"><div class="stock-history-head"><h3>Últimas movimentações</h3><span>${stockMovementsFor(product.id).length} registro(s)</span></div>
+   ${movements.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Tipo</th><th>Qtd.</th><th>Saldo</th><th>Detalhe</th></tr></thead><tbody>${movements.map(item=>`<tr><td>${formatDateBR(item.data)}</td><td><span class="badge ${stockMovementClass(item.tipo)}">${stockMovementLabel(item.tipo)}</span></td><td><b>${item.tipo==='entrada'?'+':'-'}${Number(item.quantidade||0)}</b></td><td>${Number(item.saldo||0)}</td><td>${escapeHtml(item.fornecedor||item.motivo||item.observacoes||'—')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Ainda não há movimentações registradas para este produto.</div>'}
+  </div>
+ </div>`,close=>close(),'Fechar');
+ $('#stockAddButton').onclick=()=>{document.querySelector('#modalRoot [data-close]')?.click();setTimeout(()=>openStockMovementModal(product.id,'entrada'),60)};
+ $('#stockRemoveButton').onclick=()=>{document.querySelector('#modalRoot [data-close]')?.click();setTimeout(()=>openStockMovementModal(product.id,'saida'),60)};
+ $('#stockEditButton').onclick=()=>{document.querySelector('#modalRoot [data-close]')?.click();setTimeout(()=>openStockEditModal(product.id),60)};
+}
+
 function tableSimple(rows,heads,map,type){if(!rows.length)return '<div class="empty">Nenhum registro.</div>';return `<div class="table-wrap"><table class="table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map(x=>`<tr>${map(x).map(v=>`<td>${v}</td>`).join('')}<td><button class="btn danger" data-action="delete-row" data-type="${type}" data-id="${x.id}">Excluir</button></td></tr>`).join('')}</tbody></table></div>`}
 function formatAgendaDate(value){const [year,month,day]=String(value||'').split('-').map(Number);if(!year||!month||!day)return {weekday:'',dayMonth:value||'',time:''};const date=new Date(year,month-1,day);const weekdays=['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];const months=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];return {weekday:weekdays[date.getDay()],dayMonth:`${String(day).padStart(2,'0')} ${months[month-1]}`}}
 
@@ -1120,7 +1219,7 @@ function toast(message,type='auto',options={}){
  setTimeout(close,Number(options.duration||4200));
 }
 
-function ensureData(){db.data.clientes=db.data.clientes||[];db.data.pets=db.data.pets||[];db.data.agenda=db.data.agenda||[];db.data.servicos=db.data.servicos||[];db.data.caixa=db.data.caixa||[];db.data.despesas=db.data.despesas||[];db.data.receitasPrevistas=db.data.receitasPrevistas||[];db.data.pendencias=db.data.pendencias||[];db.data.estoque=db.data.estoque||[];db.data.boletos=db.data.boletos||[];db.data.vendas=db.data.vendas||[];db.data.cupons=db.data.cupons||[];db.data.campanhas=db.data.campanhas||[];db.data.loyaltyHistory=db.data.loyaltyHistory||[];db.data.recompensas=db.data.recompensas||[{id:'reward-banho',nome:'Banho gratuito',pontos:500,valor:60,ativo:true},{id:'reward-hidratacao',nome:'Hidratação gratuita',pontos:300,valor:35,ativo:true},{id:'reward-vale20',nome:'Vale-compras de R$ 20,00',pontos:200,valor:20,ativo:true}];db.data.config={empresa:'Meu Pet Shop',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',telefoneUsuario:'',fotoUsuario:'',perfilUsuario:'Administrador',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',pontosPorReal:1,percentualCashback:2,cuponsAtivos:true,campanhaAniversario:true,beneficiosVip:{Bronze:0,Prata:3,Ouro:5,Diamante:8},cupomAniversarioPercentual:10,cupomAniversarioValidade:15,financeCategories:{receita:['Serviços','Produtos','Banho e Tosa','Outras receitas'],despesa:['Aluguel','Água','Energia','Internet','Telefone','Marketing','Funcionários','Impostos','Fornecedores','Outras despesas'],boleto:['Aluguel','Energia','Internet','Telefone','Impostos','Fornecedores','Outros boletos']},...db.data.config};}
+function ensureData(){db.data.clientes=db.data.clientes||[];db.data.pets=db.data.pets||[];db.data.agenda=db.data.agenda||[];db.data.servicos=db.data.servicos||[];db.data.caixa=db.data.caixa||[];db.data.despesas=db.data.despesas||[];db.data.receitasPrevistas=db.data.receitasPrevistas||[];db.data.pendencias=db.data.pendencias||[];db.data.estoque=db.data.estoque||[];db.data.estoqueMovimentos=db.data.estoqueMovimentos||[];db.data.boletos=db.data.boletos||[];db.data.vendas=db.data.vendas||[];db.data.cupons=db.data.cupons||[];db.data.campanhas=db.data.campanhas||[];db.data.loyaltyHistory=db.data.loyaltyHistory||[];db.data.recompensas=db.data.recompensas||[{id:'reward-banho',nome:'Banho gratuito',pontos:500,valor:60,ativo:true},{id:'reward-hidratacao',nome:'Hidratação gratuita',pontos:300,valor:35,ativo:true},{id:'reward-vale20',nome:'Vale-compras de R$ 20,00',pontos:200,valor:20,ativo:true}];db.data.config={empresa:'Meu Pet Shop',nomeUsuario:'Amanda',emailUsuario:'admin@forgepets.com',telefoneUsuario:'',fotoUsuario:'',perfilUsuario:'Administrador',corPrincipal:'#5b21d6',corDestaque:'#ff8a1f',pontosPorReal:1,percentualCashback:2,cuponsAtivos:true,campanhaAniversario:true,beneficiosVip:{Bronze:0,Prata:3,Ouro:5,Diamante:8},cupomAniversarioPercentual:10,cupomAniversarioValidade:15,financeCategories:{receita:['Serviços','Produtos','Banho e Tosa','Outras receitas'],despesa:['Aluguel','Água','Energia','Internet','Telefone','Marketing','Funcionários','Impostos','Fornecedores','Outras despesas'],boleto:['Aluguel','Energia','Internet','Telefone','Impostos','Fornecedores','Outros boletos']},...db.data.config};}
 
 function vipLevel(cliente){const pts=Number(cliente?.pontos||0),levels=[...(db.data.config.niveisVip||[{nome:'Bronze',min:0},{nome:'Prata',min:500},{nome:'Ouro',min:1500},{nome:'Diamante',min:5000}])].sort((a,b)=>Number(a.min)-Number(b.min));return levels.filter(x=>pts>=Number(x.min||0)).pop()?.nome||'Bronze';}
 function vipDiscount(cliente){return Number((db.data.config.beneficiosVip||{})[vipLevel(cliente)]||0);}
@@ -1704,6 +1803,7 @@ function bindFiscalDashboard(){
 }
 
 const actions={
+ 'open-stock-product':button=>openStockProductModal(button.dataset.id),
  'sync-company-data':async()=>{const button=document.querySelector('[data-action="sync-company-data"]');if(button){button.disabled=true;button.textContent='Sincronizando...';}try{await workspaceCloud.push();await cloud.sync();await financeCloud.sync();await workspaceCloud.push();toast('Dados sincronizados com o Neon.','success');}catch(error){toast(error.message||'Não foi possível sincronizar agora.','error');}finally{if(button){button.disabled=false;button.textContent='Sincronizar agora';}updateWorkspaceStatusUI();}},
  'delete-appointment':button=>{
   const appointment=db.data.agenda.find(item=>String(item.id)===String(button.dataset.id));
@@ -2113,7 +2213,7 @@ const actions={
  'edit-service':b=>{const s=db.data.servicos.find(x=>x.id===b.dataset.id);if(!s)return toast('Serviço não encontrado.');modal('Editar serviço',`<div class="form-grid"><div class="field full"><label>Nome</label><input id="editSNome" value="${escapeAttr(s.nome)}"></div><div class="field"><label>Valor</label><input id="editSValor" type="text" data-mask="money" inputmode="numeric" value="${money(s.valor||0)}"></div><div class="field"><label>Duração na agenda</label><select id="editSDuracao">${[15,30,45,60,90,120,180].map(v=>`<option value="${v}" ${Number(s.duracao||60)===v?'selected':''}>${v<60?`${v} minutos`:v===60?'1 hora':`${Math.floor(v/60)}h${v%60?String(v%60).padStart(2,'0'):''}`}</option>`).join('')}</select></div></div>`,async close=>{try{const name=$('#editSNome').value.trim(),price=parseLocaleNumber($('#editSValor').value),durationMinutes=Number($('#editSDuracao').value||60);if(!name)return setModalError('Informe o nome do serviço.');if(!Number.isFinite(price)||price<0)return setModalError('Informe um valor válido.');const {service}=await cloud.request(`/api/forge/servicos/${s.id}`,{method:'PUT',body:JSON.stringify({name,price,durationMinutes})});Object.assign(s,cloud.service(service));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Serviço atualizado.');}catch(e){setModalError(e.message||'Não foi possível atualizar o serviço.');}},'Salvar alterações');},
 
  'quick-movement':b=>modal('Nova movimentação',`<div class="form-grid"><div class="field"><label>Tipo</label><select id="cTipo"><option value="entrada" ${b?.dataset?.preset==='entrada'?'selected':''}>Entrada</option><option value="saida" ${b?.dataset?.preset==='saida'?'selected':''}>Saída</option></select></div><div class="field"><label>Data</label><input id="cData" type="date" value="${today()}"></div><div class="field full"><label>Descrição</label><input id="cDesc"></div><div class="field"><label>Valor</label><input id="cValor" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field"><label>Forma de pagamento</label><select id="cForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option></select></div></div>`,close=>{if(!$('#cDesc').value||!$('#cValor').value)return toast('Preencha descrição e valor.');db.data.caixa.push({id:uid(),tipo:$('#cTipo').value,data:$('#cData').value,descricao:$('#cDesc').value,valor:parseLocaleNumber($('#cValor').value),forma:$('#cForma').value});db.save();close();toast('Movimentação salva.');}),
- 'new-stock':()=>modal('Novo produto',`<div class="form-grid"><div class="field full"><label>Nome do produto *</label><input id="eNome" data-trim autocomplete="off" placeholder="Ex.: Shampoo neutro 500 ml"></div><div class="field"><label>EAN / Código de barras</label><input id="eEan" data-mask="ean" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="8, 12, 13 ou 14 dígitos"></div><div class="field"><label>Marca</label><input id="eMarca" data-trim placeholder="Ex.: Pet Society"></div><div class="field"><label>Categoria</label><input id="eCategoria" data-trim placeholder="Ex.: Higiene"></div><div class="field"><label>Unidade</label><select id="eUnidade"><option>unidade</option><option>kg</option><option>litro</option><option>caixa</option><option>pacote</option></select></div><div class="field"><label>Quantidade</label><input id="eQtd" type="number" min="0" step="1" inputmode="numeric" value="0"></div><div class="field"><label>Estoque mínimo</label><input id="eMin" type="number" min="0" step="1" inputmode="numeric" value="${Number(db.data.config.estoqueMinimoPadrao??3)}"></div><div class="field"><label>Custo unitário</label><input id="eCusto" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field full"><label>Preço de venda</label><input id="eVenda" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div></div>`,close=>{const nome=$('#eNome').value.trim(),ean=onlyDigits($('#eEan').value);if(!nome)return toast('Informe o produto.');if(!validEan(ean))return toast('O EAN deve possuir 8, 12, 13 ou 14 dígitos.');if(ean&&db.data.estoque.some(p=>onlyDigits(p.ean)===ean))return toast('Já existe um produto cadastrado com este EAN.');db.data.estoque.push({id:uid(),nome,ean,marca:$('#eMarca').value.trim(),categoria:$('#eCategoria').value.trim(),unidade:$('#eUnidade').value,qtd:Number($('#eQtd').value||0),min:Number($('#eMin').value||0),custo:parseLocaleNumber($('#eCusto').value),valorVenda:parseLocaleNumber($('#eVenda').value)});db.save();close();toast('Produto cadastrado.');}),
+ 'new-stock':()=>modal('Novo produto',`<div class="form-grid"><div class="field full"><label>Nome do produto *</label><input id="eNome" data-trim autocomplete="off" placeholder="Ex.: Shampoo neutro 500 ml"></div><div class="field"><label>EAN / Código de barras</label><input id="eEan" data-mask="ean" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="8, 12, 13 ou 14 dígitos"></div><div class="field"><label>Marca</label><input id="eMarca" data-trim placeholder="Ex.: Pet Society"></div><div class="field"><label>Categoria</label><input id="eCategoria" data-trim placeholder="Ex.: Higiene"></div><div class="field"><label>Unidade</label><select id="eUnidade"><option>unidade</option><option>kg</option><option>litro</option><option>caixa</option><option>pacote</option></select></div><div class="field"><label>Quantidade</label><input id="eQtd" type="number" min="0" step="1" inputmode="numeric" value="0"></div><div class="field"><label>Estoque mínimo</label><input id="eMin" type="number" min="0" step="1" inputmode="numeric" value="${Number(db.data.config.estoqueMinimoPadrao??3)}"></div><div class="field"><label>Custo unitário</label><input id="eCusto" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field full"><label>Preço de venda</label><input id="eVenda" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div></div>`,close=>{const nome=$('#eNome').value.trim(),ean=onlyDigits($('#eEan').value);if(!nome)return toast('Informe o produto.');if(!validEan(ean))return toast('O EAN deve possuir 8, 12, 13 ou 14 dígitos.');if(ean&&db.data.estoque.some(p=>onlyDigits(p.ean)===ean))return toast('Já existe um produto cadastrado com este EAN.');const product={id:uid(),nome,ean,marca:$('#eMarca').value.trim(),categoria:$('#eCategoria').value.trim(),unidade:$('#eUnidade').value,qtd:Number($('#eQtd').value||0),min:Number($('#eMin').value||0),custo:parseLocaleNumber($('#eCusto').value),valorVenda:parseLocaleNumber($('#eVenda').value),createdAt:new Date().toISOString()};db.data.estoque.push(product);if(product.qtd>0)saveStockMovement(product,'entrada',product.qtd,{data:today(),custoUnitario:product.custo,motivo:'Estoque inicial'});db.save();close();toast('Produto cadastrado.');}),
  'finish-appointment':async b=>{
   const a=db.data.agenda.find(x=>x.id===b.dataset.id);
   if(!a)return;
