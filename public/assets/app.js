@@ -605,7 +605,34 @@ const views={
  },
 
  clientes(){const rows=sortAlpha(db.data.clientes,'nome').filter(c=>[c.nome,c.telefone,c.cpf,c.email].some(v=>normalize(v).includes(normalize(clientSearch))));return `<div class="card"><div class="section-title"><h2>Clientes</h2><button class="btn primary" data-action="new-client">Novo cliente</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(clientSearch)}" placeholder="Buscar cliente por nome, telefone, CPF ou e-mail..." oninput="setClientSearch(this.value)"></div><div class="result-count">${rows.length} cliente(s) encontrado(s) · ordem alfabética</div><div class="table-wrap">${rows.length?`<table class="table"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Pets</th><th>Cashback</th><th></th></tr></thead><tbody>${rows.map(c=>`<tr class="clickable" data-action="view-client" data-id="${c.id}"><td><strong>${c.nome}</strong></td><td>${c.telefone||'-'}</td><td><div class="pet-chips">${sortAlpha(db.data.pets.filter(p=>p.clienteId===c.id),'nome').map(p=>`<button type="button" class="chip chip-button" data-action="view-pet" data-id="${p.id}">${p.nome}</button>`).join('')||'-'}</div></td><td><strong>${money(c.cashback||0)}</strong></td><td><button class="btn ghost" data-action="new-pet" data-id="${c.id}">Adicionar pet</button> <button class="btn danger" data-action="delete-client" data-id="${c.id}">Excluir</button></td></tr>`).join('')}</tbody></table>`:`<div class="empty">${clientSearch?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</div>`}</div></div>`},
- agenda(){return `<div class="card"><div class="section-title"><h2>Agendamentos</h2><button class="btn primary" data-action="quick-appointment">Novo agendamento</button></div>${agendaList([...db.data.agenda].sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora)))}</div>`},
+ agenda(){
+  const date=selectedAgendaDate();
+  const rows=[...db.data.agenda]
+   .filter(item=>item.data===date)
+   .sort((a,b)=>a.hora.localeCompare(b.hora));
+  const completed=rows.filter(item=>item.status==='Concluído').length;
+  const pending=rows.filter(item=>!['Concluído','Cancelado','Não compareceu'].includes(item.status)).length;
+  return `<section class="agenda-day-workspace">
+   <div class="card agenda-date-toolbar">
+    <div><span>AGENDA DO DIA</span><h2>${formatDateBR(date)}</h2><p>${date===today()?'Hoje':formatAgendaDate(date).weekday}</p></div>
+    <div class="agenda-date-controls">
+     <div class="field"><label>Selecionar data</label><input id="agendaDatePicker" type="date" value="${escapeAttr(date)}"></div>
+     <button class="btn primary" data-action="apply-agenda-date">Visualizar</button>
+     <button class="btn ghost" data-action="agenda-today">Hoje</button>
+     <button class="btn primary" data-action="quick-appointment">＋ Novo agendamento</button>
+    </div>
+   </div>
+   <div class="agenda-day-stats">
+    <article><small>Total do dia</small><strong>${rows.length}</strong></article>
+    <article><small>Em aberto</small><strong>${pending}</strong></article>
+    <article><small>Concluídos</small><strong>${completed}</strong></article>
+   </div>
+   <div class="card">
+    <div class="section-title"><div><h2>Compromissos de ${formatDateBR(date)}</h2><p>A Agenda mostra somente a data selecionada.</p></div></div>
+    ${agendaList(rows)}
+   </div>
+  </section>`;
+ },
  servicos(){const rows=sortAlpha(db.data.servicos,'nome');return `<div class="card"><div class="section-title"><h2>Serviços</h2><button class="btn primary" data-action="new-service">Novo serviço</button></div>${rows.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Serviço</th><th>Valor</th><th>Duração</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.nome)}</td><td><strong>${money(x.valor)}</strong></td><td>${Number(x.duracao||60)} min</td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" data-action="edit-service" data-id="${x.id}">Editar</button><button class="btn danger" data-action="delete-row" data-type="service" data-id="${x.id}">Excluir</button></div></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum serviço cadastrado.</div>'}</div>`},
 
  caixa(){
@@ -677,7 +704,30 @@ const views={
  },
  estoque(){return `<div class="card"><div class="section-title"><h2>Produtos</h2><button class="btn primary" data-action="new-stock">Novo produto</button></div>${tableSimple(db.data.estoque,['Produto','EAN','Qtd.','Mínimo','Custo','Venda'],x=>[x.nome,x.ean||'-',x.qtd,x.min,money(x.custo),money(x.valorVenda??x.custo)],'stock')}</div>`},
  pets(){const rows=sortAlpha(db.data.pets,'nome').filter(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return [p.nome,c?.nome].some(v=>normalize(v).includes(normalize(petSearch)))});return `<div class="card"><div class="section-title"><h2>Pets cadastrados</h2><button class="btn primary" data-action="new-pet-select">Novo pet</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(petSearch)}" placeholder="Buscar pelo nome do pet ou do tutor..." oninput="setPetSearch(this.value)"></div><div class="result-count">${rows.length} pet(s) encontrado(s) · ordem alfabética</div>${rows.length?`<div class="table-wrap"><table class="table pet-list-table"><thead><tr><th>Pet</th><th>Tutor</th><th>Espécie / raça</th><th>Cor</th><th></th></tr></thead><tbody>${rows.map(p=>{const c=db.data.clientes.find(x=>x.id===p.clienteId);return `<tr class="clickable" data-action="view-pet" data-id="${p.id}"><td><span class="pet-list-name"><span class="mini-avatar">${p.especie==='Felino'?'🐱':p.especie==='Canino'?'🐶':'🐾'}</span><strong>${p.nome}</strong></span></td><td>${c?.nome||'-'}</td><td>${p.especie||'-'}${p.raca?` · ${p.raca}`:''}</td><td>${p.cor||'-'}</td><td><button class="btn ghost" data-action="view-pet" data-id="${p.id}">Ver ficha</button> <button class="btn ghost" data-action="edit-pet" data-id="${p.id}">Editar</button> <button class="btn danger" data-action="delete-pet" data-id="${p.id}">Excluir</button></td></tr>`}).join('')}</tbody></table></div>`:`<div class="empty">${petSearch?'Nenhum pet encontrado.':'Nenhum pet cadastrado.'}</div>`}</div>`},
- atendimentos(){const rows=[...db.data.agenda].sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora));return `<div class="card"><div class="section-title"><h2>Fluxo de atendimentos</h2><button class="btn primary" data-action="quick-appointment">Novo atendimento</button></div><div class="status-tabs"><button class="btn ghost" data-action="filter-status" data-status="todos">Todos</button><button class="btn ghost" data-action="filter-status" data-status="Agendado">Aguardando</button><button class="btn ghost" data-action="filter-status" data-status="Concluído">Finalizados</button></div>${agendaList(rows)}</div>`},
+ atendimentos(){
+  const filters=attendanceFilterState();
+  const rows=filteredAttendances();
+  return `<section class="attendance-workspace">
+   <div class="card attendance-filter-card">
+    <div class="section-title"><div><h2>Histórico de atendimentos</h2><p>Todos os atendimentos agrupados por data, com busca e filtro por período.</p></div><button class="btn primary" data-action="quick-appointment">＋ Novo atendimento</button></div>
+    <div class="attendance-filter-grid">
+     <div class="field"><label>De</label><input id="attendanceFrom" type="date" value="${escapeAttr(filters.from||'')}"></div>
+     <div class="field"><label>Até</label><input id="attendanceTo" type="date" value="${escapeAttr(filters.to||'')}"></div>
+     <div class="field attendance-search"><label>Buscar</label><input id="attendanceSearch" value="${escapeAttr(filters.search||'')}" placeholder="Pet, tutor, serviço, CPF..."></div>
+     <button class="btn primary" data-action="apply-attendance-filter">Filtrar</button>
+     <button class="btn ghost" data-action="clear-attendance-filter">Limpar</button>
+    </div>
+    <div class="status-tabs">
+     <button class="btn ghost ${filters.status==='todos'?'active':''}" data-action="filter-status" data-status="todos">Todos</button>
+     <button class="btn ghost ${filters.status==='Agendado'?'active':''}" data-action="filter-status" data-status="Agendado">Aguardando</button>
+     <button class="btn ghost ${filters.status==='Concluído'?'active':''}" data-action="filter-status" data-status="Concluído">Finalizados</button>
+     <button class="btn ghost ${filters.status==='Cancelado'?'active':''}" data-action="filter-status" data-status="Cancelado">Cancelados</button>
+    </div>
+   </div>
+   <div class="attendance-results-head"><span>${rows.length} atendimento(s) encontrado(s)</span>${(filters.from||filters.to)?`<small>${filters.from?formatDateBR(filters.from):'Início'} até ${filters.to?formatDateBR(filters.to):'Hoje'}</small>`:''}</div>
+   ${attendanceGroups(rows)}
+  </section>`;
+ },
  financeiro(){
   ensureData();
   const summary=financePeriodSummary();
@@ -952,25 +1002,90 @@ function appointmentServiceNames(appointment){
 function appointmentTotal(appointment){
  return appointmentItems(appointment).reduce((sum,item)=>sum+Number(item.total??Number(item.valor||0)*Number(item.qtd||1)),0);
 }
-function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60){
- const cfg=db.data.config||{},start=cfg.inicioAgenda||'08:00',end=cfg.fimAgenda||'18:00',step=Math.max(5,Number(cfg.intervaloAgenda||30)),duration=Math.max(15,Number(requestedDuration||60));
- const toMin=x=>{const [h,m]=String(x||'00:00').split(':').map(Number);return h*60+m};
- const fmt=n=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
- const busy=db.data.agenda.filter(a=>a.id!==ignoreId&&a.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(a.status)).map(a=>{
-  const appointmentStart=toMin(a.hora);
-  const storedDuration=a.startsAt&&a.endsAt?Math.max(15,Math.round((new Date(a.endsAt)-new Date(a.startsAt))/60000)):appointmentItems(a).reduce((sum,item)=>{
-   const service=db.data.servicos.find(s=>s.id===item.servicoId);
-   return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(item.qtd||1));
-  },0);
-  return [appointmentStart,appointmentStart+Math.max(15,storedDuration||60)];
+
+function selectedAgendaDate(){
+ return window.forgeAgendaSelectedDate||today();
+}
+function attendanceFilterState(){
+ return window.forgeAttendanceFilters||{from:'',to:'',search:'',status:'todos'};
+}
+function appointmentSearchMatches(appointment,term){
+ if(!term)return true;
+ const normalized=normalize(term);
+ const pet=db.data.pets.find(item=>item.id===appointment.petId);
+ const tutor=pet&&db.data.clientes.find(item=>item.id===pet.clienteId);
+ const services=appointmentItems(appointment).map(item=>item.nome).join(' ');
+ return [
+  pet?.nome,
+  tutor?.nome,
+  tutor?.cpf,
+  tutor?.telefone,
+  services,
+  appointment.data,
+  appointment.hora,
+  appointment.status
+ ].some(value=>normalize(String(value||'')).includes(normalized));
+}
+function filteredAttendances(){
+ const filters=attendanceFilterState();
+ return [...db.data.agenda]
+  .filter(item=>{
+   if(filters.from&&item.data<filters.from)return false;
+   if(filters.to&&item.data>filters.to)return false;
+   if(filters.status!=='todos'&&(item.status||'Agendado')!==filters.status)return false;
+   return appointmentSearchMatches(item,filters.search);
+  })
+  .sort((a,b)=>(b.data+b.hora).localeCompare(a.data+a.hora));
+}
+function attendanceGroups(rows){
+ if(!rows.length)return '<div class="empty">Nenhum atendimento encontrado neste período.</div>';
+ const groups=new Map();
+ rows.forEach(item=>{
+  if(!groups.has(item.data))groups.set(item.data,[]);
+  groups.get(item.data).push(item);
  });
- const out=[],endMin=toMin(end);
- for(let n=toMin(start);n+duration<=endMin;n+=step){
-  if(!busy.some(([a,b])=>n<b&&n+duration>a))out.push(fmt(n));
- }
- return out;
+ return [...groups.entries()].map(([date,items])=>`<section class="attendance-day-group">
+  <div class="attendance-day-heading">
+   <div><small>${formatAgendaDate(date).weekday}</small><h3>${formatDateBR(date)}</h3></div>
+   <span>${items.length} atendimento(s)</span>
+  </div>
+  ${agendaList(items.sort((a,b)=>a.hora.localeCompare(b.hora)))}
+ </section>`).join('');
 }
 
+function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60,petId=''){
+ const cfg=db.data.config||{};
+ const start=cfg.inicioAgenda||'08:00';
+ const end=cfg.fimAgenda||'18:00';
+ const step=Math.max(5,Number(cfg.intervaloAgenda||30));
+ const duration=Math.max(15,Number(requestedDuration||60));
+ const toMin=value=>{const [h,m]=String(value||'00:00').split(':').map(Number);return h*60+m};
+ const fmt=value=>`${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;
+
+ // A loja pode atender animais em paralelo. Somente o mesmo pet bloqueia
+ // outro horário sobreposto para evitar duplicidade acidental.
+ const busy=petId
+  ? db.data.agenda
+    .filter(item=>item.id!==ignoreId&&item.petId===petId&&item.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(item.status))
+    .map(item=>{
+      const appointmentStart=toMin(item.hora);
+      const storedDuration=item.startsAt&&item.endsAt
+       ? Math.max(15,Math.round((new Date(item.endsAt)-new Date(item.startsAt))/60000))
+       : appointmentItems(item).reduce((sum,appointmentItem)=>{
+          const service=db.data.servicos.find(service=>service.id===appointmentItem.servicoId);
+          return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(appointmentItem.qtd||1));
+         },0);
+      return [appointmentStart,appointmentStart+Math.max(15,Number(storedDuration)||60)];
+    })
+  : [];
+
+ const slots=[];
+ const endMin=toMin(end);
+ for(let minute=toMin(start);minute+duration<=endMin;minute+=step){
+  if(!busy.some(([busyStart,busyEnd])=>minute<busyEnd&&minute+duration>busyStart))slots.push(fmt(minute));
+ }
+ return slots;
+}
 function agendaList(rows){if(!rows.length)return '<div class="empty">Nenhum agendamento.</div>';return `<div class="calendar-list">${rows.map(a=>{const p=db.data.pets.find(x=>x.id===a.petId),c=p&&db.data.clientes.find(x=>x.id===p.clienteId),dateLabel=formatAgendaDate(a.data);return `<div class="appointment"><div class="appointment-date"><span class="appointment-weekday">${dateLabel.weekday}</span><strong class="appointment-day-month">${dateLabel.dayMonth}</strong><span class="appointment-hour">${a.hora}</span></div><div><strong>${p?.nome||'Pet'}</strong><div style="color:var(--muted);margin-top:4px">${escapeHtml(appointmentServiceNames(a))} · ${c?.nome||'Tutor'} · <b>${money(appointmentTotal(a))}</b></div></div><div><span class="badge ${a.status==='Concluído'?'green':a.status==='Cancelado'?'red':'yellow'}">${a.status||'Agendado'}</span> ${!['Concluído','Cancelado'].includes(a.status)?`<button class="btn ghost" data-action="finish-appointment" data-id="${a.id}">Concluir</button> <button class="btn ghost" data-action="cancel-appointment" data-id="${a.id}">Cancelar</button>`:''} <button class="btn danger" data-action="delete-appointment" data-id="${a.id}">Excluir</button></div></div>`}).join('')}</div>`}
 function openContractAcceptance(onAccepted){const root=document.createElement('div');root.className='contract-overlay';root.innerHTML=`<div class="contract-modal"><header><div><small>ACEITE ELETRÔNICO</small><strong>Contrato Forge Pets</strong></div><button type="button" class="icon-btn" data-contract-close>×</button></header><div class="contract-scroll" id="contractScroll">${FORGEPETS_CONTRACT_HTML}</div><div class="contract-progress"><span id="contractProgressBar"></span></div><label class="contract-accept-row disabled"><input id="contractAgree" type="checkbox" disabled><span>Li integralmente e concordo com o contrato, a cobrança recorrente e os termos apresentados.</span></label><footer><button type="button" class="btn ghost" data-contract-close>Voltar</button><button type="button" class="btn primary" id="confirmContract" disabled>Concordar e continuar</button></footer></div>`;document.body.appendChild(root);const scroll=root.querySelector('#contractScroll'),agree=root.querySelector('#contractAgree'),confirm=root.querySelector('#confirmContract'),row=root.querySelector('.contract-accept-row'),bar=root.querySelector('#contractProgressBar');const update=()=>{const max=Math.max(1,scroll.scrollHeight-scroll.clientHeight),pct=Math.min(100,Math.round(scroll.scrollTop/max*100));bar.style.width=pct+'%';if(scroll.scrollTop+scroll.clientHeight>=scroll.scrollHeight-12){agree.disabled=false;row.classList.remove('disabled');}};scroll.addEventListener('scroll',update);agree.addEventListener('change',()=>confirm.disabled=!agree.checked);root.querySelectorAll('[data-contract-close]').forEach(x=>x.onclick=()=>root.remove());confirm.onclick=()=>{document.querySelector('#contractAccepted').value='1';root.remove();toast('Contrato aceito. Agora confirme a assinatura.','success');onAccepted?.();};setTimeout(update,50);}
 function modal(title,body,onSave,saveText='Salvar'){window.closeForgeConnect?.();const root=$('#modalRoot');root.innerHTML=`<div class="modal-overlay"><div class="modal"><div class="modal-header"><strong>${title}</strong><button type="button" class="icon-btn" data-close>&times;</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn ghost" data-close>Cancelar</button><button type="button" class="btn primary" id="modalSave">${saveText}</button></div></div></div>`;root.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>root.innerHTML='');applyInputMasks(root);bindCepLookup(root);const save=$('#modalSave');save.onclick=async()=>{if(save.disabled)return;clearModalError();const original=save.textContent;save.disabled=true;save.textContent='Salvando...';try{await onSave(()=>root.innerHTML='');}finally{if(document.body.contains(save)){save.disabled=false;save.textContent=original;}}};}
@@ -1847,7 +1962,7 @@ const actions={
     <div id="appointmentServiceItems" class="appointment-service-items"></div>
     <div class="appointment-services-total"><span>Total do atendimento</span><strong id="appointmentServicesTotal">${money(firstService.valor||0)}</strong></div>
    </div>
-   <div class="field"><label>Data</label><input id="aData" type="date" value="${today()}"></div>
+   <div class="field"><label>Data</label><input id="aData" type="date" value="${page==='agenda'?selectedAgendaDate():today()}"></div>
    <div class="field"><label>Horário disponível</label><select id="aHora"></select><small id="aHoraStatus" class="field-help"></small></div>
    <div class="field full"><label>Observações</label><textarea id="aObs"></textarea></div>
   </div>`,async close=>{
@@ -1895,10 +2010,10 @@ const actions={
   },0);
 
   const renderTimes=()=>{
-   const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration());
+   const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration(),petSelect.value||'');
    timeSelect.innerHTML=times.length?times.map(t=>`<option value="${t}">${t}</option>`).join(''):'<option value="">Nenhum horário disponível</option>';
    timeSelect.disabled=!times.length;
-   timeStatus.textContent=times.length?`${times.length} horário(s) livre(s). Duração total: ${selectedDuration()} min.`:'Todos os horários desta data já estão ocupados.';
+   timeStatus.textContent=times.length?`${times.length} horário(s) disponível(is). Duração prevista: ${selectedDuration()} min.`:'Este pet já possui atendimento cobrindo todos os horários possíveis desta data.';
   };
 
   const renderServiceItems=()=>{
@@ -1951,6 +2066,7 @@ const actions={
   });
 
   dateInput.addEventListener('change',renderTimes);
+  petSelect.addEventListener('change',renderTimes);
   renderServiceItems();renderTimes();
 
   const renderTutorResults=()=>{
@@ -1974,6 +2090,7 @@ const actions={
    petSelect.innerHTML=pets.map(p=>`<option value="${p.id}">${p.nome}${p.raca?` · ${p.raca}`:''}</option>`).join('');
    petSelect.disabled=!pets.length;
    results.innerHTML=`<div class="appointment-selected-client"><span>✓ Tutor selecionado</span><strong>${c.nome}</strong>${pets.length?'':`<small>Este tutor não possui pet cadastrado.</small>`}</div>`;
+   renderTimes();
   });
  },
  'new-service':()=>modal('Novo serviço',`<div class="form-grid"><div class="field"><label>Nome</label><input id="sNome"></div><div class="field"><label>Valor</label><input id="sValor" type="text" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="field"><label>Duração na agenda</label><select id="sDuracao"><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60" selected>1 hora</option><option value="90">1h30</option><option value="120">2 horas</option></select></div></div>`,async close=>{try{const name=$('#sNome').value.trim();if(!name)return setModalError('Informe o serviço.');const {service}=await cloud.request('/api/forge/servicos',{method:'POST',body:JSON.stringify({name,price:parseLocaleNumber($('#sValor').value),durationMinutes:Number($('#sDuracao').value||60)})});db.data.servicos.push(cloud.service(service));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Serviço cadastrado no Neon.');}catch(e){setModalError(e.message||'Não foi possível salvar o serviço.');}}),
@@ -2070,7 +2187,31 @@ const actions={
  'go-boletos':()=>{document.querySelector('#modalRoot').innerHTML='';go('boletos');},
  'go-caixa':()=>go('caixa'),
  'filter-service':b=>{go('agenda');setTimeout(()=>{const term=b.dataset.filter;const rows=db.data.agenda.filter(a=>(db.data.servicos.find(s=>s.id===a.servicoId)?.nome||'').toLowerCase().includes(term));$('#content').innerHTML=`<div class="card"><div class="section-title"><h2>Agendamentos de ${term}</h2><button class="btn primary" data-action="quick-appointment">Novo agendamento</button></div>${agendaList(rows)}</div>`;},0);},
- 'filter-status':b=>{const status=b.dataset.status;const rows=status==='todos'?db.data.agenda:db.data.agenda.filter(a=>(a.status||'Agendado')===status);$('#content').querySelector('.calendar-list,.empty')?.remove();$('#content').querySelector('.card')?.insertAdjacentHTML('beforeend',agendaList(rows));},
+ 'filter-status':button=>{
+  window.forgeAttendanceFilters={...attendanceFilterState(),status:button.dataset.status||'todos'};
+  render();
+ },
+ 'apply-agenda-date':()=>{
+  const value=$('#agendaDatePicker')?.value||today();
+  window.forgeAgendaSelectedDate=value;
+  render();
+ },
+ 'agenda-today':()=>{
+  window.forgeAgendaSelectedDate=today();
+  render();
+ },
+ 'apply-attendance-filter':()=>{
+  const from=$('#attendanceFrom')?.value||'';
+  const to=$('#attendanceTo')?.value||'';
+  const search=$('#attendanceSearch')?.value.trim()||'';
+  if(from&&to&&from>to)return toast('A data inicial não pode ser maior que a data final.','error');
+  window.forgeAttendanceFilters={...attendanceFilterState(),from,to,search};
+  render();
+ },
+ 'clear-attendance-filter':()=>{
+  window.forgeAttendanceFilters={from:'',to:'',search:'',status:'todos'};
+  render();
+ },
  'edit-pet':b=>{const p=db.data.pets.find(x=>x.id===b.dataset.id);if(!p)return;modal('Editar pet',`<div class="form-grid"><div class="field"><label>Nome *</label><input id="pNome" value="${escapeAttr(p.nome)}"></div><div class="field"><label>Espécie</label><select id="pEspecie"><option ${p.especie==='Canino'?'selected':''}>Canino</option><option ${p.especie==='Felino'?'selected':''}>Felino</option><option ${p.especie==='Outro'?'selected':''}>Outro</option></select></div><div class="field"><label>Raça</label><input id="pRaca" value="${escapeAttr(p.raca)}"></div><div class="field"><label>Cor</label><input id="pCor" value="${escapeAttr(p.cor)}"></div><div class="field"><label>Sexo</label><select id="pSexo"><option ${p.sexo==='Macho'?'selected':''}>Macho</option><option ${p.sexo==='Fêmea'?'selected':''}>Fêmea</option><option ${p.sexo==='Não informado'?'selected':''}>Não informado</option></select></div><div class="field"><label>Porte</label><select id="pPorte"><option value="">Não informado</option><option ${p.porte==='Pequeno'?'selected':''}>Pequeno</option><option ${p.porte==='Médio'?'selected':''}>Médio</option><option ${p.porte==='Grande'?'selected':''}>Grande</option></select></div><div class="field"><label>Peso (kg)</label><input id="pPeso" type="text" data-mask="decimal" data-decimals="3" inputmode="decimal" value="${String(p.peso??'').replace('.',',')}"></div><div class="field"><label>Castrado</label><select id="pCastrado"><option ${p.castrado==='Sim'?'selected':''}>Sim</option><option ${p.castrado==='Não'?'selected':''}>Não</option></select></div><div class="field"><label>Nascimento</label><input id="pNasc" type="date" value="${escapeAttr(p.nascimento)}"></div><div class="field"><label>Temperamento</label><input id="pTemperamento" value="${escapeAttr(p.temperamento)}"></div><div class="field full"><label>Observações</label><textarea id="pObs">${escapeHtml(p.obs||'')}</textarea></div></div>`,async close=>{try{const name=$('#pNome').value.trim();if(!name)return toast('Informe o nome do pet.');const carePreferences={naoAceitaSecador:!!p.naoAceitaSecador,naoAceitaMaquina:!!p.naoAceitaMaquina,semPerfume:!!p.semPerfume,semLaco:!!p.semLaco,servicosPreferidos:p.servicosPreferidos||[]};const {pet}=await cloud.request(`/api/forge/pets/${p.id}`,{method:'PUT',body:JSON.stringify({name,species:$('#pEspecie').value,breed:$('#pRaca').value,color:$('#pCor').value,sex:$('#pSexo').value,size:$('#pPorte').value,weight:parseLocaleNumber($('#pPeso').value),neutered:$('#pCastrado').value==='Sim',birthDate:$('#pNasc').value,temperament:$('#pTemperamento').value,careNotes:$('#pObs').value,carePreferences})});Object.assign(p,cloud.pet(pet));localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Pet atualizado.');}catch(e){toast(e.message);}});},
  'delete-pet':b=>{const p=db.data.pets.find(x=>x.id===b.dataset.id);if(!p)return;modal('Excluir pet',`<p>Deseja excluir o cadastro de <b>${escapeHtml(p.nome)}</b>?</p><div class="notice">O pet ficará inativo no banco de dados.</div>`,async close=>{try{await cloud.request(`/api/forge/pets/${p.id}`,{method:'DELETE'});db.data.pets=db.data.pets.filter(x=>x.id!==p.id);localStorage.setItem('vetcoreShopPro',JSON.stringify(db.data));close();render();toast('Pet excluído.');}catch(e){toast(e.message);}},'Excluir');},
  'new-pet-select':()=>{if(!db.data.clientes.length)return toast('Cadastre um cliente primeiro.');modal('Escolha o tutor',`<div class="field"><label>Tutor</label><select id="petTutor">${db.data.clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>`,close=>{const id=$('#petTutor').value;close();actions['new-pet']({dataset:{id}});},'Continuar');},

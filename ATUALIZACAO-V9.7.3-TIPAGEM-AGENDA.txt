@@ -1,5 +1,0 @@
-FORGE PETS v9.7.3
-
-- Corrigida a tipagem estrita em app/api/forge/agenda/route.ts.
-- Tipados map, filter e reduce do fluxo de múltiplos serviços.
-- Atualizadas as versões de package.json e package-lock.json.

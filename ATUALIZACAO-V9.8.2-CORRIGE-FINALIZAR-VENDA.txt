@@ -1,8 +1,0 @@
-FORGE PETS v9.8.2
-
-- Corrigida variável de desconto que interrompia a finalização.
-- Finalizar venda volta a salvar venda, caixa e estoque.
-- Finalizar e imprimir abre a janela antes do processamento para evitar bloqueio de pop-up.
-- Botões mostram estado de carregamento e bloqueiam clique duplicado.
-- Erros agora aparecem no modal e no console.
-- Persistência usa db.save(), incluindo sincronização financeira com o Neon.

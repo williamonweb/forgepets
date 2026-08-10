@@ -1,5 +1,0 @@
-FORGEPETS V8.8.1
-
-- Alinha campo de pesquisa, seletor de item e botão Adicionar no PDV.
-- Padroniza os três controles com 48 px de altura.
-- Mantém o layout responsivo no celular.

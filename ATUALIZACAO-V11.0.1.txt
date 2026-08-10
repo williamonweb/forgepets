@@ -1,9 +1,0 @@
-ForgePets v11.0.1
-
-Correção do Forge Connect:
-- inicia fechado;
-- botão X fecha corretamente;
-- clique fora fecha;
-- tecla Esc fecha;
-- painel permanece fora da tela quando fechado;
-- comportamento ajustado para desktop e celular.

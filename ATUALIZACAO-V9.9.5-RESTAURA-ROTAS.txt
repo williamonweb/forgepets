@@ -1,9 +1,0 @@
-FORGE PETS v9.9.5 — RESTAURAÇÃO DAS ROTAS
-
-- Restaurada a tela Pets.
-- Restaurada a tela Atendimentos.
-- Mantida a tela Relatórios.
-- Revisadas todas as opções do menu contra o objeto views.
-- Adicionada validação automática de rotas no Console.
-- Rotas ausentes não caem silenciosamente na Dashboard.
-- Corrigidas as três cópias publicadas do app.js.

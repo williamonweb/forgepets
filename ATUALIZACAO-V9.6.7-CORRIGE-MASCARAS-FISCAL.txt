@@ -1,5 +1,0 @@
-FORGE PETS v9.6.7
-
-- Corrigida a abertura do Módulo Fiscal.
-- Substituída a função inexistente bindAllMasks pela função atual applyInputMasks.
-- Corrigidas as três cópias de app.js usadas pelo projeto.

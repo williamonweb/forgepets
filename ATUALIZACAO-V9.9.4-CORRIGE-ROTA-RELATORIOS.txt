@@ -1,7 +1,0 @@
-FORGE PETS v9.9.4
-
-- Restaurada a view relatorios() no objeto de telas.
-- A rota /app/relatorios passa a abrir o relatório profissional.
-- Recarregar a página mantém Relatórios aberto.
-- O menu lateral permanece destacado corretamente.
-- Removido o fallback silencioso para Dashboard quando uma rota não possui view.

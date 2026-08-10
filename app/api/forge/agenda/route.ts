@@ -97,13 +97,14 @@ async function createWithConflictProtection(
         const conflict = await tx.appointment.findFirst({
           where: {
             companyId,
+            petId: data.petId,
             status: { in: BLOCKING_STATUSES },
             startsAt: { lt: data.endsAt },
             endsAt: { gt: data.startsAt }
           },
           select: { id: true }
         });
-        if (conflict) throw new Error('TIME_CONFLICT');
+        if (conflict) throw new Error('PET_TIME_CONFLICT');
 
         return tx.appointment.create({
           data: {
@@ -134,12 +135,12 @@ async function createWithConflictProtection(
         });
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error: any) {
-      if (error?.message === 'TIME_CONFLICT') throw error;
+      if (error?.message === 'PET_TIME_CONFLICT') throw error;
       if (error?.code === 'P2034' && attempt < 2) continue;
       throw error;
     }
   }
-  throw new Error('TIME_CONFLICT');
+  throw new Error('PET_TIME_CONFLICT');
 }
 
 export async function GET(request: Request) {
@@ -225,8 +226,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (error: any) {
-    if (error?.message === 'TIME_CONFLICT') {
-      return NextResponse.json({ message: 'Este horário acabou de ser ocupado. Escolha outro.' }, { status: 409 });
+    if (error?.message === 'PET_TIME_CONFLICT') {
+      return NextResponse.json({ message: 'Este pet já possui outro atendimento neste horário. Escolha outro horário para ele.' }, { status: 409 });
     }
     if (error?.message === 'TUTOR_NOT_FOUND') {
       return NextResponse.json({ message: 'Tutor não encontrado nesta empresa.' }, { status: 400 });

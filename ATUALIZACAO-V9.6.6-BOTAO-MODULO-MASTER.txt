@@ -1,9 +1,0 @@
-FORGE PETS v9.6.6 — BOTÃO DO MÓDULO NO MASTER
-
-CORREÇÕES
-- O clique agora envia o botão selecionado para a ação.
-- A confirmação usa o modal nativo do Painel Master.
-- A requisição usa corretamente PATCH /api/master.
-- Após liberar ou bloquear, os dados do Master são atualizados.
-- Estado de carregamento no botão de confirmação.
-- Corrigidas as três cópias do admin.js publicadas pelo projeto.
