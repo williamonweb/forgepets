@@ -122,12 +122,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
           where: {
             id: { not: current.id },
             companyId,
+            petId,
             status: { in: BLOCKING_STATUSES },
             startsAt: { lt: endsAt },
             endsAt: { gt: startsAt }
           }
         });
-        if (conflict) throw new Error('TIME_CONFLICT');
+        if (conflict) throw new Error('PET_TIME_CONFLICT');
       }
 
       if (normalizedItems) {
@@ -168,8 +169,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     return NextResponse.json({ appointment });
   } catch (error: any) {
-    if (error?.message === 'TIME_CONFLICT') {
-      return NextResponse.json({ message: 'O período necessário para este serviço já está ocupado.' }, { status: 409 });
+    if (error?.message === 'PET_TIME_CONFLICT') {
+      return NextResponse.json({ message: 'Este pet já possui outro atendimento sobreposto neste horário.' }, { status: 409 });
     }
     if (error?.code === 'P2034') {
       return NextResponse.json({ message: 'O atendimento foi alterado por outro usuário. Atualize e tente novamente.' }, { status: 409 });

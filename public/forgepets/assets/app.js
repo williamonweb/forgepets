@@ -1152,7 +1152,7 @@ function attendanceGroups(rows){
  </section>`).join('');
 }
 
-function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60){
+function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60,petId=''){
  const cfg=db.data.config||{};
  const start=cfg.inicioAgenda||'08:00';
  const end=cfg.fimAgenda||'18:00';
@@ -1161,33 +1161,36 @@ function availableAgendaTimesByDuration(date,ignoreId='',requestedDuration=60){
  const toMin=value=>{const [h,m]=String(value||'00:00').split(':').map(Number);return h*60+m};
  const fmt=value=>`${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;
 
- // Cada novo atendimento precisa caber inteiro entre os atendimentos existentes.
- // Ex.: serviço de 90 min não pode aparecer às 09:00 se já há atendimento às 10:00.
- const busy=(db.data.agenda||[])
-  .filter(item=>item.id!==ignoreId&&item.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(item.status))
-  .map(item=>{
-   const appointmentStart=toMin(item.hora);
-   let storedDuration=60;
-   if(item.startsAt&&item.endsAt){
-    storedDuration=Math.max(15,Math.round((new Date(item.endsAt)-new Date(item.startsAt))/60000));
-   }else{
-    const itemList=appointmentItems(item);
-    storedDuration=itemList.length
-     ? itemList.reduce((sum,appointmentItem)=>{
-        const service=db.data.servicos.find(service=>service.id===appointmentItem.servicoId);
-        return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(appointmentItem.qtd||1));
-       },0)
-     : Math.max(15,Number(db.data.servicos.find(service=>service.id===item.servicoId)?.duracao||60));
-   }
-   return [appointmentStart,appointmentStart+storedDuration];
-  });
+ // O serviço define por quanto tempo o atendimento ocupa a agenda.
+ // A loja pode receber vários clientes no mesmo horário.
+ // Só bloqueamos sobreposição do próprio pet para evitar duplicidade.
+ const busy=petId
+  ? (db.data.agenda||[])
+    .filter(item=>item.id!==ignoreId&&item.petId===petId&&item.data===date&&!['Cancelado','Concluído','Não compareceu'].includes(item.status))
+    .map(item=>{
+      const appointmentStart=toMin(item.hora);
+      let storedDuration=60;
+      if(item.startsAt&&item.endsAt){
+       storedDuration=Math.max(15,Math.round((new Date(item.endsAt)-new Date(item.startsAt))/60000));
+      }else{
+       const itemList=appointmentItems(item);
+       storedDuration=itemList.length
+        ? itemList.reduce((sum,appointmentItem)=>{
+           const service=db.data.servicos.find(service=>service.id===appointmentItem.servicoId);
+           return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(appointmentItem.qtd||1));
+          },0)
+        : Math.max(15,Number(db.data.servicos.find(service=>service.id===item.servicoId)?.duracao||60));
+      }
+      return [appointmentStart,appointmentStart+storedDuration];
+    })
+  : [];
 
  const slots=[];
  const endMin=toMin(end);
  for(let minute=toMin(start);minute+duration<=endMin;minute+=step){
   const requestedEnd=minute+duration;
-  const overlaps=busy.some(([busyStart,busyEnd])=>minute<busyEnd&&requestedEnd>busyStart);
-  if(!overlaps)slots.push(fmt(minute));
+  const overlapsSamePet=busy.some(([busyStart,busyEnd])=>minute<busyEnd&&requestedEnd>busyStart);
+  if(!overlapsSamePet)slots.push(fmt(minute));
  }
  return slots;
 }
@@ -2116,7 +2119,7 @@ const actions={
   },0);
 
   const renderTimes=()=>{
-   const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration());
+   const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration(),petSelect.value||'');
    timeSelect.innerHTML=times.length?times.map(t=>`<option value="${t}">${t}</option>`).join(''):'<option value="">Nenhum horário disponível</option>';
    timeSelect.disabled=!times.length;
    const duration=selectedDuration();
@@ -2125,9 +2128,9 @@ const actions={
     const [h,m]=selected.split(':').map(Number);
     const finishMinutes=h*60+m+duration;
     const finish=`${String(Math.floor(finishMinutes/60)).padStart(2,'0')}:${String(finishMinutes%60).padStart(2,'0')}`;
-    timeStatus.innerHTML=`${times.length} horário(s) que comportam <b>${duration} min</b>. Selecionado: <b>${selected} → ${finish}</b>.`;
+    timeStatus.innerHTML=`${times.length} horário(s) possíveis para um atendimento de <b>${duration} min</b>. Selecionado: <b>${selected} → ${finish}</b>. Outros clientes podem ser agendados no mesmo horário.`;
    }else{
-    timeStatus.innerHTML=`Nenhum intervalo de <b>${duration} min</b> cabe livre nesta data. Escolha outra data ou ajuste os serviços.`;
+    timeStatus.innerHTML=`Não há horário válido para <b>${duration} min</b> dentro do expediente ou este pet já possui atendimento sobreposto.`;
    }
   };
 
@@ -2402,7 +2405,17 @@ function openSaleModal(){
  <div class="pdv-grid"><section class="pdv-main"><div class="pdv-customer-bar"><div class="field"><label>Tutor / cliente</label><select id="saleClient"><option value="">Consumidor não identificado</option>${sortAlpha(db.data.clientes,'nome').map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="pdv-clock"><small>Data e hora</small><strong>${new Date().toLocaleDateString('pt-BR')} · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</strong></div></div>
  <div class="pdv-product-search"><div class="field"><label>Pesquisar produto ou serviço</label><div class="sale-search"><span>⌕</span><input id="saleSearch" type="search" placeholder="Digite o nome ou código..." autocomplete="off"></div></div><div class="field"><label>Item encontrado</label><select id="saleItem"></select><small class="sale-search-result" id="saleSearchResult"></small></div><button class="btn primary pdv-add" id="saleAdd">＋ Adicionar</button></div>
  <div id="saleBenefits"></div><div id="saleCart"></div></section>
- <aside class="pdv-summary"><div class="pdv-summary-title"><span>Resumo da venda</span><small>Atualizado em tempo real</small></div><div id="saleTotals"></div><div class="pdv-payment"><label>Forma de pagamento</label><div class="pdv-payment-options" id="salePaymentOptions">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito'].map((x,i)=>`<button type="button" class="pdv-payment-btn ${i===0?'active':''}" data-payment="${x}">${x==='PIX'?'▣':x==='Dinheiro'?'R$':x.includes('débito')?'D':x.includes('crédito')?'C':'••'}<span>${x}</span></button>`).join('')}</div><input type="hidden" id="salePayment" value="PIX"><div id="saleCashPanel"></div></div><label class="pdv-fiscal-option"><input id="saleEmitFiscal" type="checkbox"><span><b>Registrar NFS-e desta venda</b><small>Cria uma solicitação fiscal com os serviços da venda.</small></span></label><div class="pdv-safe-note">🔒 Confira os valores antes de finalizar a venda.</div></aside></div></div>
+ <aside class="pdv-summary"><div class="pdv-summary-title"><span>Resumo da venda</span><small>Atualizado em tempo real</small></div><div id="saleTotals"></div><div class="pdv-manual-discount">
+ <label>Desconto manual</label>
+ <div class="pdv-discount-controls">
+  <select id="saleManualDiscountType">
+   <option value="money">R$</option>
+   <option value="percent">%</option>
+  </select>
+  <input id="saleManualDiscountValue" type="text" inputmode="decimal" placeholder="0,00" value="">
+ </div>
+ <small id="saleManualDiscountHint">Opcional. Use para promoções ou descontos concedidos na hora.</small>
+</div><div class="pdv-payment"><label>Forma de pagamento</label><div class="pdv-payment-options" id="salePaymentOptions">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito'].map((x,i)=>`<button type="button" class="pdv-payment-btn ${i===0?'active':''}" data-payment="${x}">${x==='PIX'?'▣':x==='Dinheiro'?'R$':x.includes('débito')?'D':x.includes('crédito')?'C':'••'}<span>${x}</span></button>`).join('')}</div><input type="hidden" id="salePayment" value="PIX"><div id="saleCashPanel"></div></div><label class="pdv-fiscal-option"><input id="saleEmitFiscal" type="checkbox"><span><b>Registrar NFS-e desta venda</b><small>Cria uma solicitação fiscal com os serviços da venda.</small></span></label><div class="pdv-safe-note">🔒 Confira os valores antes de finalizar a venda.</div></aside></div></div>
  <div class="modal-footer sale-footer pdv-footer"><button class="btn ghost" data-close>Cancelar</button><div><button class="btn" id="saleFinish">Finalizar venda</button><button class="btn primary" id="saleFinishPrint">Finalizar e imprimir</button></div></div></div></div>`;
  root.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>root.innerHTML='');
  renderSaleItemOptions();
@@ -2410,6 +2423,8 @@ function openSaleModal(){
  $('#saleSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addSelectedSaleItem();}};
  $('#saleAdd').onclick=addSelectedSaleItem;
  $('#saleClient').onchange=()=>{renderSaleBenefits();renderSaleSummary();};
+ $('#saleManualDiscountType').onchange=()=>{renderSaleSummary();};
+ $('#saleManualDiscountValue').oninput=()=>{renderSaleSummary();};
  root.querySelectorAll('[data-payment]').forEach(btn=>btn.onclick=()=>selectSalePayment(btn.dataset.payment));
  $('#saleFinish').onclick=()=>finishSale(false);
  $('#saleFinishPrint').onclick=()=>finishSale(true);
@@ -2445,16 +2460,36 @@ function renderSaleCart(){
  renderSaleSummary();
 }
 function getSaleTotals(){
- const bruto=saleCart.reduce((s,x)=>s+x.preco*x.qtd,0);
+ const bruto=saleCart.reduce((s,x)=>s+Number(x.preco||0)*Number(x.qtd||0),0);
  const cliente=db.data.clientes.find(c=>c.id===$('#saleClient')?.value);
  const cashUse=Math.min(parseLocaleNumber($('#saleCashback')?.value),Number(cliente?.cashback||0),bruto);
- const coupon=db.data.cupons.find(c=>c.id===$('#saleCoupon')?.value);
- let discount=0;
- if(coupon)discount=coupon.tipo==='percentual'?bruto*Number(coupon.valor)/100:Number(coupon.valor);
- discount=Math.min(discount,Math.max(0,bruto-cashUse));
+ const coupon=(db.data.cupons||[]).find(c=>c.id===$('#saleCoupon')?.value);
+
+ let promoDiscount=0;
+ if(coupon)promoDiscount=coupon.tipo==='percentual'?bruto*Number(coupon.valor)/100:Number(coupon.valor);
  const vip=cliente&&hasFeature('vip')?bruto*vipDiscount(cliente)/100:0;
- discount=Math.min(Math.max(0,bruto-cashUse),Math.max(discount,vip));
- return {bruto,cliente,cashUse,coupon,discount,total:Math.max(0,bruto-cashUse-discount)};
+ promoDiscount=Math.min(Math.max(0,bruto-cashUse),Math.max(promoDiscount,vip));
+
+ const manualType=$('#saleManualDiscountType')?.value||'money';
+ const manualInput=Math.max(0,parseLocaleNumber($('#saleManualDiscountValue')?.value));
+ let manualDiscount=manualType==='percent'
+  ? bruto*Math.min(100,manualInput)/100
+  : manualInput;
+ manualDiscount=Math.min(manualDiscount,Math.max(0,bruto-cashUse-promoDiscount));
+
+ const discount=promoDiscount+manualDiscount;
+ return {
+  bruto,
+  cliente,
+  cashUse,
+  coupon,
+  promoDiscount,
+  manualDiscount,
+  manualType,
+  manualInput,
+  discount,
+  total:Math.max(0,bruto-cashUse-discount)
+ };
 }
 function selectSalePayment(payment){
  const field=$('#salePayment');if(field)field.value=payment;
@@ -2479,10 +2514,36 @@ function renderSaleChange(){
  if(difference<0)box.innerHTML=`<div class="pdv-change pending"><span>Valor que ainda falta</span><strong>${money(Math.abs(difference))}</strong></div>`;
  else box.innerHTML=`<div class="pdv-change success"><span>Troco para o cliente</span><strong>${money(difference)}</strong></div>`;
 }
+function updateSaleFiscalAvailability(){
+ const checkbox=$('#saleEmitFiscal');
+ if(!checkbox)return;
+ const hasService=saleCart.some(item=>item.tipo==='servico');
+ checkbox.disabled=!hasService;
+ if(!hasService)checkbox.checked=false;
+ const label=checkbox.closest('.pdv-fiscal-option');
+ if(label)label.classList.toggle('disabled',!hasService);
+ const text=label?.querySelector('small');
+ if(text)text.textContent=hasService
+  ?'Cria uma solicitação fiscal com os serviços da venda.'
+  :'Disponível quando houver pelo menos um serviço na venda. Produtos podem ser vendidos normalmente.';
+}
 function renderSaleSummary(){
  const el=$('#saleTotals');if(!el)return;
- const {bruto,cashUse,discount,total}=getSaleTotals();
- el.innerHTML=`<div class="pdv-totals"><div><span>Subtotal</span><strong>${money(bruto)}</strong></div>${cashUse>0?`<div class="discount"><span>Cashback</span><strong>− ${money(cashUse)}</strong></div>`:''}${discount>0?`<div class="discount"><span>Descontos</span><strong>− ${money(discount)}</strong></div>`:''}<div class="pdv-grand-total"><span>TOTAL</span><strong>${money(total)}</strong></div></div>`;
+ const {bruto,cashUse,promoDiscount,manualDiscount,total,manualType,manualInput}=getSaleTotals();
+ el.innerHTML=`<div class="pdv-totals">
+  <div><span>Subtotal</span><strong>${money(bruto)}</strong></div>
+  ${cashUse>0?`<div class="discount"><span>Cashback</span><strong>− ${money(cashUse)}</strong></div>`:''}
+  ${promoDiscount>0?`<div class="discount"><span>Benefício / cupom</span><strong>− ${money(promoDiscount)}</strong></div>`:''}
+  ${manualDiscount>0?`<div class="discount manual"><span>Desconto manual${manualType==='percent'&&manualInput?` (${Number(manualInput).toLocaleString('pt-BR')}%)`:''}</span><strong>− ${money(manualDiscount)}</strong></div>`:''}
+  <div class="pdv-grand-total"><span>TOTAL</span><strong>${money(total)}</strong></div>
+ </div>`;
+ const hint=$('#saleManualDiscountHint');
+ if(hint){
+  hint.textContent=manualDiscount>0
+   ?`Desconto aplicado: ${money(manualDiscount)}. Total final: ${money(total)}.`
+   :'Opcional. Use para promoções ou descontos concedidos na hora.';
+ }
+ updateSaleFiscalAvailability();
  if($('#salePayment')?.value==='Dinheiro')renderSaleCashPanel();
 }
 function changeSaleQty(i,delta){const item=saleCart[i];if(!item)return;const src=item.tipo==='produto'?db.data.estoque.find(x=>x.id===item.id):null;const next=item.qtd+delta;if(next<1){saleCart.splice(i,1);return renderSaleCart();}if(src&&next>Number(src.qtd))return toast('Quantidade maior que o estoque disponível.');item.qtd=next;renderSaleCart();}
@@ -2491,7 +2552,10 @@ async function finishSale(printAfter){
  if(finishButton?.disabled||printButton?.disabled)return;
  if(!saleCart.length)return toast('Adicione ao menos um item.');
  for(const item of saleCart){if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(!p||Number(p.qtd)<item.qtd)return toast(`Estoque insuficiente para ${item.nome}.`);}}
- const {bruto,cliente,cashUse,coupon,discount,total}=getSaleTotals(),clienteId=$('#saleClient').value,forma=$('#salePayment').value;
+ const {bruto,cliente,cashUse,coupon,promoDiscount,manualDiscount,manualType,manualInput,discount,total}=getSaleTotals(),clienteId=$('#saleClient').value,forma=$('#salePayment').value;
+ const hasProducts=saleCart.some(item=>item.tipo==='produto');
+ const hasServices=saleCart.some(item=>item.tipo==='servico');
+ if(!hasProducts&&!hasServices)return toast('Adicione ao menos um produto ou serviço.');
  let valorRecebido=null,troco=0;
  if(forma==='Dinheiro'){
   valorRecebido=parseLocaleNumber($('#saleReceived')?.value);
@@ -2510,10 +2574,18 @@ async function finishSale(printAfter){
  if(finishButton){finishButton.disabled=true;finishButton.textContent='Finalizando...';}
  if(printButton){printButton.disabled=true;printButton.textContent=printAfter?'Preparando impressão...':'Finalizando...';}
  try{
-  const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:today(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,cupomId:coupon?.id||'',valorRecebido,troco,itens:saleCart.map(x=>({...x}))};
-  venda.itens.forEach(item=>{if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(p)p.qtd=Number(p.qtd)-item.qtd;}});
+  const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:today(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,descontoPromocional:promoDiscount,descontoManual:manualDiscount,tipoDescontoManual:manualType,valorDescontoManualInformado:manualInput,cupomId:coupon?.id||'',valorRecebido,troco,itens:saleCart.map(x=>({...x}))};
+  venda.itens.forEach(item=>{
+   if(item.tipo==='produto'){
+    const p=db.data.estoque.find(x=>x.id===item.id);
+    if(p){
+     p.qtd=Number(p.qtd)-Number(item.qtd||0);
+     if(typeof saveStockMovement==='function')saveStockMovement(p,'saida',Number(item.qtd||0),{data:venda.data,motivo:`Venda #${venda.numero}`,observacoes:'Baixa automática pelo PDV'});
+    }
+   }
+  });
   db.data.vendas.push(venda);
-  db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,forma,valorRecebido,troco,vendaId:venda.id});
+  db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,descontoPromocional:promoDiscount,descontoManual:manualDiscount,forma,valorRecebido,troco,vendaId:venda.id});
   if(cliente){
    if(cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}
    if(coupon){coupon.status='usado';coupon.usedAt=new Date().toISOString();addLoyaltyHistory(cliente.id,'cupom_usado',`Cupom ${coupon.codigo} utilizado`,-discount,{cupomId:coupon.id,vendaId:venda.id});}
@@ -2530,7 +2602,7 @@ async function finishSale(printAfter){
     await cloud.request('/api/forge/fiscal/documents',{method:'POST',body:JSON.stringify({saleReference:`Venda #${venda.numero}`,tutorName:cliente?.nome||'',tutorDocument:cliente?.cpf||'',serviceDescription:serviceItems.map(x=>`${x.qtd}x ${x.nome}`).join(' | '),serviceAmount:serviceItems.reduce((sum,x)=>sum+Number(x.preco)*Number(x.qtd),0)})});
     toast('Solicitação de NFS-e registrada no Módulo Fiscal.','success');
    }catch(error){toast(`Venda concluída, mas a NFS-e não foi registrada: ${error.message||'erro fiscal'}.`,'error');}
-  }else if(emitFiscal&&!serviceItems.length){toast('Venda concluída. A NFS-e não foi criada porque não há serviços na venda.','error');}
+  }
  }catch(error){
   if(printWindow&&!printWindow.closed)printWindow.close();
   console.error('[ForgePets] Erro ao finalizar venda.',error);
@@ -2542,7 +2614,7 @@ async function finishSale(printAfter){
 }
 function printReceipt(venda,existingWindow=null){
  const cliente=db.data.clientes.find(c=>c.id===venda.clienteId);const empresa=db.data.config.empresa||'Meu Pet Shop';
- const receiptWidth=String(db.data.config.impressora||'80'),bodyWidth=receiptWidth==='58'?'52':'72'; const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cupom ${venda.numero}</title><style>@page{size:${receiptWidth}mm auto;margin:3mm}*{box-sizing:border-box}body{width:${bodyWidth}mm;margin:0 auto;font-family:Arial,sans-serif;font-size:12px;color:#000}.center{text-align:center}.line{border-top:1px dashed #000;margin:8px 0}.item{display:grid;grid-template-columns:1fr auto;gap:6px;margin:5px 0}.muted{font-size:10px}h2{font-size:16px;margin:0 0 4px}strong.total{font-size:16px} </style></head><body><div class="center"><h2>${empresa}</h2><div>${db.data.config.telefone||''}</div><div>${db.data.config.cidade||''}</div><div class="line"></div><strong>CUPOM NÃO FISCAL</strong><div class="muted">Venda #${venda.numero} · ${formatDateBR(venda.data)} ${venda.hora}</div></div><div class="line"></div>${cliente?`<div>Cliente: ${cliente.nome}</div><div class="line"></div>`:''}${venda.itens.map(x=>`<div class="item"><div>${x.qtd}x ${x.nome}<div class="muted">${money(x.preco)} cada</div></div><strong>${money(x.preco*x.qtd)}</strong></div>`).join('')}<div class="line"></div><div class="item"><strong class="total">TOTAL</strong><strong class="total">${money(venda.total)}</strong></div><div>Pagamento: ${venda.forma}</div>${venda.forma==='Dinheiro'?`<div>Recebido: ${money(venda.valorRecebido||0)}</div><div>Troco: ${money(venda.troco||0)}</div>`:''}<div class="line"></div><div class="center">${escapeHtml(db.data.config.rodapeCupom||'Obrigado pela preferência!')}<br><span class="muted">Documento sem valor fiscal</span></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),600)}<\/script></body></html>`;
+ const receiptWidth=String(db.data.config.impressora||'80'),bodyWidth=receiptWidth==='58'?'52':'72'; const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cupom ${venda.numero}</title><style>@page{size:${receiptWidth}mm auto;margin:3mm}*{box-sizing:border-box}body{width:${bodyWidth}mm;margin:0 auto;font-family:Arial,sans-serif;font-size:12px;color:#000}.center{text-align:center}.line{border-top:1px dashed #000;margin:8px 0}.item{display:grid;grid-template-columns:1fr auto;gap:6px;margin:5px 0}.muted{font-size:10px}h2{font-size:16px;margin:0 0 4px}strong.total{font-size:16px} </style></head><body><div class="center"><h2>${empresa}</h2><div>${db.data.config.telefone||''}</div><div>${db.data.config.cidade||''}</div><div class="line"></div><strong>CUPOM NÃO FISCAL</strong><div class="muted">Venda #${venda.numero} · ${formatDateBR(venda.data)} ${venda.hora}</div></div><div class="line"></div>${cliente?`<div>Cliente: ${cliente.nome}</div><div class="line"></div>`:''}${venda.itens.map(x=>`<div class="item"><div>${x.qtd}x ${x.nome}<div class="muted">${money(x.preco)} cada</div></div><strong>${money(x.preco*x.qtd)}</strong></div>`).join('')}<div class="line"></div><div class="item"><span>Subtotal</span><strong>${money(venda.valorBruto||venda.total)}</strong></div>${Number(venda.cashbackUsado||0)>0?`<div class="item"><span>Cashback</span><strong>− ${money(venda.cashbackUsado)}</strong></div>`:''}${Number(venda.desconto||0)>0?`<div class="item"><span>Desconto</span><strong>− ${money(venda.desconto)}</strong></div>`:''}<div class="item"><strong class="total">TOTAL</strong><strong class="total">${money(venda.total)}</strong></div><div>Pagamento: ${venda.forma}</div>${venda.forma==='Dinheiro'?`<div>Recebido: ${money(venda.valorRecebido||0)}</div><div>Troco: ${money(venda.troco||0)}</div>`:''}<div class="line"></div><div class="center">${escapeHtml(db.data.config.rodapeCupom||'Obrigado pela preferência!')}<br><span class="muted">Documento sem valor fiscal</span></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),600)}<\/script></body></html>`;
  const w=existingWindow||window.open('','_blank','width=420,height=700');if(!w)return toast('Permita pop-ups para imprimir o cupom.');w.document.open();w.document.write(html);w.document.close();
 }
 
