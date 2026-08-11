@@ -194,6 +194,7 @@ model Company {
   plannedRevenues     PlannedRevenue[]
   financialTransactions FinancialTransaction[]
   workspace            CompanyWorkspace?
+  workspaceRevisions CompanyWorkspaceRevision[]
 }
 
 model CompanyWorkspace {
@@ -647,5 +648,20 @@ model AsaasWebhookEvent {
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   payload   Json
   createdAt DateTime @default(now())
+  @@index([companyId, createdAt])
+}
+
+
+model CompanyWorkspaceRevision {
+  id          String   @id @default(cuid())
+  companyId   String
+  revision    Int
+  payload     Json
+  source      String?
+  createdAt   DateTime @default(now())
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, revision])
   @@index([companyId, createdAt])
 }

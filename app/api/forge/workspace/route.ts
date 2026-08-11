@@ -79,10 +79,33 @@ export async function PUT(request: Request) {
       return { conflict: false as const, workspace: created };
     }
 
+    await tx.companyWorkspaceRevision.create({
+      data: {
+        companyId,
+        revision: current.revision,
+        payload: current.payload as Prisma.InputJsonValue,
+        source
+      }
+    });
+
     const updated = await tx.companyWorkspace.update({
       where: { companyId },
       data: { payload: body.data as Prisma.InputJsonValue, revision: { increment: 1 } }
     });
+
+    // Mantém as últimas 120 revisões por empresa para recuperação rápida.
+    const oldRevisions = await tx.companyWorkspaceRevision.findMany({
+      where: { companyId },
+      orderBy: { revision: 'desc' },
+      skip: 120,
+      select: { id: true }
+    });
+    if (oldRevisions.length) {
+      await tx.companyWorkspaceRevision.deleteMany({
+        where: { id: { in: oldRevisions.map(item => item.id) } }
+      });
+    }
+
     return { conflict: false as const, workspace: updated };
   });
 

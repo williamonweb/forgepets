@@ -679,3 +679,6 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
     width:100%;
   }
 }
+
+/* Forge Pets v10.0.7 — proteção de sincronização */
+[data-workspace-status]{line-height:1.45}

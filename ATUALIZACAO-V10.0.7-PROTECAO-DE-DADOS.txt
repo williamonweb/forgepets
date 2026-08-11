@@ -1,0 +1,13 @@
+FORGE PETS v10.0.7 — HOTFIX DE PROTEÇÃO DE DADOS
+
+- Corrige sincronização que podia substituir dados locais pela cópia remota.
+- Registros locais ausentes no Neon são mesclados em toda sincronização, não apenas na primeira.
+- Controle de revisão por navegador reduz sobrescrita entre dispositivos.
+- Abrir o sistema não faz mais PUT completo automático do workspace.
+- Backup local de recuperação antes de sincronizar e salvar.
+- Botão para baixar backup de recuperação.
+- Nova tabela CompanyWorkspaceRevision arquiva o estado anterior antes de cada alteração.
+- Mantém as últimas 120 revisões por empresa no Neon.
+- Endpoint /api/forge/workspace/history lista as revisões recentes e contagens para auditoria.
+
+IMPORTANTE: esta versão adiciona tabela no Prisma. Execute npx prisma db push antes do build/deploy.
