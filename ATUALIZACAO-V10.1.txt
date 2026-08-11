@@ -1,0 +1,29 @@
+FORGEPETS v10.1 — TUTORES E PETS NO NEON
+
+O que foi integrado:
+- listagem real de tutores e pets por empresa;
+- cadastro, edição e exclusão de tutores;
+- cadastro, edição e exclusão lógica de pets;
+- vínculo de vários pets ao mesmo tutor;
+- endereço completo do tutor;
+- peso e preferências/cuidados do pet;
+- exclusões confirmadas por modal personalizado;
+- visual aprovado preservado;
+- login e autenticação preservados.
+
+ANTES DO DEPLOY
+1. Copie todos os arquivos deste projeto por cima da versão atual.
+2. No PowerShell, dentro do projeto, execute:
+
+npm install
+npx prisma generate
+npx prisma db push
+npm run build
+
+3. Se o build concluir, envie:
+
+git add .
+git commit -m "v10.1 tutores e pets no Neon"
+git push origin main
+
+O comando prisma db push é obrigatório porque foram adicionados novos campos às tabelas Tutor e Pet.

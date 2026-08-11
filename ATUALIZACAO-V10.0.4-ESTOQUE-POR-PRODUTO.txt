@@ -1,0 +1,8 @@
+FORGE PETS v10.0.4 — ESTOQUE POR PRODUTO
+- Clique no produto para abrir sua ficha.
+- Adicionar estoque sem recadastrar.
+- Entrada registra quantidade, custo, fornecedor, data e observação.
+- Retirar estoque com motivo e validação.
+- Editar produto sem mexer na quantidade.
+- Histórico de movimentações por produto.
+- Movimentações sincronizadas no CompanyWorkspace/Neon.

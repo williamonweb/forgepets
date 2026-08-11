@@ -1,0 +1,20 @@
+FORGE PETS v10.0.5
+
+AGENDA
+- Permite vários clientes no mesmo horário.
+- Duração dos serviços continua calculando início/fim.
+- Apenas o mesmo pet não pode ter atendimentos sobrepostos.
+- Frontend e backend usam a mesma regra.
+
+PDV
+- Venda somente de produto finaliza normalmente.
+- Produto não depende de serviço ou NFS-e.
+- Checkbox fiscal é desativado quando a venda tem somente produtos.
+- Baixa de produto gera histórico de saída no estoque.
+
+DESCONTO
+- Campo de desconto manual no PDV.
+- Desconto em R$ ou percentual.
+- Recalcula total e troco em tempo real.
+- Salva desconto na venda e no Caixa.
+- Desconto aparece no cupom impresso.

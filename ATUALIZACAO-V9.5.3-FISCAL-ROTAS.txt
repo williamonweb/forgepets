@@ -1,0 +1,18 @@
+FORGE PETS v9.5.3 — CORREÇÃO DEFINITIVA DA NAVEGAÇÃO FISCAL
+
+Correção aplicada nas três cópias do frontend:
+- assets/app.js
+- public/assets/app.js
+- public/forgepets/assets/app.js
+
+Motivo:
+A aplicação publicada pela Vercel utiliza public/forgepets/assets/app.js.
+Na versão anterior, somente assets/app.js havia recebido a rota fiscal.
+Por isso o item aparecia no menu, mas go('fiscal') era convertido silenciosamente para dashboard.
+
+Rotas adicionadas:
+- ROUTE_ALIASES: fiscal:'fiscal'
+- ROUTE_PATHS: fiscal:'fiscal'
+
+Validação:
+- node --check executado com sucesso nos três arquivos.

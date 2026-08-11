@@ -558,3 +558,124 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 .pdv-totals .discount.manual{color:#7c3aed}
 .pdv-fiscal-option.disabled{opacity:.5;cursor:not-allowed}
 .pdv-fiscal-option.disabled input{cursor:not-allowed}
+
+
+/* Forge Pets v10.0.6 — PDV responsivo com rodapé sempre visível */
+.pdv-modal{
+  width:min(1300px,97vw);
+  height:min(94dvh,920px);
+  max-height:94dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.pdv-modal .pdv-header{
+  flex:0 0 auto;
+}
+.pdv-modal .pdv-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto!important;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+}
+.pdv-modal .pdv-grid{
+  min-height:100%;
+}
+.pdv-modal .pdv-footer{
+  flex:0 0 auto;
+  position:relative;
+  z-index:6;
+  background:#fff;
+  box-shadow:0 -10px 24px rgba(36,16,79,.08);
+}
+.pdv-modal .pdv-footer>div{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.pdv-modal #saleFinish,
+.pdv-modal #saleFinishPrint{
+  min-height:44px;
+}
+
+/* Em telas baixas, compacta o PDV sem esconder as ações */
+@media(max-height:820px) and (min-width:701px){
+  .pdv-modal{
+    height:96dvh;
+    max-height:96dvh;
+  }
+  .pdv-header{
+    padding:12px 18px;
+  }
+  .pdv-main,
+  .pdv-summary{
+    padding:16px;
+  }
+  .pdv-summary{
+    gap:11px;
+  }
+  .pdv-product-search{
+    margin:12px 0;
+  }
+  .pdv-benefits{
+    margin:9px 0;
+  }
+  .pdv-empty{
+    min-height:125px;
+  }
+  .pdv-footer{
+    padding:11px 16px;
+  }
+}
+
+/* Tablet e celular: uma coluna, corpo rolável e ações fixas no fim */
+@media(max-width:980px){
+  .pdv-modal{
+    height:96dvh;
+    max-height:96dvh;
+  }
+  .pdv-grid{
+    min-height:auto!important;
+  }
+}
+
+@media(max-width:700px){
+  .modal-overlay:has(.pdv-modal){
+    padding:0;
+  }
+  .pdv-modal{
+    width:100vw;
+    height:100dvh;
+    max-height:100dvh;
+    border-radius:0;
+  }
+  .pdv-modal .pdv-body{
+    padding-bottom:12px!important;
+  }
+  .pdv-modal .pdv-footer{
+    padding:10px 12px;
+    padding-bottom:max(10px,env(safe-area-inset-bottom));
+  }
+  .pdv-modal .pdv-footer>div{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    width:100%;
+  }
+  .pdv-modal .pdv-footer>[data-close]{
+    width:100%;
+  }
+}
+
+@media(max-width:460px){
+  .pdv-modal .pdv-footer{
+    gap:7px;
+  }
+  .pdv-modal .pdv-footer>div{
+    grid-template-columns:1fr;
+  }
+  .pdv-modal #saleFinish,
+  .pdv-modal #saleFinishPrint{
+    width:100%;
+  }
+}

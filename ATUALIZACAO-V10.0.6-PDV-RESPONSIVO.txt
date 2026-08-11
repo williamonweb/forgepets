@@ -1,0 +1,10 @@
+FORGE PETS v10.0.6 — PDV RESPONSIVO
+
+- Modal do PDV passou a usar altura real da tela.
+- Header permanece no topo.
+- Conteúdo central possui rolagem própria.
+- Rodapé permanece sempre visível.
+- Botões Finalizar venda e Finalizar e imprimir não ficam mais cortados.
+- Ajustes específicos para notebooks com pouca altura.
+- Tablet e celular usam 100% da altura disponível.
+- Em telas muito pequenas os botões ficam empilhados.

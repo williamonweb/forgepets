@@ -1,0 +1,14 @@
+FORGE PETS v9.9.1 — BOLETOS POR NOTA E PARCELAMENTO
+
+- Cadastro pelo valor total da nota.
+- Número da nota e fornecedor.
+- Campo de imposto.
+- Opção: imposto incluso ou somado ao valor.
+- Total financeiro calculado automaticamente.
+- Quantidade de parcelas.
+- Primeiro vencimento e intervalo.
+- Parcelas mensais, 30 dias, 15 dias ou semanais.
+- Divisão exata em centavos; eventual diferença fica na última parcela.
+- Todas as parcelas compartilham o mesmo lote/nota.
+- Tela agrupada por nota, com total, imposto, pago e pendente.
+- Metadados persistidos no Neon.

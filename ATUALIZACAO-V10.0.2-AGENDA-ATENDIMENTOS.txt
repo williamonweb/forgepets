@@ -1,0 +1,22 @@
+FORGE PETS v10.0.2 — AGENDA E ATENDIMENTOS
+
+AGENDA
+- Abre sempre na data de hoje.
+- Mostra somente os agendamentos da data selecionada.
+- Seletor de data com calendário.
+- Botão Hoje.
+- Indicadores do dia.
+- Novo agendamento aberto pela Agenda herda a data visualizada.
+
+HORÁRIOS
+- Corrigido bloqueio global de horários.
+- Pet shop pode ter vários animais em atendimento simultaneamente.
+- Somente o mesmo pet é impedido de possuir horários sobrepostos.
+- Lista de horários é recalculada ao selecionar o pet e ao alterar os serviços.
+
+ATENDIMENTOS
+- Exibe todos os atendimentos agrupados por data.
+- Ordenação do mais recente para o mais antigo.
+- Filtro De/Até.
+- Busca por pet, tutor, CPF, telefone, serviço, data ou status.
+- Filtro por status.

@@ -1,0 +1,17 @@
+FORGEPETS V30.3.2 — CONTROLE DE BOLETOS E AGENDA
+
+ALTERAÇÕES
+- Novo módulo "Controle de boletos" no menu do sistema.
+- Cadastro da empresa, valor por boleto, quantidade e vencimento individual de cada parcela.
+- Listagem com parcela, vencimento, valor em Real, status, edição, baixa e exclusão.
+- Indicadores de boletos em aberto, total a vencer e boletos que vencem amanhã.
+- Sininho mostra a quantidade de boletos que vencem no dia seguinte.
+- Notificação detalha empresa, valor formatado e vencimento.
+- Valores exibidos no padrão brasileiro: R$ 60,00.
+- Agenda agora apresenta somente horários disponíveis conforme início, fim e intervalo configurados.
+- Após reservar um horário, ele deixa de aparecer para a mesma data.
+- Validação adicional impede dois agendamentos no mesmo dia e horário.
+
+VALIDAÇÃO
+- public/forgepets/assets/app.js validado com node --check.
+- O build completo deve ser executado no Windows com npm run build.

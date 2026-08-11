@@ -1,0 +1,24 @@
+FORGEPETS V28.1 - ASSINATURA ASAAS
+==================================
+
+IMPLEMENTADO
+- Textos profissionais no checkout.
+- Regra clara: após upgrade, downgrade somente depois de 3 meses.
+- Bloqueio de downgrade validado também no servidor.
+- Cliente Asaas criado automaticamente.
+- Assinatura recorrente mensal por cartão, PIX ou boleto.
+- Dados do cartão não são armazenados no ForgePets.
+- Webhook Asaas com token e proteção contra eventos duplicados.
+- Plano pendente só é liberado após PAYMENT_CONFIRMED ou PAYMENT_RECEIVED.
+- Status de atraso e cancelamento sincronizados por webhook.
+- Histórico de mudança de plano e auditoria.
+
+ANTES DO DEPLOY
+1. npm install
+2. npx prisma db push
+3. npm run build
+4. Configure as variáveis da Asaas na Vercel.
+5. Cadastre o webhook conforme ASAAS-CONFIGURACAO.txt.
+
+ATENÇÃO
+Faça os primeiros testes no Sandbox do Asaas.

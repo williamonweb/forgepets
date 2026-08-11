@@ -1,0 +1,10 @@
+FORGE PETS v9.4.1 — CORREÇÃO DO CHECKOUT FISCAL
+
+- Corrigido o botão Contratar agora do Marketplace.
+- O checkout agora abre com o Módulo Fiscal pré-selecionado.
+- O valor inicial é calculado antes da abertura do modal.
+- Total exibido: plano atual + R$ 49,00 do Módulo Fiscal.
+- Mantido o aceite eletrônico do contrato e a cobrança pelo Asaas.
+
+CAUSA CORRIGIDA:
+O modal usava variáveis de resultado/total antes de elas existirem, gerando erro JavaScript ao clicar.

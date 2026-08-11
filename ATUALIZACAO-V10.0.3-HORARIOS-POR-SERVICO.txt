@@ -1,0 +1,9 @@
+FORGE PETS v10.0.3 — HORÁRIOS ADAPTADOS AO SERVIÇO
+
+- A disponibilidade agora é calculada pela duração total dos serviços selecionados.
+- Banho + Tosa + adicionais somam suas durações.
+- Só são oferecidos horários onde o atendimento inteiro cabe antes do próximo agendamento.
+- O horário de término é exibido na prévia.
+- Ao trocar serviço, quantidade, data ou horário, a disponibilidade é recalculada.
+- Frontend e backend usam a mesma regra de conflito.
+- Atendimentos existentes bloqueiam o intervalo completo ocupado.

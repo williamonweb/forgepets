@@ -1,0 +1,14 @@
+FORGE PETS v9.8.0 — PERSISTÊNCIA FINANCEIRA NO NEON
+
+PRIORIDADE DE SEGURANÇA
+- Boletos, despesas, receitas previstas, movimentações e categorias financeiras passam a ser persistidos por empresa no Neon.
+- Antes da sincronização é criado um backup local de recuperação.
+- Dados locais e dados do Neon são mesclados pelo identificador, evitando sobrescrever silenciosamente registros.
+- Falha da API não limpa a tela nem substitui dados por listas vazias.
+- Exclusões são lógicas no banco.
+- Alterações locais são sincronizadas automaticamente após cada salvamento.
+- Qualquer computador ou navegador da mesma empresa passa a carregar o mesmo Financeiro.
+
+RECUPERAÇÃO
+- A chave forgepets_finance_recovery_backup mantém uma cópia do estado financeiro encontrado no navegador antes da migração.
+- No primeiro acesso após a atualização, registros locais ainda existentes são importados automaticamente para o Neon.

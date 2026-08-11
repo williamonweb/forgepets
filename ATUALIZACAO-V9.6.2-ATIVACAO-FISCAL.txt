@@ -1,0 +1,20 @@
+FORGE PETS v9.6.2 — ATIVAÇÃO FISCAL PERSISTENTE
+
+CORREÇÕES
+- Clique em Fiscal no Painel Master agora possui título/meta registrados.
+- Marketplace não depende mais somente do localStorage.
+- A API de assinatura devolve módulos contratados e módulos ativos do Neon.
+- O estado do Fiscal permanece após recarregar a página.
+- Reconciliação consulta:
+  1. pagamentos da assinatura atual;
+  2. pagamentos do cliente no Asaas.
+- Isso cobre tentativas repetidas de checkout que tenham substituído o ID da assinatura.
+- Pagamentos RECEIVED ou CONFIRMED posteriores à solicitação ativam plano e módulos.
+- Marketplace, Fiscal e Master forçam nova sincronização com o Asaas.
+
+TESTE
+1. Contrate o módulo.
+2. Confirme a cobrança no Asaas.
+3. Abra Marketplace ou Fiscal.
+4. O módulo deve aparecer como ATIVO.
+5. Abra o Master > Fiscal para conferir a empresa.

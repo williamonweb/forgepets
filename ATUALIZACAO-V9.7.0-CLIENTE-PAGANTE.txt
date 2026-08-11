@@ -1,0 +1,10 @@
+FORGE PETS v9.7.0 — PRIORIDADE 1: CLIENTE PAGANTE
+
+- Reconciliação por assinatura, cobrança, cliente e webhooks salvos.
+- Reconhece RECEIVED, CONFIRMED e RECEIVED_IN_CASH.
+- Pagamento confirmado muda a empresa para ACTIVE no Neon.
+- Limpa trialEndsAt ao ativar.
+- Remove bloqueio e aviso de teste do navegador.
+- Reconsulta automaticamente a cada 10 segundos enquanto há pagamento pendente.
+- Ativa módulos pagos pendentes no mesmo fluxo.
+- Mantém auditoria da liberação.
