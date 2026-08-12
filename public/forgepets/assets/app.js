@@ -2187,20 +2187,26 @@ const actions={
    return sum+Math.max(15,Number(service?.duracao||60))*Math.max(1,Number(item.quantity||1));
   },0);
 
+  const updateTimePreview=()=>{
+   const duration=selectedDuration();
+   const selected=timeSelect.value;
+   if(!selected){
+    timeStatus.innerHTML=`Não há horário válido para <b>${duration} min</b> dentro do expediente ou este pet já possui atendimento sobreposto.`;
+    return;
+   }
+   const [h,m]=selected.split(':').map(Number);
+   const finishMinutes=h*60+m+duration;
+   const finish=`${String(Math.floor(finishMinutes/60)).padStart(2,'0')}:${String(finishMinutes%60).padStart(2,'0')}`;
+   timeStatus.innerHTML=`${timeSelect.options.length} horário(s) possíveis para um atendimento de <b>${duration} min</b>. Selecionado: <b>${selected} → ${finish}</b>. Outros clientes podem ser agendados no mesmo horário.`;
+  };
+
   const renderTimes=()=>{
+   const previous=timeSelect.value;
    const times=availableAgendaTimesByDuration(dateInput.value,'',selectedDuration(),petSelect.value||'');
    timeSelect.innerHTML=times.length?times.map(t=>`<option value="${t}">${t}</option>`).join(''):'<option value="">Nenhum horário disponível</option>';
    timeSelect.disabled=!times.length;
-   const duration=selectedDuration();
-   if(times.length){
-    const selected=timeSelect.value||times[0];
-    const [h,m]=selected.split(':').map(Number);
-    const finishMinutes=h*60+m+duration;
-    const finish=`${String(Math.floor(finishMinutes/60)).padStart(2,'0')}:${String(finishMinutes%60).padStart(2,'0')}`;
-    timeStatus.innerHTML=`${times.length} horário(s) possíveis para um atendimento de <b>${duration} min</b>. Selecionado: <b>${selected} → ${finish}</b>. Outros clientes podem ser agendados no mesmo horário.`;
-   }else{
-    timeStatus.innerHTML=`Não há horário válido para <b>${duration} min</b> dentro do expediente ou este pet já possui atendimento sobreposto.`;
-   }
+   if(times.length&&previous&&times.includes(previous))timeSelect.value=previous;
+   updateTimePreview();
   };
 
   const renderServiceItems=()=>{
@@ -2254,7 +2260,7 @@ const actions={
 
   dateInput.addEventListener('change',renderTimes);
   petSelect.addEventListener('change',renderTimes);
-  timeSelect.addEventListener('change',renderTimes);
+  timeSelect.addEventListener('change',updateTimePreview);
   renderServiceItems();renderTimes();
 
   const renderTutorResults=()=>{

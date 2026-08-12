@@ -1,0 +1,7 @@
+FORGE PETS v10.0.8 — HORÁRIO DA AGENDA
+
+- Corrige o horário selecionado voltando sozinho para 08:00.
+- Trocar o horário agora apenas atualiza a prévia do término.
+- A lista de horários não é mais recriada quando o usuário seleciona um horário.
+- Se data, pet ou serviços mudarem, a lista é recalculada e preserva o horário escolhido se ele continuar válido.
+- Mantém integralmente o hotfix de proteção de dados da v10.0.7.
