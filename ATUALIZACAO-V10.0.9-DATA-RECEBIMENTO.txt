@@ -1,0 +1,10 @@
+FORGE PETS v10.0.9 — DATA REAL DO RECEBIMENTO
+
+- Ao receber um atendimento pendente, o usuário escolhe a Data do recebimento.
+- A data do serviço permanece registrada separadamente como referência.
+- O Caixa e os relatórios de entradas realizadas usam a data em que o dinheiro realmente entrou.
+- Nova receita agora separa Data de referência de Data do recebimento.
+- Receitas previstas continuam usando a data prevista e não entram no saldo realizado.
+- Pagamentos de serviços guardam source/sourceId e observação com a data original do serviço.
+- Não altera schema do Prisma.
+- Mantém integralmente o hotfix de proteção de dados da v10.0.7 e os ajustes da v10.0.8.

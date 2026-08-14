@@ -1319,29 +1319,35 @@ function categoryOptions(type,selected=''){
 }
 function openRevenueModal(){
  modal('Nova receita',`<div class="form-grid">
-  <div class="field full"><label>Descrição *</label><input id="revenueDescription" placeholder="Ex.: Receita de convênio, aporte, venda externa" data-trim></div>
+  <div class="field full"><label>Descrição *</label><input id="revenueDescription" placeholder="Ex.: Banho da Mel, venda externa, aporte" data-trim></div>
   <div class="field"><label>Categoria *</label><select id="revenueCategory">${categoryOptions('receita')}</select></div>
   <div class="field"><label>Valor *</label><input id="revenueValue" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div>
-  <div class="field"><label>Data *</label><input id="revenueDate" type="date" value="${today()}"></div>
+  <div class="field"><label>Data de referência *</label><input id="revenueDate" type="date" value="${today()}"></div>
   <div class="field"><label>Situação</label><select id="revenueStatus"><option value="recebido">Já recebida</option><option value="previsto">A receber</option></select></div>
+  <div class="field" id="revenueReceivedDateField"><label>Data do recebimento *</label><input id="revenueReceivedDate" type="date" value="${today()}"></div>
   <div class="field"><label>Forma de recebimento</label><select id="revenueMethod"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option></select></div>
   <div class="field full"><label>Observações</label><textarea id="revenueNotes" rows="3"></textarea></div>
- </div><div class="notice">Receitas previstas não aumentam o saldo real até serem marcadas como recebidas.</div>`,close=>{
+ </div><div class="notice"><b>Data de referência</b> é quando o serviço/venda aconteceu. <b>Data do recebimento</b> é quando o dinheiro realmente entrou no caixa. Os relatórios realizados usam a data do recebimento.</div>`,close=>{
   const descricao=$('#revenueDescription').value.trim();
   const categoria=$('#revenueCategory').value;
   const valor=parseLocaleNumber($('#revenueValue').value);
   const data=$('#revenueDate').value;
   const status=$('#revenueStatus').value;
   const forma=$('#revenueMethod').value;
-  if(!descricao||!categoria||valor<=0||!data)return toast('Preencha descrição, categoria, valor e data.','error');
+  const receivedDate=$('#revenueReceivedDate')?.value||today();
+  const notes=$('#revenueNotes').value.trim();
+  if(!descricao||!categoria||valor<=0||!data)return toast('Preencha descrição, categoria, valor e data de referência.','error');
   if(status==='recebido'){
-   db.data.caixa.push({id:uid(),tipo:'entrada',data,descricao,valor,forma,categoria,observacoes:$('#revenueNotes').value.trim(),createdAt:new Date().toISOString()});
+   if(!receivedDate)return toast('Informe a data do recebimento.','error');
+   db.data.caixa.push({id:uid(),tipo:'entrada',data:receivedDate,dataReferencia:data,descricao,valor,forma,categoria,observacoes:[notes,data!==receivedDate?`Referência do serviço/venda: ${formatDateBR(data)}`:''].filter(Boolean).join(' · '),source:'MANUAL_REVENUE',createdAt:new Date().toISOString()});
   }else{
-   db.data.receitasPrevistas.push({id:uid(),descricao,categoria,valor,data,status:'previsto',forma,observacoes:$('#revenueNotes').value.trim(),createdAt:new Date().toISOString()});
+   db.data.receitasPrevistas.push({id:uid(),descricao,categoria,valor,data,status:'previsto',forma,observacoes:notes,createdAt:new Date().toISOString()});
   }
-  db.save();close();render();toast(status==='recebido'?'Receita lançada no saldo real.':'Receita adicionada à previsão.','success');
+  db.save();close();render();toast(status==='recebido'?`Receita registrada em ${formatDateBR(receivedDate)}.`:'Receita adicionada à previsão.','success');
  },'Salvar receita');
  applyInputMasks($('.modal'));
+ const toggleReceivedDate=()=>{const field=$('#revenueReceivedDateField');if(field)field.style.display=$('#revenueStatus').value==='recebido'?'':'none';};
+ $('#revenueStatus').addEventListener('change',toggleReceivedDate);toggleReceivedDate();
 }
 
 
@@ -2306,7 +2312,8 @@ const actions={
     db.data.pendencias.push({
      id:uid(),
      agendaId:a.id,
-     data:today(),
+     data:a.data||today(),
+     dataReferencia:a.data||today(),
      pet:pet?.nome||'Pet',
      tutor:cliente?.nome||'Tutor',
      clienteId:cliente?.id||'',
@@ -2697,11 +2704,11 @@ function printReceipt(venda,existingWindow=null){
 function openReceivePaymentModal(item){
  const cliente=db.data.clientes.find(c=>c.id===item.clienteId),root=$('#modalRoot');
  let selected='PIX';
- root.innerHTML=`<div class="modal-overlay"><div class="modal receive-modal"><div class="modal-header receive-header"><div><small>RECEBIMENTO</small><strong>Confirmar pagamento</strong></div><button class="icon-btn" data-close>&times;</button></div><div class="modal-body receive-body"><section class="receive-summary"><div class="receive-pet-icon">🐾</div><div><small>ATENDIMENTO</small><h3>${escapeHtml(item.pet||'Pet')}</h3><p>${escapeHtml(item.tutor||cliente?.nome||'Tutor')} · ${escapeHtml(item.servico||'Serviço')}</p><span>${escapeHtml(item.data||'')}</span></div><strong>${money(item.valor||0)}</strong></section><section class="receive-payment"><label>Forma de pagamento</label><div class="receive-methods" id="receiveMethods">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito'].map((x,i)=>`<button type="button" data-receive-method="${x}" class="${i===0?'active':''}">${x==='PIX'?'▣':x==='Dinheiro'?'R$':'▤'}<span>${x}</span></button>`).join('')}</div><div id="receiveCashArea"></div></section><div class="receive-total"><span>Total a receber</span><strong id="receiveFinalTotal">${money(item.valor||0)}</strong></div></div><div class="modal-footer"><button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="confirmReceive">Confirmar recebimento</button></div></div></div>`;
+ root.innerHTML=`<div class="modal-overlay"><div class="modal receive-modal"><div class="modal-header receive-header"><div><small>RECEBIMENTO</small><strong>Confirmar pagamento</strong></div><button class="icon-btn" data-close>&times;</button></div><div class="modal-body receive-body"><section class="receive-summary"><div class="receive-pet-icon">🐾</div><div><small>ATENDIMENTO</small><h3>${escapeHtml(item.pet||'Pet')}</h3><p>${escapeHtml(item.tutor||cliente?.nome||'Tutor')} · ${escapeHtml(item.servico||'Serviço')}</p><span>Serviço em ${formatDateBR(item.dataReferencia||item.data||today())}</span></div><strong>${money(item.valor||0)}</strong></section><section class="receive-date-card"><div><small>DATA DO SERVIÇO</small><strong>${formatDateBR(item.dataReferencia||item.data||today())}</strong></div><div class="field"><label>Data do recebimento *</label><input id="receiveDate" type="date" value="${today()}"></div><p>O Financeiro considerará esta data como o dia em que o dinheiro realmente entrou.</p></section><section class="receive-payment"><label>Forma de pagamento</label><div class="receive-methods" id="receiveMethods">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito'].map((x,i)=>`<button type="button" data-receive-method="${x}" class="${i===0?'active':''}">${x==='PIX'?'▣':x==='Dinheiro'?'R$':'▤'}<span>${x}</span></button>`).join('')}</div><div id="receiveCashArea"></div></section><div class="receive-total"><span>Total a receber</span><strong id="receiveFinalTotal">${money(item.valor||0)}</strong></div></div><div class="modal-footer"><button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="confirmReceive">Confirmar recebimento</button></div></div></div>`;
  const close=()=>root.innerHTML='';root.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);
  function renderCash(){const area=$('#receiveCashArea');if(selected!=='Dinheiro'){area.innerHTML='<div class="receive-confirm-note">O pagamento será registrado na forma selecionada.</div>';return;}area.innerHTML=`<div class="receive-cash-grid"><div class="field"><label>Cliente pagou</label><input id="receivePaid" data-mask="money" inputmode="numeric" placeholder="R$ 0,00"></div><div class="receive-change" id="receiveChange"><small>Troco</small><strong>R$ 0,00</strong></div></div><div class="pdv-quick-cash">${[20,50,100,200].map(v=>`<button type="button" data-receive-cash="${v}">${money(v)}</button>`).join('')}<button type="button" data-receive-exact>Valor exato</button></div>`;applyInputMasks(area);const update=()=>{const total=Number(item.valor||0),paid=parseLocaleNumber($('#receivePaid').value),diff=paid-total;$('#receiveChange').innerHTML=diff<0?`<small>Ainda falta</small><strong class="pending">${money(Math.abs(diff))}</strong>`:`<small>Troco</small><strong>${money(diff)}</strong>`;};$('#receivePaid').oninput=update;area.querySelectorAll('[data-receive-cash]').forEach(b=>b.onclick=()=>{$('#receivePaid').value=money(Number(b.dataset.receiveCash));update();});area.querySelector('[data-receive-exact]').onclick=()=>{$('#receivePaid').value=money(Number(item.valor||0));update();};}
  $('#receiveMethods').querySelectorAll('[data-receive-method]').forEach(b=>b.onclick=()=>{selected=b.dataset.receiveMethod;document.querySelectorAll('[data-receive-method]').forEach(x=>x.classList.toggle('active',x===b));renderCash();});renderCash();
- $('#confirmReceive').onclick=()=>{const bruto=Number(item.valor||0);let valorRecebido=null,troco=0;if(selected==='Dinheiro'){valorRecebido=parseLocaleNumber($('#receivePaid')?.value);if(valorRecebido<bruto)return setModalError(`O valor recebido é insuficiente. Ainda faltam ${money(bruto-valorRecebido)}.`);troco=Math.max(0,valorRecebido-bruto);}item.status='pago';item.paidAt=new Date().toISOString();item.forma=selected;item.valorBruto=bruto;item.valorRecebido=valorRecebido;item.troco=troco;db.data.caixa.push({id:uid(),tipo:'entrada',data:today(),descricao:`Atendimento: ${item.servico} — ${item.pet}`,valor:bruto,valorBruto:bruto,forma:selected,valorRecebido,troco,pendenciaId:item.id});if(cliente&&hasFeature('fidelidade')){const pontos=Math.floor(bruto*Number(db.data.config.pontosPorReal||1));cliente.pontos=Number(cliente.pontos||0)+pontos;addLoyaltyHistory(cliente.id,'pontos_ganhos','Pontos do atendimento',pontos,{pendenciaId:item.id});}runPremiumAutomations();db.save();close();toast(selected==='Dinheiro'?`Pagamento recebido. Troco: ${money(troco)}.`:`Pagamento recebido: ${money(bruto)}.`);};
+ $('#confirmReceive').onclick=()=>{const bruto=Number(item.valor||0),receiveDate=$('#receiveDate')?.value||today(),referenceDate=item.dataReferencia||item.data||today();if(!receiveDate)return setModalError('Informe a data do recebimento.');let valorRecebido=null,troco=0;if(selected==='Dinheiro'){valorRecebido=parseLocaleNumber($('#receivePaid')?.value);if(valorRecebido<bruto)return setModalError(`O valor recebido é insuficiente. Ainda faltam ${money(bruto-valorRecebido)}.`);troco=Math.max(0,valorRecebido-bruto);}item.status='pago';item.dataReferencia=referenceDate;item.receivedDate=receiveDate;item.paidAt=new Date(`${receiveDate}T12:00:00-03:00`).toISOString();item.forma=selected;item.valorBruto=bruto;item.valorRecebido=valorRecebido;item.troco=troco;db.data.caixa.push({id:uid(),tipo:'entrada',data:receiveDate,dataReferencia:referenceDate,descricao:`Atendimento: ${item.servico} — ${item.pet}`,valor:bruto,valorBruto:bruto,forma:selected,valorRecebido,troco,source:'SERVICE_PAYMENT',sourceId:item.id,pendenciaId:item.id,observacoes:referenceDate!==receiveDate?`Serviço realizado em ${formatDateBR(referenceDate)}`:'',createdAt:new Date().toISOString()});if(cliente&&hasFeature('fidelidade')){const pontos=Math.floor(bruto*Number(db.data.config.pontosPorReal||1));cliente.pontos=Number(cliente.pontos||0)+pontos;addLoyaltyHistory(cliente.id,'pontos_ganhos','Pontos do atendimento',pontos,{pendenciaId:item.id});}runPremiumAutomations();db.save();close();toast(selected==='Dinheiro'?`Pagamento registrado em ${formatDateBR(receiveDate)}. Troco: ${money(troco)}.`:`Pagamento de ${money(bruto)} registrado em ${formatDateBR(receiveDate)}.`);};
 }
 function getWeekBirthdays(days=7){
  const start=new Date();start.setHours(0,0,0,0);

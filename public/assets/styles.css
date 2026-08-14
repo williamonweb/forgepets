@@ -682,3 +682,7 @@ body:has(.modal-overlay) .forge-connect-button{opacity:0!important;pointer-event
 
 /* Forge Pets v10.0.7 — proteção de sincronização */
 [data-workspace-status]{line-height:1.45}
+
+
+/* Forge Pets v10.0.9 — data real de recebimento */
+.receive-date-card{display:grid;grid-template-columns:minmax(120px,.75fr) minmax(180px,1fr);gap:12px;align-items:end;padding:14px 16px;border:1px solid #e7def2;border-radius:15px;background:#faf8ff;margin:0 0 14px}.receive-date-card>div:first-child{display:grid;gap:4px}.receive-date-card small{font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--purple)}.receive-date-card strong{font-size:17px}.receive-date-card .field{margin:0}.receive-date-card p{grid-column:1/-1;margin:0;color:var(--muted);font-size:12px;line-height:1.45}@media(max-width:620px){.receive-date-card{grid-template-columns:1fr}}
