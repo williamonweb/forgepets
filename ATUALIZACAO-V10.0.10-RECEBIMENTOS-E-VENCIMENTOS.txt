@@ -1,0 +1,8 @@
+FORGE PETS v10.0.10
+
+- Entradas já registradas possuem Editar.
+- Corrige data real do recebimento sem excluir/refazer.
+- Mantém data de referência separada da data do recebimento.
+- Atualiza pendência vinculada quando aplicável.
+- Ordenação de contas a pagar por vencimento, nos dois sentidos.
+- Modal de recebimento com rolagem interna e botão Confirmar sempre acessível.

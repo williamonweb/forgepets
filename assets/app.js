@@ -813,7 +813,9 @@ const views={
   ensureData();
   const summary=financePeriodSummary();
   const filter=window.financeExpenseFilter||'all';
-  const expenses=filter==='all'?summary.payables:summary.payables.filter(item=>expenseStatus(item)===filter);
+  const dueSort=window.financeDueSort||'asc';
+  const filteredPayables=filter==='all'?summary.payables:summary.payables.filter(item=>expenseStatus(item)===filter);
+  const expenses=[...filteredPayables].sort((a,b)=>{const compare=String(a.vencimento||'').localeCompare(String(b.vencimento||''));return dueSort==='desc'?-compare:compare;});
   const expenseRows=expenses.length?expenses.map(expense=>{
    const status=expenseStatus(expense);
    return `<tr>
@@ -826,10 +828,10 @@ const views={
   }).join(''):'<tr><td colspan="5"><div class="empty">Nenhuma despesa neste período.</div></td></tr>';
 
   const movementRows=summary.transactions.length?summary.transactions.slice().reverse().map(item=>`<tr>
-   <td>${formatDateBR(item.data)}</td><td><b>${escapeHtml(item.descricao||'Movimentação')}</b></td>
+   <td>${formatDateBR(item.data)}${item.tipo==='entrada'&&item.dataReferencia&&item.dataReferencia!==item.data?`<small class="table-sub">Ref. ${formatDateBR(item.dataReferencia)}</small>`:''}</td><td><b>${escapeHtml(item.descricao||'Movimentação')}</b></td>
    <td><span class="badge ${item.tipo==='entrada'?'green':'red'}">${item.tipo==='entrada'?'Entrada':'Saída'}</span></td>
    <td><b>${money(item.valor)}</b></td>
-   <td><button class="btn danger small" data-action="delete-finance-transaction" data-id="${item.id}">Excluir</button></td>
+   <td>${item.tipo==='entrada'?`<button class="btn ghost small" data-action="edit-received-transaction" data-id="${item.id}">Editar</button> `:''}<button class="btn danger small" data-action="delete-finance-transaction" data-id="${item.id}">Excluir</button></td>
   </tr>`).join(''):'<tr><td colspan="5"><div class="empty">Nenhuma movimentação neste período.</div></td></tr>';
 
   return `<section class="finance-workspace">
@@ -853,7 +855,7 @@ const views={
     <div><b>Projeção completa</b><span>${money(summary.forecastBalance)}</span></div>
    </div>
    <div class="card">
-    <div class="section-title"><div><h2>Contas a pagar</h2><p>Filtradas pela data de vencimento.</p></div><button class="btn primary" data-action="new-pending-expense">Nova conta a pagar</button></div>
+    <div class="section-title finance-payables-title"><div><h2>Contas a pagar</h2><p>Filtradas pela data de vencimento.</p></div><div class="finance-payables-actions"><label>Ordenar vencimento<select onchange="setFinanceDueSort(this.value)"><option value="asc" ${dueSort==='asc'?'selected':''}>Mais próximo → mais distante</option><option value="desc" ${dueSort==='desc'?'selected':''}>Mais distante → mais próximo</option></select></label><button class="btn primary" data-action="new-pending-expense">Nova conta a pagar</button></div></div>
     <div class="finance-tabs">${financeFilterButton('all','Todas',filter,summary.payables.length)}${financeFilterButton('overdue','Vencidas',filter,summary.overdueCount)}${financeFilterButton('today','Vencem hoje',filter,summary.dueTodayCount)}${financeFilterButton('upcoming','A vencer',filter,summary.upcomingCount)}${financeFilterButton('paid','Pagas',filter,summary.paidCount)}</div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Despesa</th><th>Vencimento</th><th>Situação</th><th>Valor atualizado</th><th>Ações</th></tr></thead><tbody>${expenseRows}</tbody></table></div>
    </div>
@@ -1451,6 +1453,7 @@ function filteredExpenses(filter='all'){
  if(filter==='all')return rows;
  return rows.filter(x=>expenseStatus(x)===filter);
 }
+function setFinanceDueSort(value){window.financeDueSort=value==='desc'?'desc':'asc';render();}
 function financeFilterButton(key,label,current,count){
  return `<button class="${current===key?'active':''}" data-action="filter-expenses" data-filter="${key}">${label}<b>${count}</b></button>`;
 }
@@ -1880,6 +1883,7 @@ function bindFiscalDashboard(){
 }
 
 const actions={
+ 'edit-received-transaction':button=>openEditReceivedTransaction(button.dataset.id),
  'export-workspace-recovery':()=>exportWorkspaceRecovery(),
  'open-stock-product':button=>openStockProductModal(button.dataset.id),
  'sync-company-data':async()=>{const button=document.querySelector('[data-action="sync-company-data"]');if(button){button.disabled=true;button.textContent='Sincronizando...';}try{await workspaceCloud.push();await cloud.sync();await financeCloud.sync();await workspaceCloud.push();toast('Dados sincronizados com o Neon.','success');}catch(error){toast(error.message||'Não foi possível sincronizar agora.','error');}finally{if(button){button.disabled=false;button.textContent='Sincronizar agora';}updateWorkspaceStatusUI();}},
@@ -2700,6 +2704,19 @@ function printReceipt(venda,existingWindow=null){
  const w=existingWindow||window.open('','_blank','width=420,height=700');if(!w)return toast('Permita pop-ups para imprimir o cupom.');w.document.open();w.document.write(html);w.document.close();
 }
 
+
+
+function openEditReceivedTransaction(transactionId){
+ ensureData();
+ const item=(db.data.caixa||[]).find(row=>String(row.id)===String(transactionId));
+ if(!item||item.tipo!=='entrada')return toast('Recebimento não encontrado.','error');
+ const linkedPending=(db.data.pendencias||[]).find(pending=>String(pending.id||'')===String(item.pendenciaId||item.sourceId||''));
+ const referenceDate=item.dataReferencia||linkedPending?.dataReferencia||linkedPending?.data||item.data||today();
+ const receivedDate=item.receivedDate||item.data||reportDateOnly(linkedPending?.paidAt)||today();
+ const currentMethod=item.forma||linkedPending?.forma||'PIX';
+ modal('Editar recebimento',`<div class="edit-receipt-intro"><span>✎</span><div><small>RECEBIMENTO JÁ LANÇADO</small><h3>${escapeHtml(item.descricao||'Entrada')}</h3><p>${money(item.valor||0)}</p></div></div><div class="form-grid"><div class="field"><label>Data de referência</label><input id="editReceiptReferenceDate" type="date" value="${escapeAttr(referenceDate)}"><small>Quando o serviço/venda aconteceu.</small></div><div class="field"><label>Data do recebimento *</label><input id="editReceiptReceivedDate" type="date" value="${escapeAttr(receivedDate)}"><small>Quando o dinheiro entrou de fato.</small></div><div class="field"><label>Forma de recebimento</label><select id="editReceiptMethod">${['PIX','Dinheiro','Cartão de débito','Cartão de crédito','Transferência','Boleto'].map(method=>`<option ${method===currentMethod?'selected':''}>${method}</option>`).join('')}</select></div><div class="field"><label>Valor recebido</label><input id="editReceiptValue" data-mask="money" inputmode="numeric" value="${money(item.valor||0)}"></div><div class="field full"><label>Descrição</label><input id="editReceiptDescription" value="${escapeAttr(item.descricao||'')}"></div><div class="field full"><label>Observações</label><textarea id="editReceiptNotes" rows="3">${escapeHtml(item.observacoes||'')}</textarea></div></div><div class="notice"><b>Importante:</b> mudar a data do recebimento altera o dia em que essa entrada aparece no Financeiro e nos relatórios. A data do serviço permanece separada.</div>`,async close=>{const ref=$('#editReceiptReferenceDate').value;const received=$('#editReceiptReceivedDate').value;const value=parseLocaleNumber($('#editReceiptValue').value);if(!ref||!received)return setModalError('Informe a data de referência e a data do recebimento.');if(value<=0)return setModalError('Informe um valor recebido maior que zero.');Object.assign(item,{dataReferencia:ref,data:received,receivedDate:received,forma:$('#editReceiptMethod').value,valor:value,descricao:$('#editReceiptDescription').value.trim()||item.descricao||'Recebimento',observacoes:$('#editReceiptNotes').value.trim(),updatedAt:new Date().toISOString()});if(linkedPending){linkedPending.status='pago';linkedPending.dataReferencia=ref;linkedPending.receivedDate=received;linkedPending.paidAt=new Date(`${received}T12:00:00-03:00`).toISOString();linkedPending.pagoEm=linkedPending.paidAt;linkedPending.forma=item.forma;linkedPending.valorPago=value;linkedPending.updatedAt=new Date().toISOString();}db.save();if(financeCloud.ready){clearTimeout(financeCloud.saveTimer);await financeCloud.push();}close();render();toast(`Recebimento atualizado para ${formatDateBR(received)}.`,'success');},'Salvar recebimento');
+ applyInputMasks($('.modal'));
+}
 
 function openReceivePaymentModal(item){
  const cliente=db.data.clientes.find(c=>c.id===item.clienteId),root=$('#modalRoot');
