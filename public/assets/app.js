@@ -2488,7 +2488,7 @@ function openSaleModal(){
  saleCart=[];
  const root=$('#modalRoot');
  root.innerHTML=`<div class="modal-overlay"><div class="modal sale-modal pdv-modal"><div class="modal-header pdv-header"><div><small>CAIXA · PONTO DE VENDA</small><strong>Nova venda</strong></div><div class="pdv-sale-number">Venda #${String((db.data.vendas?.length||0)+1).padStart(6,'0')}</div><button class="icon-btn" data-close>&times;</button></div><div class="modal-body pdv-body">
- <div class="pdv-grid"><section class="pdv-main"><div class="pdv-customer-bar"><div class="field"><label>Tutor / cliente</label><select id="saleClient"><option value="">Consumidor não identificado</option>${sortAlpha(db.data.clientes,'nome').map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="pdv-clock"><small>Data e hora</small><strong>${new Date().toLocaleDateString('pt-BR')} · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</strong></div></div>
+ <div class="pdv-grid"><section class="pdv-main"><div class="pdv-customer-bar"><div class="field"><label>Tutor / cliente</label><select id="saleClient"><option value="">Consumidor não identificado</option>${sortAlpha(db.data.clientes,'nome').map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="pdv-sale-date"><div class="field"><label>Data da venda</label><input id="saleDate" type="date" max="${today()}" value="${today()}"><small>Pode lançar uma venda realizada em data anterior.</small></div><div class="pdv-clock"><small>Hora do lançamento</small><strong>${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</strong></div></div></div>
  <div class="pdv-product-search"><div class="field"><label>Pesquisar produto ou serviço</label><div class="sale-search"><span>⌕</span><input id="saleSearch" type="search" placeholder="Digite o nome ou código..." autocomplete="off"></div></div><div class="field"><label>Item encontrado</label><select id="saleItem"></select><small class="sale-search-result" id="saleSearchResult"></small></div><button class="btn primary pdv-add" id="saleAdd">＋ Adicionar</button></div>
  <div id="saleBenefits"></div><div id="saleCart"></div></section>
  <aside class="pdv-summary"><div class="pdv-summary-title"><span>Resumo da venda</span><small>Atualizado em tempo real</small></div><div id="saleTotals"></div><div class="pdv-manual-discount">
@@ -2639,6 +2639,9 @@ async function finishSale(printAfter){
  if(!saleCart.length)return toast('Adicione ao menos um item.');
  for(const item of saleCart){if(item.tipo==='produto'){const p=db.data.estoque.find(x=>x.id===item.id);if(!p||Number(p.qtd)<item.qtd)return toast(`Estoque insuficiente para ${item.nome}.`);}}
  const {bruto,cliente,cashUse,coupon,promoDiscount,manualDiscount,manualType,manualInput,discount,total}=getSaleTotals(),clienteId=$('#saleClient').value,forma=$('#salePayment').value;
+ const saleDate=$('#saleDate')?.value||today();
+ if(!saleDate)return setModalError('Informe a data da venda.');
+ if(saleDate>today())return setModalError('A data da venda não pode ser futura.');
  const hasProducts=saleCart.some(item=>item.tipo==='produto');
  const hasServices=saleCart.some(item=>item.tipo==='servico');
  if(!hasProducts&&!hasServices)return toast('Adicione ao menos um produto ou serviço.');
@@ -2660,7 +2663,7 @@ async function finishSale(printAfter){
  if(finishButton){finishButton.disabled=true;finishButton.textContent='Finalizando...';}
  if(printButton){printButton.disabled=true;printButton.textContent=printAfter?'Preparando impressão...':'Finalizando...';}
  try{
-  const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:today(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,descontoPromocional:promoDiscount,descontoManual:manualDiscount,tipoDescontoManual:manualType,valorDescontoManualInformado:manualInput,cupomId:coupon?.id||'',valorRecebido,troco,itens:saleCart.map(x=>({...x}))};
+  const venda={id:uid(),numero:String((db.data.vendas?.length||0)+1).padStart(6,'0'),data:saleDate,dataVenda:saleDate,hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),lancadoEm:new Date().toISOString(),clienteId,forma,total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,descontoPromocional:promoDiscount,descontoManual:manualDiscount,tipoDescontoManual:manualType,valorDescontoManualInformado:manualInput,cupomId:coupon?.id||'',valorRecebido,troco,itens:saleCart.map(x=>({...x}))};
   venda.itens.forEach(item=>{
    if(item.tipo==='produto'){
     const p=db.data.estoque.find(x=>x.id===item.id);
@@ -2671,7 +2674,7 @@ async function finishSale(printAfter){
    }
   });
   db.data.vendas.push(venda);
-  db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,descontoPromocional:promoDiscount,descontoManual:manualDiscount,forma,valorRecebido,troco,vendaId:venda.id});
+  db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,dataReferencia:venda.data,receivedDate:venda.data,createdAt:new Date().toISOString(),descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,descontoPromocional:promoDiscount,descontoManual:manualDiscount,forma,valorRecebido,troco,vendaId:venda.id});
   if(cliente){
    if(cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}
    if(coupon){coupon.status='usado';coupon.usedAt=new Date().toISOString();addLoyaltyHistory(cliente.id,'cupom_usado',`Cupom ${coupon.codigo} utilizado`,-discount,{cupomId:coupon.id,vendaId:venda.id});}
@@ -2685,7 +2688,7 @@ async function finishSale(printAfter){
   if(printAfter)printReceipt(venda,printWindow);
   if(emitFiscal&&serviceItems.length){
    try{
-    await cloud.request('/api/forge/fiscal/documents',{method:'POST',body:JSON.stringify({saleReference:`Venda #${venda.numero}`,tutorName:cliente?.nome||'',tutorDocument:cliente?.cpf||'',serviceDescription:serviceItems.map(x=>`${x.qtd}x ${x.nome}`).join(' | '),serviceAmount:serviceItems.reduce((sum,x)=>sum+Number(x.preco)*Number(x.qtd),0)})});
+    await cloud.request('/api/forge/fiscal/documents',{method:'POST',body:JSON.stringify({saleReference:`Venda #${venda.numero}`,saleDate:venda.data,tutorName:cliente?.nome||'',tutorDocument:cliente?.cpf||'',serviceDescription:serviceItems.map(x=>`${x.qtd}x ${x.nome}`).join(' | '),serviceAmount:serviceItems.reduce((sum,x)=>sum+Number(x.preco)*Number(x.qtd),0)})});
     toast('Solicitação de NFS-e registrada no Módulo Fiscal.','success');
    }catch(error){toast(`Venda concluída, mas a NFS-e não foi registrada: ${error.message||'erro fiscal'}.`,'error');}
   }

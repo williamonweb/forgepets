@@ -1,0 +1,8 @@
+FORGE PETS v10.0.11 — VENDA EM DATA ANTERIOR
+
+- Campo Data da venda no PDV, preenchido com hoje por padrão.
+- Permite selecionar uma data anterior para lançar vendas realizadas em dias passados.
+- Não permite data futura.
+- A data escolhida é usada na venda, no Caixa, na saída de estoque e nos relatórios.
+- Guarda lancadoEm/createdAt com o horário real em que o lançamento foi digitado, mantendo rastreabilidade.
+- Mantém desconto, venda somente de produto, impressão e demais correções anteriores.
