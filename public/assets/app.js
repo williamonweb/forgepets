@@ -6,8 +6,8 @@ const PLAN_CATALOG={
  Profissional:{price:179,level:2,features:{fidelidade:true,pontos:true,cashback:true,recompensas:true,extratoFidelidade:true,relatorioFidelidade:true,rankingFidelidade:true,ajusteManual:true,vip:false,cupons:false,campanhas:false,marketing:false,regrasAvancadas:false}},
  Premium:{price:219,level:3,features:{fidelidade:true,pontos:true,cashback:true,recompensas:true,extratoFidelidade:true,relatorioFidelidade:true,rankingFidelidade:true,ajusteManual:true,vip:true,cupons:true,campanhas:true,marketing:true,regrasAvancadas:true}}
 };
-function activeSubscription(){try{return JSON.parse(localStorage.getItem('forgepets_active_subscription'))||{companyId:'demo',companyName:'Meu Pet Shop',plan:'Profissional',status:'active'}}catch{return {companyId:'demo',companyName:'Meu Pet Shop',plan:'Profissional',status:'active'}}}
-function activePlan(){const sub=activeSubscription();return PLAN_CATALOG[sub.plan]?sub.plan:'Profissional'}
+function activeSubscription(){try{return JSON.parse(localStorage.getItem('forgepets_active_subscription'))||{companyId:'demo',companyName:'Meu Pet Shop',plan:'Essencial',status:'active'}}catch{return {companyId:'demo',companyName:'Meu Pet Shop',plan:'Essencial',status:'active'}}}
+function activePlan(){const sub=activeSubscription();return PLAN_CATALOG[sub.plan]?sub.plan:'Essencial'}
 function hasFeature(name){return !!PLAN_CATALOG[activePlan()].features[name]}
 function planPrice(){return PLAN_CATALOG[activePlan()].price}
 function subscriptionPayments(){try{return JSON.parse(localStorage.getItem('forgepets_subscription_payments')||'[]')}catch{return []}}
@@ -469,7 +469,9 @@ async function enforceSubscriptionAccess(){
  try{
   const state=await cloud.request('/api/forge/subscription?status=1');
   const current=activeSubscription();
+  const previousPlan=current.plan;
   localStorage.setItem('forgepets_active_subscription',JSON.stringify({...current,plan:state.plan||current.plan,status:state.active?'active':state.status,trialEndsAt:state.active?null:state.trialEndsAt,trialDaysRemaining:state.active?0:state.trialDaysRemaining,pendingPlan:state.active?null:(state.pendingPlan||null),paymentPending:Boolean(state.paymentPending),modules:Array.isArray(state.modules)?state.modules:current.modules||[],activeModules:Array.isArray(state.activeModules)?state.activeModules:current.activeModules||[]}));
+  if(previousPlan!==(state.plan||current.plan)&&document.querySelector('#saleBenefits')){renderSaleBenefits();renderSaleSummary();}
   document.querySelector('#trialAccessOverlay')?.remove();
   if(state.accessAllowed){
    if(state.active){sessionStorage.removeItem('forgepets_trial_warning_shown');if(window.forgePaymentRecheckTimer){clearInterval(window.forgePaymentRecheckTimer);window.forgePaymentRecheckTimer=null;}}
@@ -672,7 +674,7 @@ const views={
   </div>`
  },
 
- clientes(){const rows=sortAlpha(db.data.clientes,'nome').filter(c=>[c.nome,c.telefone,c.cpf,c.email].some(v=>normalize(v).includes(normalize(clientSearch))));return `<div class="card"><div class="section-title"><h2>Clientes</h2><button class="btn primary" data-action="new-client">Novo cliente</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(clientSearch)}" placeholder="Buscar cliente por nome, telefone, CPF ou e-mail..." oninput="setClientSearch(this.value)"></div><div class="result-count">${rows.length} cliente(s) encontrado(s) · ordem alfabética</div><div class="table-wrap">${rows.length?`<table class="table"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Pets</th><th>Cashback</th><th></th></tr></thead><tbody>${rows.map(c=>`<tr class="clickable" data-action="view-client" data-id="${c.id}"><td><strong>${c.nome}</strong></td><td>${c.telefone||'-'}</td><td><div class="pet-chips">${sortAlpha(db.data.pets.filter(p=>p.clienteId===c.id),'nome').map(p=>`<button type="button" class="chip chip-button" data-action="view-pet" data-id="${p.id}">${p.nome}</button>`).join('')||'-'}</div></td><td><strong>${money(c.cashback||0)}</strong></td><td><button class="btn ghost" data-action="new-pet" data-id="${c.id}">Adicionar pet</button> <button class="btn danger" data-action="delete-client" data-id="${c.id}">Excluir</button></td></tr>`).join('')}</tbody></table>`:`<div class="empty">${clientSearch?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</div>`}</div></div>`},
+ clientes(){const rows=sortAlpha(db.data.clientes,'nome').filter(c=>[c.nome,c.telefone,c.cpf,c.email].some(v=>normalize(v).includes(normalize(clientSearch))));return `<div class="card"><div class="section-title"><h2>Clientes</h2><button class="btn primary" data-action="new-client">Novo cliente</button></div><div class="list-search"><span>⌕</span><input value="${escapeAttr(clientSearch)}" placeholder="Buscar cliente por nome, telefone, CPF ou e-mail..." oninput="setClientSearch(this.value)"></div><div class="result-count">${rows.length} cliente(s) encontrado(s) · ordem alfabética</div><div class="table-wrap">${rows.length?`<table class="table"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Pets</th>${hasFeature('cashback')?'<th>Cashback</th>':''}<th></th></tr></thead><tbody>${rows.map(c=>`<tr class="clickable" data-action="view-client" data-id="${c.id}"><td><strong>${c.nome}</strong></td><td>${c.telefone||'-'}</td><td><div class="pet-chips">${sortAlpha(db.data.pets.filter(p=>p.clienteId===c.id),'nome').map(p=>`<button type="button" class="chip chip-button" data-action="view-pet" data-id="${p.id}">${p.nome}</button>`).join('')||'-'}</div></td>${hasFeature('cashback')?`<td><strong>${money(c.cashback||0)}</strong></td>`:''}<td><button class="btn ghost" data-action="new-pet" data-id="${c.id}">Adicionar pet</button> <button class="btn danger" data-action="delete-client" data-id="${c.id}">Excluir</button></td></tr>`).join('')}</tbody></table>`:`<div class="empty">${clientSearch?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</div>`}</div></div>`},
  agenda(){
   const date=selectedAgendaDate();
   const rows=[...db.data.agenda]
@@ -2528,7 +2530,20 @@ function renderSaleItemOptions(){
  select.disabled=!groups.length;
  if(result)result.textContent=`${servicos.length} serviço(s) e ${produtos.length} produto(s) encontrado(s)`;
 }
-function renderSaleBenefits(){const el=$('#saleBenefits');if(!el)return;const c=db.data.clientes.find(x=>x.id===$('#saleClient')?.value);if(!c){el.innerHTML='';renderSaleSummary();return;}const coupons=hasFeature('cupons')?validClientCoupons(c.id):[];el.innerHTML=`<div class="sale-benefits pdv-benefits"><div><small>Cashback disponível</small><strong>${money(c.cashback||0)}</strong></div>${hasFeature('vip')?`<div><small>Nível VIP</small><strong>${vipLevel(c)} · ${vipDiscount(c)}%</strong></div>`:''}<div class="field"><label>Usar cashback</label><input id="saleCashback" type="text" data-mask="money" inputmode="numeric" value="R$ 0,00"></div>${coupons.length?`<div class="field"><label>Cupom</label><select id="saleCoupon"><option value="">Nenhum</option>${coupons.map(x=>`<option value="${x.id}">${x.codigo} · ${x.tipo==='percentual'?x.valor+'%':money(x.valor)}</option>`).join('')}</select></div>`:''}</div>`;applyInputMasks(el);$('#saleCashback')?.addEventListener('input',renderSaleSummary);$('#saleCoupon')?.addEventListener('change',renderSaleSummary);renderSaleSummary();}
+function renderSaleBenefits(){
+ const el=$('#saleBenefits');if(!el)return;
+ const c=db.data.clientes.find(x=>x.id===$('#saleClient')?.value);
+ if(!c){el.innerHTML='';el.style.display='none';renderSaleSummary();return;}
+ const cashbackEnabled=hasFeature('cashback');
+ const vipEnabled=hasFeature('vip');
+ const coupons=hasFeature('cupons')?validClientCoupons(c.id):[];
+ if(!cashbackEnabled&&!vipEnabled&&!coupons.length){
+  el.innerHTML='';el.style.display='none';renderSaleSummary();return;
+ }
+ el.style.display='';
+ el.innerHTML=`<div class="sale-benefits pdv-benefits">${cashbackEnabled?`<div><small>Cashback disponível</small><strong>${money(c.cashback||0)}</strong></div><div class="field"><label>Usar cashback</label><input id="saleCashback" type="text" data-mask="money" inputmode="numeric" value="R$ 0,00"></div>`:''}${vipEnabled?`<div><small>Nível VIP</small><strong>${vipLevel(c)} · ${vipDiscount(c)}%</strong></div>`:''}${coupons.length?`<div class="field"><label>Cupom</label><select id="saleCoupon"><option value="">Nenhum</option>${coupons.map(x=>`<option value="${x.id}">${x.codigo} · ${x.tipo==='percentual'?x.valor+'%':money(x.valor)}</option>`).join('')}</select></div>`:''}</div>`;
+ applyInputMasks(el);$('#saleCashback')?.addEventListener('input',renderSaleSummary);$('#saleCoupon')?.addEventListener('change',renderSaleSummary);renderSaleSummary();
+}
 function addSelectedSaleItem(){
  const [tipo,id]=($('#saleItem').value||'').split(':');if(!id)return;
  const src=tipo==='servico'?db.data.servicos.find(x=>x.id===id):db.data.estoque.find(x=>x.id===id);if(!src)return;
@@ -2548,8 +2563,8 @@ function renderSaleCart(){
 function getSaleTotals(){
  const bruto=saleCart.reduce((s,x)=>s+Number(x.preco||0)*Number(x.qtd||0),0);
  const cliente=db.data.clientes.find(c=>c.id===$('#saleClient')?.value);
- const cashUse=Math.min(parseLocaleNumber($('#saleCashback')?.value),Number(cliente?.cashback||0),bruto);
- const coupon=(db.data.cupons||[]).find(c=>c.id===$('#saleCoupon')?.value);
+ const cashUse=hasFeature('cashback')?Math.min(parseLocaleNumber($('#saleCashback')?.value),Number(cliente?.cashback||0),bruto):0;
+ const coupon=hasFeature('cupons')?(db.data.cupons||[]).find(c=>c.id===$('#saleCoupon')?.value):null;
 
  let promoDiscount=0;
  if(coupon)promoDiscount=coupon.tipo==='percentual'?bruto*Number(coupon.valor)/100:Number(coupon.valor);
@@ -2676,7 +2691,7 @@ async function finishSale(printAfter){
   db.data.vendas.push(venda);
   db.data.caixa.push({id:uid(),tipo:'entrada',data:venda.data,dataReferencia:venda.data,receivedDate:venda.data,createdAt:new Date().toISOString(),descricao:`Venda #${venda.numero} — ${venda.itens.map(x=>`${x.qtd}x ${x.nome}`).join(', ')}`,valor:total,valorBruto:bruto,cashbackUsado:cashUse,desconto:discount,descontoPromocional:promoDiscount,descontoManual:manualDiscount,forma,valorRecebido,troco,vendaId:venda.id});
   if(cliente){
-   if(cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}
+   if(hasFeature('cashback')&&cashUse){cliente.cashback=Math.max(0,Number(cliente.cashback||0)-cashUse);addLoyaltyHistory(cliente.id,'cashback_usado','Cashback usado na venda',-cashUse,{vendaId:venda.id});}
    if(coupon){coupon.status='usado';coupon.usedAt=new Date().toISOString();addLoyaltyHistory(cliente.id,'cupom_usado',`Cupom ${coupon.codigo} utilizado`,-discount,{cupomId:coupon.id,vendaId:venda.id});}
    if(hasFeature('fidelidade')){const pts=Math.floor(total*Number(db.data.config.pontosPorReal||1));cliente.pontos=Number(cliente.pontos||0)+pts;addLoyaltyHistory(cliente.id,'pontos_ganhos','Pontos da venda',pts,{vendaId:venda.id});if(hasFeature('cashback')){const cb=total*Number(db.data.config.percentualCashback||0)/100;cliente.cashback=Number(cliente.cashback||0)+cb;addLoyaltyHistory(cliente.id,'cashback_gerado','Cashback da venda',cb,{vendaId:venda.id});}}
   }

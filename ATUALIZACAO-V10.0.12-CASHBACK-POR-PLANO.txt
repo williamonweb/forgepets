@@ -1,0 +1,9 @@
+FORGE PETS v10.0.12 — CASHBACK POR PLANO
+
+- Plano Essencial não exibe cashback no PDV.
+- Plano Essencial não aceita uso de cashback nem por manipulação do navegador.
+- Cashback continua disponível apenas em Profissional e Premium.
+- Cupons e VIP continuam respeitando seus respectivos planos.
+- Fallback de assinatura passa a ser Essencial (princípio de menor privilégio).
+- Quando o plano oficial chega da API, um PDV já aberto atualiza imediatamente os benefícios.
+- Lista de clientes também oculta a coluna Cashback no Essencial.
